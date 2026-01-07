@@ -32,7 +32,7 @@ const PostDetail = () => {
     return (
         <div className="max-w-4xl mx-auto p-4">
             <button
-                className="flex items-center gap-2 text-gray-400 hover:text-neon-green mb-6 transition-colors font-bold text-xs uppercase tracking-widest"
+                className="flex items-center gap-2 text-gray-400 hover:text-neon-green mb-6 transition-all font-bold text-xs uppercase tracking-widest bg-white/5 px-4 py-2 rounded border border-white/5 hover:border-neon-green/30"
                 onClick={() => navigate('/community')}
             >
                 <ArrowLeft size={16} />
@@ -74,19 +74,19 @@ const PostDetail = () => {
                             {post.content}
                         </div>
 
-                        <div className="flex gap-6 text-gray-400 font-bold uppercase tracking-tighter text-xs">
-                            <div className="flex items-center gap-2">
-                                <MessageSquare size={16} />
+                        <div className="flex gap-4 text-gray-400 font-bold uppercase tracking-widest text-[10px]">
+                            <div className="flex items-center gap-2 bg-white/5 px-3 py-1.5 rounded">
+                                <MessageSquare size={14} />
                                 {post.commentCount} Comments
                             </div>
-                            <button className="flex items-center gap-2 hover:text-white transition-colors">
-                                <Share2 size={16} />
+                            {/* <button className="flex items-center gap-2 hover:text-white transition-colors bg-white/5 px-3 py-1.5 rounded border border-transparent hover:border-white/20">
+                                <Share2 size={14} />
                                 Share
                             </button>
-                            <button className="flex items-center gap-2 hover:text-white transition-colors">
-                                <Flag size={16} />
+                            <button className="flex items-center gap-2 hover:text-white transition-colors bg-white/5 px-3 py-1.5 rounded border border-transparent hover:border-white/20">
+                                <Flag size={14} />
                                 Report
-                            </button>
+                            </button> */}
                         </div>
 
                         <CommentSection postId={post.id} />

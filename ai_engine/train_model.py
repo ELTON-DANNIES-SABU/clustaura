@@ -54,6 +54,32 @@ def train_intent_model():
             "Account settings", "Change password", "Login issues", "Signup help",
             "security settings", "deleting account", "notification preferences",
             "email verification", "forgot password"
+        ],
+        "community_browse": [
+            "Go to community", "What's new in community?", "Browse challenges", "See posts",
+            "community feed", "explore community", "check out recent solutions",
+            "what are people talking about?", "community module", "latest challenges"
+        ],
+        "community_filter": [
+            "Filter by profession", "Show me developers", "Engineering posts",
+            "how to use filters?", "category filtering", "search by role",
+            "filter community feed", "find engineering challenges", "marketing posts",
+            "profession based filtering", "narrow down the feed"
+        ],
+        "community_interact": [
+            "How to vote?", "Upvote a post", "Leave a comment", "Reply to someone",
+            "commenting on a challenge", "voting mechanism", "downvote meaning",
+            "social features in community", "interacting with posts", "post reactions"
+        ],
+        "community_manage": [
+            "How to edit my post?", "Delete my submission", "Manage community posts",
+            "change my challenge title", "remove my post", "edit content of my post",
+            "can I delete a comment?", "updating my community posts", "post authorship"
+        ],
+        "navigation_home": [
+            "Back to dashboard", "Return home", "Home button", "Leave community",
+            "dashboard link", "exit community", "how to get back to main page",
+            "go to dashboard", "main menu", "home navigation"
         ]
     }
 

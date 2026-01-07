@@ -41,6 +41,26 @@ class GuideLogic:
             "general_help": { # Fallback for low confidence but not zero
                  "text": "I can help you navigate ClustAura, post problems, or find experts. What would you like to do?",
                  "action": None
+            },
+            "community_browse": {
+                "text": "The Community section is where the magic happens! Browse challenges, find solutions, and connect with peers.",
+                "action": {"label": "Browse Community", "link": "/community"}
+            },
+            "community_filter": {
+                "text": "You can use the Left Sidebar to filter posts by profession. It helps you find relevant challenges in your field instantly.",
+                "action": {"label": "Go To Community", "link": "/community"}
+            },
+            "community_interact": {
+                "text": "In ClustAura Community, you can upvote posts you like and leave comments to share your knowledge or ask questions.",
+                "action": {"label": "Explore Posts", "link": "/community"}
+            },
+            "community_manage": {
+                "text": "Manage your posts with ease. As an author, you can edit your content or delete a post if needed using the icons on your post card.",
+                "action": {"label": "My Posts", "link": "/community"}
+            },
+            "navigation_home": {
+                "text": "Need to get back? Click the Home icon in the Community header or use this link to return to your Dashboard.",
+                "action": {"label": "Go to Dashboard", "link": "/"}
             }
         }
 

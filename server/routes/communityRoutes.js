@@ -18,10 +18,13 @@ router.post('/communities/:slug/leave', communityController.leaveCommunity);
 router.post('/posts', protect, communityController.createPost);
 router.get('/posts', communityController.getPosts);
 router.get('/posts/:id', communityController.getPostById);
+router.put('/posts/:id', protect, communityController.updatePost);
+router.delete('/posts/:id', protect, communityController.deletePost);
 router.put('/posts/:id/vote', protect, communityController.votePost);
 
 // Comment Routes
 router.post('/comments', protect, communityController.createComment);
 router.get('/posts/:postId/comments', communityController.getCommentsByPost);
+router.put('/comments/:id/vote', protect, communityController.voteComment);
 
 module.exports = router;

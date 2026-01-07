@@ -1,6 +1,6 @@
 import React from 'react';
 import { Routes, Route, useNavigate } from 'react-router-dom';
-import { Search, Plus } from 'lucide-react';
+import { Search, Plus, Home } from 'lucide-react';
 import useCommunityStore from '../../store/communityStore';
 import Feed from './Feed';
 import PostDetail from './PostDetail';
@@ -12,6 +12,14 @@ import './Community.css';
 const Community = () => {
     const navigate = useNavigate();
     const { communities, fetchCommunities, fetchPosts } = useCommunityStore();
+    const [search, setSearch] = React.useState('');
+
+    const handleSearchChange = (e) => {
+        const value = e.target.value;
+        setSearch(value);
+        // Debounce search ideally, but for now direct
+        fetchPosts(null, value);
+    };
 
     React.useEffect(() => {
         fetchCommunities();
@@ -30,20 +38,26 @@ const Community = () => {
                     <input
                         type="text"
                         placeholder="Search challenges, solutions, or tags..."
+                        value={search}
+                        onChange={handleSearchChange}
                     />
                 </div>
 
                 <div className="flex items-center gap-4">
-                    <button
+                    {/* <button
+                        className="btn-icon-header"
+                        onClick={() => navigate('/')}
+                        title="Dashboard"
+                    >
+                        <Home size={22} />
+                    </button> */}
+                    {/* <button
                         className="btn-neon flex items-center gap-2"
                         onClick={() => navigate('/community/create')}
                     >
                         <Plus size={18} />
-                        CREATE CHALLENGE
-                    </button>
-                    <div className="w-10 h-10 rounded-full bg-charcoal flex items-center justify-center font-bold text-neon-green cursor-pointer border border-neon-green shadow-lg">
-                        U
-                    </div>
+                        CREATE
+                    </button> */}
                 </div>
             </header>
 

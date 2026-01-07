@@ -118,7 +118,22 @@ exports.createPost = async (req, res) => {
 
 exports.getPosts = async (req, res) => {
     try {
-        const posts = await Post.find()
+        const { tags, search } = req.query;
+        let query = {};
+
+        if (tags) {
+            const tagArray = Array.isArray(tags) ? tags : [tags];
+            query.tags = { $in: tagArray };
+        }
+
+        if (search) {
+            query.$or = [
+                { title: { $regex: search, $options: 'i' } },
+                { content: { $regex: search, $options: 'i' } }
+            ];
+        }
+
+        const posts = await Post.find(query)
             .populate('author', 'firstName lastName')
             .populate('community', 'name slug')
             .sort({ createdAt: -1 });
@@ -192,6 +207,75 @@ exports.getCommentsByPost = async (req, res) => {
             .populate('author', 'firstName lastName')
             .sort({ createdAt: 1 });
         res.json(comments);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+exports.voteComment = async (req, res) => {
+    try {
+        const { direction } = req.body;
+        const comment = await Comment.findById(req.params.id);
+        if (!comment) return res.status(404).json({ message: 'Comment not found' });
+
+        const userId = req.user.id;
+        comment.votes = comment.votes.filter(id => id.toString() !== userId);
+        comment.downvotes = comment.downvotes.filter(id => id.toString() !== userId);
+
+        if (direction === 1) {
+            comment.votes.push(userId);
+        } else if (direction === -1) {
+            comment.downvotes.push(userId);
+        }
+
+        await comment.save();
+        res.json(comment);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+exports.updatePost = async (req, res) => {
+    try {
+        const { title, content, tags } = req.body;
+        const post = await Post.findById(req.params.id);
+
+        if (!post) return res.status(404).json({ message: 'Post not found' });
+
+        // Check authorship
+        if (post.author.toString() !== req.user.id) {
+            return res.status(403).json({ message: 'Not authorized to edit this post' });
+        }
+
+        post.title = title || post.title;
+        post.content = content || post.content;
+        post.tags = tags || post.tags;
+
+        await post.save();
+        res.json(post);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+exports.deletePost = async (req, res) => {
+    try {
+        const post = await Post.findById(req.params.id);
+
+        if (!post) return res.status(404).json({ message: 'Post not found' });
+
+        // Check authorship
+        if (post.author.toString() !== req.user.id) {
+            return res.status(403).json({ message: 'Not authorized to delete this post' });
+        }
+
+        // Delete post
+        await Post.findByIdAndDelete(req.params.id);
+
+        // Delete associated comments
+        await Comment.deleteMany({ post: req.params.id });
+
+        res.json({ message: 'Post and associated comments removed' });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }

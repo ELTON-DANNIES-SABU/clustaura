@@ -22,16 +22,16 @@ const Feed = () => {
 
     return (
         <div className="post-feed">
-            <div className="flex gap-4 mb-6 overflow-x-auto pb-2">
+            {/* <div className="flex gap-4 mb-6 overflow-x-auto pb-2">
                 {['Hot', 'New', 'Top', 'Rising'].map(sort => (
                     <button
                         key={sort}
-                        className="px-4 py-1.5 rounded-full border border-neon-green/20 bg-charcoal text-sm hover:border-neon-green transition-colors whitespace-nowrap"
+                        className="px-4 py-1 rounded-full border border-neon-green/30 bg-black/40 text-xs font-bold text-gray-400 hover:border-neon-green hover:text-neon-green hover:shadow-[0_0_10px_rgba(0,255,156,0.2)] transition-all whitespace-nowrap uppercase tracking-wider"
                     >
                         {sort}
                     </button>
                 ))}
-            </div>
+            </div> */}
 
             {posts.map(post => (
                 <div key={post.id} onClick={() => navigate(`/community/post/${post.id}`)}>

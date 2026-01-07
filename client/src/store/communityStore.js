@@ -8,10 +8,19 @@ const api = axios.create({
     }
 });
 
-// Helper to get token from localStorage
-const getAuthHeader = () => {
+// Helper to get token and user from localStorage
+const getAuthData = () => {
     const user = JSON.parse(localStorage.getItem('user'));
-    return user?.token ? { Authorization: `Bearer ${user.token}` } : {};
+    return {
+        token: user?.token || '',
+        id: user?._id || user?.id || '',
+        name: user ? `${user.firstName} ${user.lastName}` : 'Anonymous'
+    };
+};
+
+const getAuthHeader = () => {
+    const { token } = getAuthData();
+    return token ? { Authorization: `Bearer ${token}` } : {};
 };
 
 const useCommunityStore = create((set, get) => ({
@@ -31,18 +40,31 @@ const useCommunityStore = create((set, get) => ({
         }
     },
 
-    fetchPosts: async () => {
+    fetchPosts: async (tag = null, search = '') => {
         set({ loading: true });
         try {
-            const { data } = await api.get('/posts');
+            let url = '/posts';
+            const params = new URLSearchParams();
+            if (tag) {
+                if (Array.isArray(tag)) {
+                    tag.forEach(t => params.append('tags', t));
+                } else {
+                    params.append('tags', tag);
+                }
+            }
+            if (search) params.append('search', search);
+            if (params.toString()) url += `?${params.toString()}`;
+
+            const { data } = await api.get(url);
             // Format posts for the UI
             const formattedPosts = data.map(post => ({
                 id: post._id,
-                communityId: post.community?.slug || 'unknown',
-                communityName: post.community?.name || 'Unknown',
+                communityId: post.community?.slug || 'general',
+                communityName: post.community?.name || 'General',
                 title: post.title,
                 content: post.content,
-                author: `${post.author?.firstName} ${post.author?.lastName}`,
+                author: post.author ? `${post.author.firstName} ${post.author.lastName}` : 'Unknown',
+                authorId: post.author?._id || post.author || '',
                 timestamp: post.createdAt,
                 votes: (post.votes?.length || 0) - (post.downvotes?.length || 0),
                 userVote: get().getUserVoteStatus(post),
@@ -56,13 +78,14 @@ const useCommunityStore = create((set, get) => ({
     },
 
     getUserVoteStatus: (post) => {
-        const user = JSON.parse(localStorage.getItem('user'));
-        if (!user) return 0;
-        const userId = user.id;
+        const { id: userId } = getAuthData();
+        if (!userId) return 0;
         if (post.votes?.includes(userId)) return 1;
         if (post.downvotes?.includes(userId)) return -1;
         return 0;
     },
+
+    getLoggedInUser: () => getAuthData(),
 
     addPost: async (postData) => {
         try {
@@ -71,6 +94,27 @@ const useCommunityStore = create((set, get) => ({
             return data;
         } catch (error) {
             set({ error: error.message });
+        }
+    },
+
+    editPost: async (postId, postData) => {
+        try {
+            const { data } = await api.put(`/posts/${postId}`, postData, { headers: getAuthHeader() });
+            get().fetchPosts();
+            return data;
+        } catch (error) {
+            set({ error: error.message });
+        }
+    },
+
+    deletePost: async (postId) => {
+        try {
+            await api.delete(`/posts/${postId}`, { headers: getAuthHeader() });
+            get().fetchPosts();
+            return true;
+        } catch (error) {
+            set({ error: error.message });
+            return false;
         }
     },
 
@@ -97,15 +141,26 @@ const useCommunityStore = create((set, get) => ({
                     [postId]: data.map(c => ({
                         id: c._id,
                         author: `${c.author?.firstName} ${c.author?.lastName}`,
+                        authorId: c.author?._id || c.author || '',
                         content: c.content,
                         timestamp: c.createdAt,
                         votes: (c.votes?.length || 0) - (c.downvotes?.length || 0),
-                        replies: [] // Backend nesting logic can be added later
+                        userVote: get().getUserVoteStatus(c),
+                        replies: []
                     }))
                 }
             }));
         } catch (error) {
             console.error('Fetch comments failed', error);
+        }
+    },
+
+    voteComment: async (postId, commentId, direction) => {
+        try {
+            await api.put(`/comments/${commentId}/vote`, { direction }, { headers: getAuthHeader() });
+            get().fetchComments(postId);
+        } catch (error) {
+            console.error('Comment vote failed', error);
         }
     },
 

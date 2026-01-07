@@ -9,28 +9,24 @@ const CreatePost = () => {
 
     const [title, setTitle] = useState('');
     const [content, setContent] = useState('');
-    const [community, setCommunity] = useState(communities[0]?.id || '');
+    const [community, setCommunity] = useState(communities[0]?._id || '');
     const [tags, setTags] = useState('');
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!title.trim() || !content.trim()) return;
+        if (!title.trim() || !content.trim() || !community) return;
 
-        const newPost = {
-            id: `post_${Date.now()}`,
+        const postData = {
             communityId: community,
             title,
             content,
-            author: 'current_user',
-            timestamp: new Date().toISOString(),
-            votes: 1,
-            userVote: 1,
-            commentCount: 0,
             tags: tags.split(',').map(tag => tag.trim()).filter(tag => tag !== ''),
         };
 
-        addPost(newPost);
-        navigate('/community');
+        const result = await addPost(postData);
+        if (result) {
+            navigate('/community');
+        }
     };
 
     return (
@@ -45,70 +41,66 @@ const CreatePost = () => {
                 </button>
             </div>
 
-            <div className="bg-charcoal border border-gray-800 rounded-lg p-6 shadow-xl">
+            <div className="bg-charcoal border border-gray-800 rounded-xl p-8 shadow-[0_0_40px_rgba(0,0,0,0.5)]">
                 <form onSubmit={handleSubmit}>
-                    <div className="mb-4">
-                        <label className="block text-xs text-gray-400 mb-2 uppercase tracking-widest font-bold">Select Community</label>
+                    <div className="mb-6">
+                        <label className="block text-[10px] text-gray-500 mb-2 uppercase tracking-[0.2em] font-bold">Select Community</label>
                         <select
-                            className="cyber-input"
+                            className="cyber-input bg-black/40 border-gray-800/50 focus:border-neon-green/50"
                             value={community}
                             onChange={(e) => setCommunity(e.target.value)}
                         >
-                            <option value="" disabled>Select a community</option>
+                            <option value="" disabled className="bg-charcoal">Select a community</option>
                             {communities.map(comm => (
-                                <option key={comm.id} value={comm.id}>r/{comm.slug}</option>
+                                <option key={comm._id} value={comm._id} className="bg-charcoal text-white">r/{comm.slug}</option>
                             ))}
                         </select>
-                    </div>
-
-                    <div className="mb-4">
-                        <input
-                            type="text"
-                            placeholder="Title"
-                            className="cyber-input font-bold"
-                            value={title}
-                            onChange={(e) => setTitle(e.target.value)}
-                        />
-                    </div>
-
-                    <div className="mb-4">
-                        <div className="flex gap-2 mb-2 p-1 border-b border-gray-800">
-                            <button type="button" className="p-2 text-neon-green hover:bg-gray-800 rounded transition-colors"><Type size={18} /></button>
-                            <button type="button" className="p-2 text-gray-400 hover:bg-gray-800 rounded transition-colors" title="Coming soon"><ImageIcon size={18} /></button>
-                            <button type="button" className="p-2 text-gray-400 hover:bg-gray-800 rounded transition-colors" title="Coming soon"><LinkIcon size={18} /></button>
-                        </div>
-                        <textarea
-                            placeholder="Text (optional)"
-                            className="cyber-input min-h-[200px] text-sm"
-                            value={content}
-                            onChange={(e) => setContent(e.target.value)}
-                        />
                     </div>
 
                     <div className="mb-6">
                         <input
                             type="text"
-                            placeholder="Tags (comma separated)"
-                            className="cyber-input text-xs"
+                            placeholder="Post Title"
+                            className="cyber-input font-bold text-lg bg-black/40 border-gray-800/50 focus:border-neon-green/50"
+                            value={title}
+                            onChange={(e) => setTitle(e.target.value)}
+                        />
+                    </div>
+
+                    <div className="mb-6">
+                        <textarea
+                            placeholder="What's on your mind? (use #tags for better reach)"
+                            className="cyber-input min-h-[250px] text-sm leading-relaxed bg-black/40 border-gray-800/50 focus:border-neon-green/50 p-6"
+                            value={content}
+                            onChange={(e) => setContent(e.target.value)}
+                        />
+                    </div>
+
+                    <div className="mb-8">
+                        <label className="block text-[10px] text-gray-500 mb-2 uppercase tracking-[0.2em] font-bold">Tags (comma separated)</label>
+                        <input
+                            type="text"
+                            placeholder="e.g. programming, frontend, help"
+                            className="cyber-input text-xs bg-black/40 border-gray-800/50 focus:border-neon-green/50"
                             value={tags}
                             onChange={(e) => setTags(e.target.value)}
                         />
                     </div>
 
-                    <div className="flex justify-end gap-3 pt-4 border-t border-gray-800">
+                    <div className="flex justify-end gap-4 pt-6 border-t border-gray-800/50">
                         <button
                             type="button"
                             onClick={() => navigate('/community')}
-                            className="px-6 py-2 text-gray-400 hover:text-white font-bold transition-colors"
+                            className="px-6 py-2 text-xs text-gray-500 hover:text-white font-bold uppercase tracking-widest transition-colors"
                         >
                             Cancel
                         </button>
                         <button
                             type="submit"
                             disabled={!title.trim() || !content.trim()}
-                            className="btn-neon"
+                            className="btn-neon-solid px-10 py-3"
                         >
-                            POST
+                            PUBLISH POST
                         </button>
                     </div>
                 </form>
