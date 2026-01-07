@@ -42,9 +42,9 @@ const Backlog = () => {
             const config = { headers: { Authorization: `Bearer ${token}` } };
 
             const [projRes, sprintRes, issuesRes] = await Promise.all([
-                axios.get(`http://localhost:5000/api/workplace/projects/${projectId}`, config),
-                axios.get(`http://localhost:5000/api/workplace/projects/${projectId}/sprints`, config),
-                axios.get(`http://localhost:5000/api/workplace/projects/${projectId}/issues`, config)
+                axios.get(`/api/workplace/projects/${projectId}`, config),
+                axios.get(`/api/workplace/projects/${projectId}/sprints`, config),
+                axios.get(`/api/workplace/projects/${projectId}/issues`, config)
             ]);
             setProject(projRes.data);
             setSprints(sprintRes.data);
@@ -59,7 +59,7 @@ const Backlog = () => {
         try {
             const userStr = localStorage.getItem('user');
             const { token } = JSON.parse(userStr);
-            await axios.post('http://localhost:5000/api/workplace/sprints',
+            await axios.post('/api/workplace/sprints',
                 { ...newSprint, projectId },
                 { headers: { Authorization: `Bearer ${token}` } }
             );
@@ -76,7 +76,7 @@ const Backlog = () => {
         try {
             const userStr = localStorage.getItem('user');
             const { token } = JSON.parse(userStr);
-            await axios.post('http://localhost:5000/api/workplace/issues',
+            await axios.post('/api/workplace/issues',
                 { ...newIssue, projectId }, // No sprintId means backlog
                 { headers: { Authorization: `Bearer ${token}` } }
             );
@@ -110,7 +110,7 @@ const Backlog = () => {
         try {
             const userStr = localStorage.getItem('user');
             const { token } = JSON.parse(userStr);
-            await axios.put(`http://localhost:5000/api/workplace/issues/${issueId}/move`,
+            await axios.put(`/api/workplace/issues/${issueId}/move`,
                 { sprintId },
                 { headers: { Authorization: `Bearer ${token}` } }
             );
@@ -124,7 +124,7 @@ const Backlog = () => {
         try {
             const userStr = localStorage.getItem('user');
             const { token } = JSON.parse(userStr);
-            await axios.put(`http://localhost:5000/api/workplace/sprints/${sprintId}/status`,
+            await axios.put(`/api/workplace/sprints/${sprintId}/status`,
                 { status },
                 { headers: { Authorization: `Bearer ${token}` } }
             );

@@ -128,7 +128,7 @@ const Dashboard = () => {
                     headers: { Authorization: `Bearer ${userData.token}` }
                 };
 
-                const { data } = await axios.get('http://localhost:5000/api/news', config);
+                const { data } = await axios.get('/api/news', config);
 
                 const now = new Date();
                 setLastUpdate(now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
@@ -240,7 +240,7 @@ const Dashboard = () => {
                 difficulty: 'Intermediate' // Default for quick posts
             };
 
-            await axios.post('http://localhost:5000/api/challenges', payload, config);
+            await axios.post('/api/challenges', payload, config);
 
             // Log for debugging
             console.log('Problem posted to API:', payload);
@@ -570,7 +570,7 @@ const Dashboard = () => {
                         headers: { Authorization: `Bearer ${token}` }
                     };
 
-                    const { data } = await axios.get('http://localhost:5000/api/challenges', config);
+                    const { data } = await axios.get('/api/challenges', config);
                     // Take top 10 for the global feed
                     setRecentChallenges(data.slice(0, 10));
                 }
@@ -607,10 +607,10 @@ const Dashboard = () => {
                 headers: { Authorization: `Bearer ${token}` }
             };
 
-            await axios.put(`http://localhost:5000/api/challenges/${challengeId}/vote`, {}, config);
+            await axios.put(`/api/challenges/${challengeId}/vote`, {}, config);
 
             // Optimistically update UI or re-fetch
-            const { data } = await axios.get('http://localhost:5000/api/challenges', config);
+            const { data } = await axios.get('/api/challenges', config);
             setRecentChallenges(data.slice(0, 10));
         } catch (error) {
             console.error('Error voting:', error);
@@ -629,11 +629,11 @@ const Dashboard = () => {
                 headers: { Authorization: `Bearer ${token}` }
             };
 
-            await axios.post(`http://localhost:5000/api/challenges/${challengeId}/comments`, { text }, config);
+            await axios.post(`/api/challenges/${challengeId}/comments`, { text }, config);
 
             // Clear input and refresh
             setCommentInputs(prev => ({ ...prev, [challengeId]: '' }));
-            const { data } = await axios.get('http://localhost:5000/api/challenges', config);
+            const { data } = await axios.get('/api/challenges', config);
             setRecentChallenges(data.slice(0, 10));
             showNotification('Comment posted!');
         } catch (error) {
@@ -763,7 +763,7 @@ const Dashboard = () => {
                         const token = userData.token;
                         const config = { headers: { Authorization: `Bearer ${token}` } };
 
-                        const { data } = await axios.get(`http://localhost:5000/api/search?q=${searchQuery}`, config);
+                        const { data } = await axios.get(`/api/search?q=${searchQuery}`, config);
                         setSearchResults(data);
                         setShowSearchResults(true);
                     }

@@ -7,6 +7,8 @@ import os
 from ontology import OntologyManager
 from nlp_engine import NLPEngine
 from ranker import HybridRanker
+from intent_classifier import IntentClassifier
+from guide_logic import GuideLogic
 
 app = FastAPI(title="ClustAura AI Engine", version="1.0.0")
 
@@ -41,16 +43,22 @@ class ExpertRecommendation(BaseModel):
 ontology_manager = None
 nlp_engine = None
 ranker = None
+intent_classifier = None
+guide_logic = None
 user_db = {} # In-memory cache for demo performance
 
 @app.on_event("startup")
 async def startup_event():
-    global ontology_manager, nlp_engine, ranker
+    global ontology_manager, nlp_engine, ranker, intent_classifier, guide_logic
     print("Initializing ClustAura AI Engine...")
     
     ontology_manager = OntologyManager()
     nlp_engine = NLPEngine()
     ranker = HybridRanker()
+    
+    # Initialize Guide Components
+    intent_classifier = IntentClassifier(nlp_engine)
+    guide_logic = GuideLogic()
     
     print("AI Engine Ready.")
 
@@ -118,6 +126,32 @@ async def ingest_user(user: UserProfile):
     except Exception as e:
         print(f"Error ingesting user: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+class GuideQuery(BaseModel):
+    query: str
+    current_page: Optional[str] = None
+
+@app.post("/guide/query")
+async def query_guide(request: GuideQuery):
+    """
+    Endpoint for the AI Guide chatbot.
+    """
+    global intent_classifier, guide_logic
+    
+    if not intent_classifier or not guide_logic:
+        raise HTTPException(status_code=503, detail="AI Guide services not initialized")
+
+    print(f"DEBUG: Guide Query Received: {request.query} on page {request.current_page}")
+    
+    # 1. Classify Intent
+    intent, score = intent_classifier.classify(request.query)
+    print(f"DEBUG: Classified Intent: {intent} with score {score:.4f}")
+    
+    # 2. Generate Response
+    response = guide_logic.get_response(intent, score, request.current_page)
+    print(f"DEBUG: Generated Response: {response['text'][:50]}...")
+    
+    return response
 
 if __name__ == "__main__":
     uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=True)

@@ -34,7 +34,7 @@ const UserProfile = () => {
                     headers: { Authorization: `Bearer ${token}` }
                 };
 
-                const { data } = await axios.get(`http://localhost:5000/api/profile/user/${id}`, config);
+                const { data } = await axios.get(`/api/profile/user/${id}`, config);
                 setProfile(data);
                 if (data.posts) {
                     setPosts(data.posts);
@@ -69,7 +69,7 @@ const UserProfile = () => {
                 headers: { Authorization: `Bearer ${token}` }
             };
 
-            await axios.post(`http://localhost:5000/api/friends/request/${profile.user._id}`, {}, config);
+            await axios.post(`/api/friends/request/${profile.user._id}`, {}, config);
             alert('Friend request sent!');
         } catch (error) {
             console.error('Error sending friend request:', error);

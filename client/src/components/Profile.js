@@ -39,7 +39,7 @@ const Profile = () => {
                         }
                     };
 
-                    const { data } = await axios.get('http://localhost:5000/api/profile/me', config);
+                    const { data } = await axios.get('/api/profile/me', config);
 
                     if (data) {
                         setFormData({
@@ -136,7 +136,7 @@ const Profile = () => {
                 profileImageUrl
             };
 
-            const { data } = await axios.put('http://localhost:5000/api/profile/me', profileData, config);
+            const { data } = await axios.put('/api/profile/me', profileData, config);
 
             if (data.user) {
                 const updatedUser = { ...userData, ...data.user };

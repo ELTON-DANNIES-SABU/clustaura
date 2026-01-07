@@ -27,7 +27,7 @@ const Friends = () => {
         try {
             const token = getToken();
             const config = { headers: { Authorization: `Bearer ${token}` } };
-            const { data } = await axios.get('http://localhost:5000/api/friends', config);
+            const { data } = await axios.get('/api/friends', config);
             setFriends(data);
         } catch (error) {
             console.error('Error fetching friends:', error);
@@ -38,7 +38,7 @@ const Friends = () => {
         try {
             const token = getToken();
             const config = { headers: { Authorization: `Bearer ${token}` } };
-            const { data } = await axios.get('http://localhost:5000/api/friends/requests', config);
+            const { data } = await axios.get('/api/friends/requests', config);
             setFriendRequests(data);
         } catch (error) {
             console.error('Error fetching friend requests:', error);
@@ -63,7 +63,7 @@ const Friends = () => {
                     setIsSearching(true);
                     const token = getToken();
                     const config = { headers: { Authorization: `Bearer ${token}` } };
-                    const { data } = await axios.get(`http://localhost:5000/api/friends/search?query=${searchQuery}`, config);
+                    const { data } = await axios.get(`/api/friends/search?query=${searchQuery}`, config);
                     setSearchResults(data);
                 } catch (error) {
                     console.error('Error searching users:', error);
@@ -83,7 +83,7 @@ const Friends = () => {
         try {
             const token = getToken();
             const config = { headers: { Authorization: `Bearer ${token}` } };
-            await axios.put(`http://localhost:5000/api/friends/accept/${requestId}`, {}, config);
+            await axios.put(`/api/friends/accept/${requestId}`, {}, config);
 
             alert('Friend request accepted!');
             fetchFriends();
@@ -98,7 +98,7 @@ const Friends = () => {
         try {
             const token = getToken();
             const config = { headers: { Authorization: `Bearer ${token}` } };
-            await axios.put(`http://localhost:5000/api/friends/reject/${requestId}`, {}, config);
+            await axios.put(`/api/friends/reject/${requestId}`, {}, config);
 
             alert('Friend request declined.');
             fetchFriendRequests();
@@ -113,7 +113,7 @@ const Friends = () => {
             try {
                 const token = getToken();
                 const config = { headers: { Authorization: `Bearer ${token}` } };
-                await axios.delete(`http://localhost:5000/api/friends/${friendId}`, config);
+                await axios.delete(`/api/friends/${friendId}`, config);
 
                 alert('Friend removed successfully.');
                 fetchFriends();
@@ -128,11 +128,11 @@ const Friends = () => {
         try {
             const token = getToken();
             const config = { headers: { Authorization: `Bearer ${token}` } };
-            await axios.post(`http://localhost:5000/api/friends/request/${userId}`, {}, config);
+            await axios.post(`/api/friends/request/${userId}`, {}, config);
 
             alert('Friend request sent!');
             // Refresh search results to update status
-            const { data } = await axios.get(`http://localhost:5000/api/friends/search?query=${searchQuery}`, config);
+            const { data } = await axios.get(`/api/friends/search?query=${searchQuery}`, config);
             setSearchResults(data);
         } catch (error) {
             console.error('Error sending request:', error);

@@ -31,7 +31,7 @@ const Chat = () => {
         const user = JSON.parse(userStr);
 
         // Connect to socket
-        const newSocket = io('http://localhost:5000');
+        const newSocket = io('/');
         setSocket(newSocket);
 
         // Join my own room to receive messages
@@ -59,7 +59,7 @@ const Chat = () => {
             // We'll create a simple "getUser" or just fetch friends list from API
             try {
                 const config = { headers: { Authorization: `Bearer ${user.token}` } };
-                const { data } = await axios.get('http://localhost:5000/api/friends', config);
+                const { data } = await axios.get('/api/friends', config);
                 const foundFriend = data.find(f => f._id === friendId);
                 if (foundFriend) setFriend(foundFriend);
             } catch (err) {
@@ -72,7 +72,7 @@ const Chat = () => {
         const fetchMessages = async () => {
             try {
                 const config = { headers: { Authorization: `Bearer ${user.token}` } };
-                const { data } = await axios.get(`http://localhost:5000/api/chat/${friendId}`, config);
+                const { data } = await axios.get(`/api/chat/${friendId}`, config);
                 setMessages(data);
             } catch (error) {
                 console.error('Error fetching messages:', error);

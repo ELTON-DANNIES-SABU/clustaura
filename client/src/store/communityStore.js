@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import axios from 'axios';
 
 const api = axios.create({
-    baseURL: 'http://localhost:5000/api/community',
+    baseURL: '/api/community',
     headers: {
         'Content-Type': 'application/json'
     }

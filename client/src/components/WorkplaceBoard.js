@@ -60,8 +60,8 @@ const WorkplaceBoard = () => {
             };
 
             const [projRes, sprintsRes] = await Promise.all([
-                axios.get(`http://localhost:5000/api/workplace/projects/${projectId}`, config),
-                axios.get(`http://localhost:5000/api/workplace/projects/${projectId}/sprints`, config)
+                axios.get(`/api/workplace/projects/${projectId}`, config),
+                axios.get(`/api/workplace/projects/${projectId}/sprints`, config)
             ]);
 
             setProject(projRes.data);
@@ -76,7 +76,7 @@ const WorkplaceBoard = () => {
             if (!selectedSprintId && active) setSelectedSprintId(active._id);
 
             if (sprintToLoad) {
-                const issuesRes = await axios.get(`http://localhost:5000/api/workplace/projects/${projectId}/issues?sprint=${sprintToLoad}`, config);
+                const issuesRes = await axios.get(`/api/workplace/projects/${projectId}/issues?sprint=${sprintToLoad}`, config);
                 setIssues(issuesRes.data);
             } else {
                 setIssues([]); // No sprint selected or active
@@ -105,7 +105,7 @@ const WorkplaceBoard = () => {
                 sprintId: activeSprint ? activeSprint._id : null
             };
 
-            await axios.post('http://localhost:5000/api/workplace/issues',
+            await axios.post('/api/workplace/issues',
                 issueData,
                 {
                     headers: {
@@ -136,7 +136,7 @@ const WorkplaceBoard = () => {
             const { token } = JSON.parse(userStr);
             console.log("Adding member:", newMemberEmail, "to project:", projectId); // Debug
 
-            await axios.post(`http://localhost:5000/api/workplace/projects/${projectId}/members`,
+            await axios.post(`/api/workplace/projects/${projectId}/members`,
                 { email: newMemberEmail },
                 { headers: { Authorization: `Bearer ${token}` } }
             );
@@ -289,7 +289,7 @@ const WorkplaceBoard = () => {
                         const userStr = localStorage.getItem('user');
                         if (userStr) {
                             const { token } = JSON.parse(userStr);
-                            axios.put(`http://localhost:5000/api/workplace/issues/${activeId}/status`,
+                            axios.put(`/api/workplace/issues/${activeId}/status`,
                                 { status: newStatus },
                                 { headers: { Authorization: `Bearer ${token}` } }
                             ).catch(error => {

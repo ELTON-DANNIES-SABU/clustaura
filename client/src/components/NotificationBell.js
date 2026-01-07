@@ -34,7 +34,7 @@ const NotificationBell = () => {
         const userStr = localStorage.getItem('user');
         if (userStr) {
             const user = JSON.parse(userStr);
-            const socket = io('http://localhost:5000');
+            const socket = io('/');
 
             socket.emit('join_room', user._id);
 
