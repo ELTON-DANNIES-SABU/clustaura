@@ -27,6 +27,15 @@ const userSchema = new mongoose.Schema({
         required: [true, 'Password is required'],
         minlength: [6, 'Password should be at least 6 characters']
     },
+    role: {
+        type: String,
+        default: 'Developer',
+        enum: ['Developer', 'Designer', 'PM', 'Tech Lead', 'Creator']
+    },
+    avatar: {
+        type: String,
+        default: ''
+    },
     friends: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User'

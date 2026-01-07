@@ -6,7 +6,9 @@ const {
     createChallenge,
     voteChallenge,
     joinChallenge,
-    addComment
+    addComment,
+    updateChallenge,
+    deleteChallenge
 } = require('../controllers/challengeController');
 const { protect } = require('../middleware/authMiddleware');
 
@@ -15,9 +17,12 @@ router.route('/')
     .get(protect, getChallenges)
     .post(protect, createChallenge);
 
-router.get('/:id', protect, getChallengeById);
+router.post('/:id/comments', protect, addComment);
 router.put('/:id/vote', protect, voteChallenge);
 router.put('/:id/join', protect, joinChallenge);
-router.post('/:id/comments', protect, addComment);
+router.route('/:id')
+    .get(protect, getChallengeById)
+    .put(protect, updateChallenge)
+    .delete(protect, deleteChallenge);
 
 module.exports = router;

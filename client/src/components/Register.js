@@ -111,6 +111,7 @@ const Register = () => {
 
             // Save user data to localStorage
             localStorage.setItem('user', JSON.stringify(data));
+            localStorage.setItem('token', data.token);
             console.log('Registration successful, navigating to dashboard...');
 
             // Force navigation

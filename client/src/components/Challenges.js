@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { io } from 'socket.io-client';
 import NotificationBell from './NotificationBell';
 import '../styles.css';
 
@@ -13,6 +14,11 @@ const Challenges = () => {
     const [sortBy, setSortBy] = useState('trending');
     const [expandedComments, setExpandedComments] = useState({});
     const [commentInputs, setCommentInputs] = useState({});
+
+    // Real-time state
+    const [socket, setSocket] = useState(null);
+    const [newChallengeIds, setNewChallengeIds] = useState(new Set());
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     // Create Challenge Modal State
     const [showCreateModal, setShowCreateModal] = useState(false);
@@ -29,8 +35,57 @@ const Challenges = () => {
 
     const navigate = useNavigate();
 
-    // Fetch challenges from backend
+    useEffect(() => {
+        // Connect socket
+        const newSocket = io('http://localhost:5000');
+        setSocket(newSocket);
+
+        newSocket.on('connect', () => {
+            console.log('Socket connected');
+        });
+
+        newSocket.on('challenge:initial', (data) => {
+            // Initial load
+            setChallenges(data);
+            setFilteredChallenges(data);
+        });
+
+        newSocket.on('challenge:delete', ({ id }) => {
+            setChallenges(prev => prev.filter(c => c._id !== id));
+        });
+
+        newSocket.on('challenge:new', (newChallenge) => {
+            setChallenges(prev => [newChallenge, ...prev]);
+            // Add to new IDs for glow effect
+            setNewChallengeIds(prev => {
+                const newSet = new Set(prev);
+                newSet.add(newChallenge._id);
+                return newSet;
+            });
+            // Remove glow after animation
+            setTimeout(() => {
+                setNewChallengeIds(prev => {
+                    const newSet = new Set(prev);
+                    newSet.delete(newChallenge._id);
+                    return newSet;
+                });
+            }, 3000);
+
+            // alert('New Challenge Posted!'); // Optional toast
+        });
+
+        newSocket.on('challenge:update', (updatedChallenge) => {
+            setChallenges(prev => prev.map(c => c._id === updatedChallenge._id ? updatedChallenge : c));
+        });
+
+        return () => newSocket.close();
+    }, []);
+
+    // Fallback or Refresh manually if needed
     const fetchChallenges = async () => {
+        // No-op or keep for manual refresh if socket fails? 
+        // For strict real-time requirement, we rely on socket init.
+        // But let's keep it functional just in case manual refresh is triggered.
         try {
             const userStr = localStorage.getItem('user');
             if (userStr) {
@@ -45,17 +100,11 @@ const Challenges = () => {
                 const { data } = await axios.get('http://localhost:5000/api/challenges', config);
                 setChallenges(data);
                 setFilteredChallenges(data);
-            } else {
-                navigate('/login');
             }
         } catch (error) {
             console.error('Error fetching challenges:', error);
         }
     };
-
-    useEffect(() => {
-        fetchChallenges();
-    }, [navigate]);
 
     useEffect(() => {
         let filtered = [...challenges];
@@ -107,17 +156,21 @@ const Challenges = () => {
                 tags: newChallenge.tags.split(',').map(tag => tag.trim()).filter(tag => tag)
             };
 
+            setIsSubmitting(true);
             await axios.post('http://localhost:5000/api/challenges', payload, config);
 
             setShowCreateModal(false);
             setNewChallenge({ title: '', description: '', tags: '', difficulty: 'Intermediate' });
+            // Show toast/alert with backend message
             alert('Challenge posted successfully!');
-            fetchChallenges(); // Refresh list
-
         } catch (error) {
             console.error('Error creating challenge:', error);
-            alert('Failed to create challenge.');
+            alert(error.response?.data?.message || 'Failed to create challenge.');
+        } finally {
+            setIsSubmitting(false);
         }
+
+
     };
 
     const handleVote = async (challengeId) => {
@@ -130,7 +183,7 @@ const Challenges = () => {
             };
 
             await axios.put(`http://localhost:5000/api/challenges/${challengeId}/vote`, {}, config);
-            fetchChallenges(); // Refresh to see updated vote count
+            // fetchChallenges(); // Handled by socket challenge:update
         } catch (error) {
             console.error('Error voting:', error);
         }
@@ -147,7 +200,7 @@ const Challenges = () => {
 
             await axios.put(`http://localhost:5000/api/challenges/${challengeId}/join`, {}, config);
             alert(`You have successfully joined the challenge!`);
-            fetchChallenges();
+            // fetchChallenges(); // Handled by socket challenge:update
         } catch (error) {
             console.error('Error joining:', error);
             alert(error.response?.data?.message || 'Failed to join challenge');
@@ -192,13 +245,11 @@ const Challenges = () => {
             await axios.post(`http://localhost:5000/api/challenges/${challengeId}/comments`, { text }, config);
 
             // Clear input and refresh
+            // Clear input
             setCommentInputs(prev => ({ ...prev, [challengeId]: '' }));
-            const { data } = await axios.get('http://localhost:5000/api/challenges', config);
-            setChallenges(data); // Refresh main list to show new comment
 
-            // Re-apply filters if needed (simple way: rely on useEffect to re-filter)
-            setFilteredChallenges(data);
-            alert('Comment posted!');
+            // fetchChallenges(); // Handled by socket challenge:update
+            // alert('Comment posted!');
         } catch (error) {
             console.error('Error posting comment:', error);
             alert('Failed to post comment');
@@ -275,7 +326,9 @@ const Challenges = () => {
                                 </div>
                                 <div className="modal-actions">
                                     <button type="button" className="cancel-btn" onClick={() => setShowCreateModal(false)}>Cancel</button>
-                                    <button type="submit" className="submit-btn">Post Challenge</button>
+                                    <button type="submit" className="submit-btn" disabled={isSubmitting}>
+                                        {isSubmitting ? 'Posting...' : 'Post Challenge'}
+                                    </button>
                                 </div>
                             </form>
                         </div>
@@ -331,7 +384,7 @@ const Challenges = () => {
                     {filteredChallenges.map(challenge => (
                         <div
                             key={challenge._id}
-                            className="challenge-card"
+                            className={`challenge-card ${newChallengeIds.has(challenge._id) ? 'new-item' : ''}`}
                             onClick={() => navigate(`/challenge/${challenge._id}`)}
                             style={{ cursor: 'pointer' }}
                         >

@@ -37,10 +37,14 @@ const createChallenge = async (req, res) => {
         // Populate author info to return the full object
         await createdChallenge.populate('author', 'firstName lastName');
 
-        res.status(201).json(createdChallenge);
+        res.status(201).json({ success: true, message: 'Challenge created', data: createdChallenge });
+
+        // Emit new challenge to all connected clients
+        const io = req.app.get('io');
+        io.emit('challenge:new', createdChallenge);
     } catch (error) {
         console.error('Error creating challenge:', error);
-        res.status(500).json({ message: 'Server Error' });
+        res.status(500).json({ success: false, message: 'Server Error' });
     }
 };
 
@@ -61,16 +65,27 @@ const voteChallenge = async (req, res) => {
             challenge.votes = challenge.votes.filter(
                 (vote) => vote.toString() !== req.user._id.toString()
             );
+            challenge.upvotes = Math.max(0, challenge.upvotes - 1);
         } else {
             // Add vote
             challenge.votes.push(req.user._id);
+            challenge.upvotes += 1;
         }
 
         await challenge.save();
-        res.json(challenge.votes);
+
+        // Populate and emit update
+        const updatedChallenge = await Challenge.findById(challenge._id)
+            .populate('author', 'firstName lastName email')
+            .populate('comments.user', 'firstName lastName');
+
+        const io = req.app.get('io');
+        io.emit('challenge:update', updatedChallenge);
+
+        res.json({ success: true, message: 'Vote updated', data: challenge.votes });
     } catch (error) {
         console.error('Error voting challenge:', error);
-        res.status(500).json({ message: 'Server Error' });
+        res.status(500).json({ success: false, message: 'Server Error' });
     }
 };
 
@@ -92,6 +107,14 @@ const joinChallenge = async (req, res) => {
 
         challenge.participants.push(req.user._id);
         await challenge.save();
+
+        // Populate and emit update
+        const updatedChallenge = await Challenge.findById(challenge._id)
+            .populate('author', 'firstName lastName email')
+            .populate('comments.user', 'firstName lastName');
+
+        const io = req.app.get('io');
+        io.emit('challenge:update', updatedChallenge);
 
         res.json(challenge.participants);
     } catch (error) {
@@ -140,13 +163,19 @@ const addComment = async (req, res) => {
         };
 
         challenge.comments.unshift(newComment);
+        challenge.commentsCount += 1;
 
         await challenge.save();
 
-        // Populate the user of the new comment to return it immediately
         await challenge.populate('comments.user', 'firstName lastName');
 
-        await challenge.populate('comments.user', 'firstName lastName');
+        // Emit update to all clients
+        const updatedChallengeForEmit = await Challenge.findById(challenge._id)
+            .populate('author', 'firstName lastName email')
+            .populate('comments.user', 'firstName lastName');
+
+        const io = req.app.get('io');
+        io.emit('challenge:update', updatedChallengeForEmit);
 
         // Notification logic
         if (challenge.author.toString() !== req.user._id.toString()) {
@@ -159,14 +188,76 @@ const addComment = async (req, res) => {
                 relatedId: challenge._id
             });
 
-            const io = req.app.get('io');
             io.to(challenge.author.toString()).emit('receive_notification', notification);
         }
 
-        res.json(challenge.comments);
+        res.json({ success: true, message: 'Comment added', data: challenge.comments });
     } catch (error) {
         console.error('Error adding comment:', error);
-        res.status(500).json({ message: 'Server Error' });
+        res.status(500).json({ success: false, message: 'Server Error' });
+    }
+};
+
+// @desc    Update a challenge
+// @route   PUT /api/challenges/:id
+// @access  Private
+const updateChallenge = async (req, res) => {
+    try {
+        const { title, description, tags, difficulty } = req.body;
+        let challenge = await Challenge.findById(req.params.id);
+
+        if (!challenge) {
+            return res.status(404).json({ success: false, message: 'Challenge not found' });
+        }
+
+        // Make sure user is challenge owner
+        if (challenge.author.toString() !== req.user._id.toString()) {
+            return res.status(401).json({ success: false, message: 'Not authorized' });
+        }
+
+        challenge = await Challenge.findByIdAndUpdate(
+            req.params.id,
+            { title, description, tags, difficulty },
+            { new: true, runValidators: true }
+        ).populate('author', 'firstName lastName email');
+
+        // Emit update
+        const io = req.app.get('io');
+        io.emit('challenge:update', challenge);
+
+        res.json({ success: true, message: 'Challenge updated', data: challenge });
+    } catch (error) {
+        console.error('Error updating challenge:', error);
+        res.status(500).json({ success: false, message: 'Server Error' });
+    }
+};
+
+// @desc    Delete a challenge
+// @route   DELETE /api/challenges/:id
+// @access  Private
+const deleteChallenge = async (req, res) => {
+    try {
+        const challenge = await Challenge.findById(req.params.id);
+
+        if (!challenge) {
+            return res.status(404).json({ success: false, message: 'Challenge not found' });
+        }
+
+        // Make sure user is challenge owner
+        if (challenge.author.toString() !== req.user._id.toString()) {
+            return res.status(401).json({ success: false, message: 'Not authorized' });
+        }
+
+        await challenge.deleteOne();
+
+        // Emit delete event so clients can remove it
+        const io = req.app.get('io');
+        io.emit('challenge:delete', { id: req.params.id });
+
+        res.json({ success: true, message: 'Challenge removed', data: {} });
+    } catch (error) {
+        console.error('Error deleting challenge:', error);
+        res.status(500).json({ success: false, message: 'Server Error' });
     }
 };
 
@@ -176,5 +267,7 @@ module.exports = {
     createChallenge,
     voteChallenge,
     joinChallenge,
-    addComment
+    addComment,
+    updateChallenge,
+    deleteChallenge
 };

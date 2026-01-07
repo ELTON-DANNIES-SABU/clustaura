@@ -7,6 +7,7 @@ const connectDB = require('./config/db');
 const authRoutes = require('./routes/authRoutes');
 const profileRoutes = require('./routes/profileRoutes');
 const Message = require('./models/Message'); // Import Message model
+const Challenge = require('./models/Challenge'); // Import Challenge model
 require('dotenv').config();
 
 const app = express();
@@ -61,9 +62,10 @@ app.use('/api/search', require('./routes/searchRoutes'));
 app.use('/api/workplace', require('./routes/workplaceRoutes'));
 app.use('/api/comm', require('./routes/commRoutes'));
 app.use('/api/community', require('./routes/communityRoutes'));
+app.use('/api/posts', require('./routes/postRoutes'));
 
 // Socket.io connection handling
-io.on('connection', (socket) => {
+io.on('connection', async (socket) => {
     console.log('A user connected:', socket.id);
 
     socket.on('join_room', (userId) => {
@@ -107,6 +109,20 @@ io.on('connection', (socket) => {
             console.error('Error sending message:', error);
         }
     });
+
+    // Send last 50 challenges on connect
+    try {
+        const Challenge = require('./models/Challenge');
+        const challenges = await Challenge.find()
+            .populate('author', 'firstName lastName email')
+            .populate('comments.user', 'firstName lastName')
+            .sort({ createdAt: -1 })
+            .limit(50);
+
+        socket.emit('challenge:initial', challenges);
+    } catch (error) {
+        console.error('Error sending initial challenges:', error);
+    }
 
     socket.on('disconnect', () => {
         console.log('User disconnected:', socket.id);

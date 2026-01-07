@@ -12205,3 +12205,366 @@ input:checked+.slider:before {
     object-fit: contain;
     background: #000;
 }
+
+/* --- NEW POST COMPOSER STYLES --- */
+
+.post-composer-container {
+    margin-bottom: var(--spacing-6);
+    position: relative;
+    z-index: 10;
+}
+
+/* Collapsed State */
+.composer-collapsed {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-primary);
+    border-radius: var(--radius-xl);
+    padding: var(--spacing-4);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-4);
+    cursor: text;
+    transition: all var(--transition-fast);
+}
+
+.composer-collapsed:hover {
+    border-color: var(--gray-500);
+    background: var(--bg-surface);
+}
+
+.composer-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary-mint-dark), var(--primary-mint));
+    color: var(--black);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 1.2rem;
+    flex-shrink: 0;
+}
+
+.composer-fake-input {
+    color: var(--text-tertiary);
+    font-size: var(--font-size-base);
+    flex: 1;
+}
+
+/* Expanded Card */
+.composer-expanded-card {
+    background: rgba(17, 17, 17, 0.95);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--primary-mint);
+    border-radius: var(--radius-xl);
+    padding: var(--spacing-5);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5), 0 0 20px rgba(0, 255, 163, 0.05);
+    animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.composer-header-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-4);
+    color: var(--primary-mint);
+    font-weight: 600;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    color: var(--text-tertiary);
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+}
+
+.close-btn:hover {
+    color: var(--text-primary);
+}
+
+/* Post Type Chips */
+.post-type-selector {
+    display: flex;
+    gap: var(--spacing-2);
+    margin-bottom: var(--spacing-4);
+    overflow-x: auto;
+    padding-bottom: 2px;
+}
+
+.type-chip {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-primary);
+    border-radius: var(--radius-full);
+    padding: var(--spacing-2) var(--spacing-4);
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    white-space: nowrap;
+}
+
+.type-chip:hover {
+    border-color: var(--primary-mint);
+    color: var(--text-primary);
+}
+
+.type-chip.active {
+    background: rgba(0, 255, 163, 0.15);
+    border-color: var(--primary-mint);
+    color: var(--primary-mint);
+    box-shadow: 0 0 10px rgba(0, 255, 163, 0.1);
+}
+
+/* Input Area */
+.composer-input-area {
+    margin-bottom: var(--spacing-4);
+}
+
+.composer-textarea {
+    width: 100%;
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    font-size: 1.1rem;
+    line-height: 1.5;
+    resize: none;
+    min-height: 100px;
+    font-family: inherit;
+    padding: 0;
+}
+
+.composer-textarea:focus {
+    outline: none;
+}
+
+.composer-textarea::placeholder {
+    color: var(--text-tertiary);
+    opacity: 0.7;
+}
+
+/* Context Inputs */
+.contextual-inputs {
+    margin-bottom: var(--spacing-4);
+}
+
+.context-input {
+    width: 100%;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-primary);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-2) var(--spacing-3);
+    color: var(--primary-mint);
+    font-family: monospace;
+    font-size: 0.9rem;
+}
+
+.context-input:focus {
+    outline: none;
+    border-color: var(--primary-mint);
+    box-shadow: 0 0 0 1px var(--primary-mint);
+}
+
+/* Image Preview */
+.preview-image-container {
+    position: relative;
+    margin-bottom: var(--spacing-4);
+    display: inline-block;
+}
+
+.preview-image-container img {
+    max-height: 200px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-primary);
+}
+
+.remove-media {
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--error);
+    color: var(--error);
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Toolbar */
+.composer-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: var(--spacing-3);
+    border-top: 1px solid var(--border-primary);
+    margin-bottom: var(--spacing-4);
+}
+
+.tools-left,
+.tools-right {
+    display: flex;
+    gap: var(--spacing-2);
+}
+
+.tool-btn {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    cursor: pointer;
+    padding: var(--spacing-2) var(--spacing-3);
+    border-radius: var(--radius-md);
+    transition: all var(--transition-fast);
+}
+
+.tool-btn:hover {
+    background: var(--bg-surface);
+    color: var(--text-primary);
+}
+
+.preview-toggle {
+    background: none;
+    border: 1px solid transparent;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    cursor: pointer;
+    padding: var(--spacing-2) var(--spacing-3);
+    border-radius: var(--radius-md);
+}
+
+.preview-toggle:hover {
+    color: var(--primary-mint);
+}
+
+.preview-toggle.active {
+    border-color: var(--primary-mint);
+    color: var(--primary-mint);
+    background: rgba(0, 255, 163, 0.05);
+}
+
+/* Live Preview Section */
+.live-preview-section {
+    margin: var(--spacing-4) 0;
+    padding: var(--spacing-4);
+    border: 1px dashed var(--gray-600);
+    border-radius: var(--radius-lg);
+    background: rgba(0, 0, 0, 0.2);
+}
+
+.preview-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    color: var(--gray-400);
+    margin-bottom: var(--spacing-2);
+    letter-spacing: 0.1em;
+}
+
+/* Footer */
+.composer-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.char-count {
+    color: var(--text-tertiary);
+    font-size: 0.8rem;
+}
+
+.action-buttons {
+    display: flex;
+    gap: var(--spacing-3);
+}
+
+.cancel-btn {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+.cancel-btn:hover {
+    color: var(--text-primary);
+}
+
+.post-submit-btn {
+    background: var(--primary-mint);
+    color: var(--black);
+    border: none;
+    padding: var(--spacing-2) var(--spacing-6);
+    border-radius: var(--radius-full);
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.post-submit-btn:hover:not(:disabled) {
+    box-shadow: 0 0 15px rgba(0, 255, 163, 0.4);
+    transform: translateY(-1px);
+}
+
+.post-submit-btn:disabled {
+    background: var(--gray-700);
+    color: var(--gray-500);
+    cursor: not-allowed;
+}
+
+/* Real-time feed animations */
+@keyframes neon-pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(0, 255, 163, 0.4);
+        border-color: var(--primary-mint);
+    }
+
+    70% {
+        box-shadow: 0 0 0 10px rgba(0, 255, 163, 0);
+        border-color: var(--primary-mint-light);
+    }
+
+    100% {
+        box-shadow: 0 0 0 0 rgba(0, 255, 163, 0);
+        border-color: var(--border-primary);
+    }
+}
+
+.challenge-card.new-item {
+    animation: neon-pulse 2s cubic-bezier(0.4, 0, 0.6, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.challenge-card.new-item::after {
+    content: 'NEW';
+    position: absolute;
+    top: 0;
+    right: 0;
+    background: var(--primary-mint);
+    color: var(--black);
+    font-size: 0.7rem;
+    font-weight: bold;
+    padding: 2px 6px;
+    border-bottom-left-radius: 8px;
+}

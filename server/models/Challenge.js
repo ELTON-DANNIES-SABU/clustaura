@@ -47,6 +47,14 @@ const challengeSchema = new mongoose.Schema({
             default: Date.now
         }
     }],
+    upvotes: {
+        type: Number,
+        default: 0
+    },
+    commentsCount: {
+        type: Number,
+        default: 0
+    },
     createdAt: {
         type: Date,
         default: Date.now

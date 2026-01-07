@@ -41,6 +41,7 @@ const Login = () => {
 
             // Save to localStorage
             localStorage.setItem('user', JSON.stringify(data));
+            localStorage.setItem('token', data.token);
             console.log('User saved, navigating to dashboard...');
 
             // Force navigation - multiple methods
