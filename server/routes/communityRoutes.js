@@ -3,10 +3,16 @@ const router = express.Router();
 const communityController = require('../controllers/communityController');
 const { protect } = require('../middleware/authMiddleware');
 
+// All routes are protected
+router.use(protect);
+
 // Community Routes
-router.post('/communities', protect, communityController.createCommunity);
+router.get('/', communityController.getAllCommunities);
+router.post('/', communityController.createCommunity);
 router.get('/communities', communityController.getCommunities);
 router.get('/communities/:slug', communityController.getCommunityBySlug);
+router.post('/communities/:slug/join', communityController.joinCommunity);
+router.post('/communities/:slug/leave', communityController.leaveCommunity);
 
 // Post Routes
 router.post('/posts', protect, communityController.createPost);

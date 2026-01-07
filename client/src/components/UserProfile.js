@@ -1,7 +1,7 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import PostCard from './PostCard';
 import '../styles.css';
 
 const UserProfile = () => {
@@ -10,6 +10,7 @@ const UserProfile = () => {
     const [profile, setProfile] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [posts, setPosts] = useState([]);
 
     useEffect(() => {
         const fetchUserProfile = async () => {
@@ -21,6 +22,13 @@ const UserProfile = () => {
                 }
 
                 const userData = JSON.parse(userStr);
+
+                // Redirect if viewing own profile
+                if (userData._id === id || userData.id === id) {
+                    navigate('/profile');
+                    return;
+                }
+
                 const token = userData.token;
                 const config = {
                     headers: { Authorization: `Bearer ${token}` }
@@ -28,6 +36,9 @@ const UserProfile = () => {
 
                 const { data } = await axios.get(`http://localhost:5000/api/profile/user/${id}`, config);
                 setProfile(data);
+                if (data.posts) {
+                    setPosts(data.posts);
+                }
                 setLoading(false);
             } catch (err) {
                 console.error('Error fetching user profile:', err);
@@ -346,6 +357,31 @@ const UserProfile = () => {
                                     </a>
                                 )}
                             </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* User's Posts Section */}
+                <div className="user-posts-section">
+                    <h3 style={{ ...styles.sectionTitle, marginBottom: '1.5rem', marginTop: '1rem' }}>
+                        Latest Posts by {user.firstName}
+                    </h3>
+
+                    {posts.length > 0 ? (
+                        <div className="posts-feed">
+                            {posts.map(post => (
+                                <PostCard key={post._id} post={post} isPreview={true} />
+                            ))}
+                        </div>
+                    ) : (
+                        <div style={{
+                            background: 'rgba(255, 255, 255, 0.05)',
+                            padding: '3rem',
+                            borderRadius: 'var(--radius-lg)',
+                            textAlign: 'center',
+                            color: 'var(--gray-400)'
+                        }}>
+                            <p>No posts yet.</p>
                         </div>
                     )}
                 </div>

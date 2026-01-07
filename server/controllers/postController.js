@@ -11,7 +11,7 @@ exports.createPost = async (req, res) => {
     console.log("Headers:", req.headers);
     console.log("Body:", req.body);
     try {
-        const { content, media, projectLink, tags } = req.body;
+        const { title, content, community, type, media, projectLink, tags } = req.body;
 
         if (!req.user) {
             return res.status(401).json({ message: 'Unauthorized' });
@@ -20,6 +20,11 @@ exports.createPost = async (req, res) => {
         // Validate payload: Must have text OR media
         if (!content && (!media || media.length === 0)) {
             return res.status(400).json({ message: 'Post must contain text or media' });
+        }
+
+        // Validate title if provided (or make it required based on UI rules)
+        if (title && title.length > 120) {
+            return res.status(400).json({ message: 'Title must be less than 120 characters' });
         }
 
         // 1. Content Moderation
@@ -34,7 +39,10 @@ exports.createPost = async (req, res) => {
 
         const newPost = new Post({
             author: req.user.id,
+            title,
             content,
+            community,
+            type: type || 'General Question',
             media: media || [], // Array of strings
             projectLink,
             tags: tags || [],
@@ -52,6 +60,7 @@ exports.createPost = async (req, res) => {
         // Populate author details for the feed
         const populatedPost = await Post.findById(savedPost._id)
             .populate('author', 'firstName lastName avatar role')
+            .populate('community', 'name slug')
             .lean();
 
         // 3. Emit real-time event

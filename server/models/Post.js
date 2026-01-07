@@ -10,6 +10,20 @@ const PostSchema = new mongoose.Schema({
         type: String,
         trim: true
     },
+    title: {
+        type: String,
+        trim: true,
+        maxlength: 120
+    },
+    community: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Community'
+    },
+    type: {
+        type: String,
+        enum: ['Update', 'Project', 'Question', 'Experience', 'Challenge', 'Solution', 'Problem Challenge', 'Solution Proposal', 'General Question'],
+        default: 'General Question'
+    },
     media: [{
         type: String, // URLs to images/videos
         trim: true

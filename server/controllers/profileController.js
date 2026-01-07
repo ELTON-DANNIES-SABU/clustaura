@@ -1,6 +1,8 @@
 const Profile = require('../models/Profile');
 const User = require('../models/User');
 
+const Post = require('../models/Post');
+
 // @desc    Get current user profile
 // @route   GET /api/profile/me
 // @access  Private
@@ -93,13 +95,19 @@ const getUserProfileById = async (req, res) => {
     try {
         const profile = await Profile.findOne({ user: req.params.user_id }).populate('user', 'firstName lastName email');
 
+        // Fetch posts for this user
+        const posts = await Post.find({ author: req.params.user_id })
+            .populate('author', 'firstName lastName avatar role')
+            .populate('community', 'name slug')
+            .sort({ createdAt: -1 });
+
         if (!profile) {
             // Check if user exists even if profile doesn't
             const user = await User.findById(req.params.user_id).select('firstName lastName email');
             if (!user) {
                 return res.status(404).json({ message: 'User not found' });
             }
-            // Return minimal profile structure
+            // Return minimal profile structure + posts
             return res.json({
                 user: user,
                 skills: [],
@@ -108,11 +116,16 @@ const getUserProfileById = async (req, res) => {
                 website: '',
                 github: '',
                 twitter: '',
-                profileImageUrl: ''
+                profileImageUrl: '',
+                posts: posts || []
             });
         }
 
-        res.json(profile);
+        // Convert mongoose document to object and add posts
+        const profileObj = profile.toObject();
+        profileObj.posts = posts || [];
+
+        res.json(profileObj);
     } catch (error) {
         console.error(error.message);
         if (error.kind == 'ObjectId') {

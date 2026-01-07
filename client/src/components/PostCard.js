@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import api from '../services/api';
 import '../styles.css';
 
@@ -50,13 +51,24 @@ const PostCard = ({ post }) => {
         <div className={`post-card ${isMe ? 'my-post' : ''}`}>
             {post.isCreatorPost && <div className="creator-badge">Creator Project</div>}
 
+            <div className="post-header-top">
+                {post.community && (
+                    <span className="community-tag">r/{post.community.name}</span>
+                )}
+                <span className={`post-type-badge ${post.type?.toLowerCase()}`}>{post.type || 'Update'}</span>
+            </div>
+
             <div className="post-header">
-                <div className="post-avatar">
-                    {author.avatar || authorName.charAt(0)}
-                </div>
+                <Link to={`/profile/${author._id}`} className="post-avatar-link">
+                    <div className="post-avatar">
+                        {author.avatar || authorName.charAt(0)}
+                    </div>
+                </Link>
                 <div className="post-meta">
                     <div className="post-author-name">
-                        {authorName}
+                        <Link to={`/profile/${author._id}`} className="author-link">
+                            {authorName}
+                        </Link>
                         {isMe && <span className="you-tag">(You)</span>}
                     </div>
                     <div className="post-author-role">{authorRole}</div>
@@ -64,6 +76,8 @@ const PostCard = ({ post }) => {
                 </div>
                 <button className="post-options">•••</button>
             </div>
+
+            {post.title && <h3 className="post-title">{post.title}</h3>}
 
             <div className="post-content">
                 <p>{post.content}</p>

@@ -63,6 +63,7 @@ app.use('/api/workplace', require('./routes/workplaceRoutes'));
 app.use('/api/comm', require('./routes/commRoutes'));
 app.use('/api/community', require('./routes/communityRoutes'));
 app.use('/api/posts', require('./routes/postRoutes'));
+app.use('/api/upload', require('./routes/uploadRoutes'));
 
 // Socket.io connection handling
 io.on('connection', async (socket) => {

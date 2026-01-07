@@ -4,6 +4,18 @@ const Comment = require('../models/Comment');
 
 // --- Community Controllers ---
 
+// @desc    Get all communities (for dropdowns/lists)
+// @route   GET /api/communities
+exports.getAllCommunities = async (req, res) => {
+    try {
+        const communities = await Community.find().select('name slug members');
+        res.json(communities);
+    } catch (error) {
+        console.error('Error fetching communities:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+
 exports.createCommunity = async (req, res) => {
     try {
         const { name, description, rules } = req.body;
@@ -39,6 +51,49 @@ exports.getCommunityBySlug = async (req, res) => {
         res.json(community);
     } catch (error) {
         res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Join a community
+exports.joinCommunity = async (req, res) => {
+    try {
+        const community = await Community.findOne({ slug: req.params.slug });
+        if (!community) {
+            return res.status(404).json({ message: 'Community not found' });
+        }
+
+        if (community.members.includes(req.user.id)) {
+            return res.status(400).json({ message: 'Already a member' });
+        }
+
+        community.members.push(req.user.id);
+        await community.save();
+        res.json(community.members);
+    } catch (error) {
+        console.error('Error joining community:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+
+// @desc    Leave a community
+exports.leaveCommunity = async (req, res) => {
+    try {
+        const community = await Community.findOne({ slug: req.params.slug });
+        if (!community) {
+            return res.status(404).json({ message: 'Community not found' });
+        }
+
+        const index = community.members.indexOf(req.user.id);
+        if (index === -1) {
+            return res.status(400).json({ message: 'Not a member' });
+        }
+
+        community.members.splice(index, 1);
+        await community.save();
+        res.json(community.members);
+    } catch (error) {
+        console.error('Error leaving community:', error);
+        res.status(500).json({ message: 'Server error' });
     }
 };
 

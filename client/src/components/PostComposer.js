@@ -1,232 +1,264 @@
 import React, { useState, useRef, useEffect } from 'react';
 import api from '../services/api';
-import PostCard from './PostCard';
+import { io } from 'socket.io-client';
 import '../styles.css';
 
 const PostComposer = () => {
+    const [isActive, setIsActive] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [communities, setCommunities] = useState([]);
+
+    // Form State
+    const [title, setTitle] = useState('');
+    const [communityId, setCommunityId] = useState('');
+    const [type, setType] = useState('General Question');
     const [content, setContent] = useState('');
-    const [isFocused, setIsFocused] = useState(false);
-    const [selectedTags, setSelectedTags] = useState([]);
+    const [tags, setTags] = useState([]);
+    const [tagInput, setTagInput] = useState('');
+    const [media, setMedia] = useState([]); // Array of { file, preview, url }
     const [projectLink, setProjectLink] = useState('');
-    const [selectedImage, setSelectedImage] = useState(null);
-    const [postType, setPostType] = useState('Update'); // Update, Project, Question, Experience
-    const [showPreview, setShowPreview] = useState(false);
-    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const fileInputRef = useRef(null);
-    const textareaRef = useRef(null);
-
-    // Mock user for avatar display
     const user = JSON.parse(localStorage.getItem('user') || '{}');
-    const placeholders = [
-        "Share your latest project milestone...",
-        "What did you learn today?",
-        "Ask the community for feedback...",
-        "Showcase your new deployment..."
-    ];
-    const [placeholderIndex, setPlaceholderIndex] = useState(0);
 
+    // Fetch Communities on mount
     useEffect(() => {
-        const interval = setInterval(() => {
-            setPlaceholderIndex(prev => (prev + 1) % placeholders.length);
-        }, 5000);
-        return () => clearInterval(interval);
+        const fetchCommunities = async () => {
+            try {
+                const res = await api.get('/community');
+                setCommunities(res.data);
+            } catch (err) {
+                console.error('Failed to load communities', err);
+            }
+        };
+        fetchCommunities();
     }, []);
 
-    // Auto-grow textarea
-    useEffect(() => {
-        if (textareaRef.current) {
-            textareaRef.current.style.height = 'auto';
-            textareaRef.current.style.height = textareaRef.current.scrollHeight + 'px';
+    // Handle File Select
+    const handleFileSelect = async (e) => {
+        const files = Array.from(e.target.files);
+        if (files.length === 0) return;
+
+        // Upload immediately or just preview? 
+        // Plan: Preview first, upload on submit. BUT we need URL for backend.
+        // Better UX: Upload immediately to get URL, show spinner.
+
+        const newMedia = [];
+
+        for (const file of files) {
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const res = await api.post('/upload', formData, {
+                    headers: { 'Content-Type': 'multipart/form-data' }
+                });
+                newMedia.push({
+                    type: file.type.startsWith('image') ? 'image' : 'video',
+                    url: `http://localhost:5000${res.data.filePath}`, // Assuming local dev
+                    preview: URL.createObjectURL(file)
+                });
+            } catch (error) {
+                console.error('Upload failed', error);
+                alert('Failed to upload image. Please try again.');
+            }
         }
-    }, [content]);
+
+        setMedia(prev => [...prev, ...newMedia]);
+    };
 
     const handlePost = async () => {
-        if (!content.trim() && !selectedImage) return;
-        setIsSubmitting(true);
+        if (!title.trim() || !content.trim()) return;
+        setLoading(true);
 
         try {
-            const postData = {
+            const payload = {
+                title,
+                community: communityId || null, // Optional if general
+                type,
                 content,
-                tags: selectedTags,
+                tags,
                 projectLink,
-                isCreatorPost: postType === 'Project',
-                // Using selectedImage as media for now (assuming base64 or url)
-                media: selectedImage ? [selectedImage] : []
+                media: media.map(m => m.url)
             };
 
-            await api.post('/posts', postData);
+            const res = await api.post('/posts', payload);
 
-            // Reset form
+            // Socket emit handled by backend usually, but if client-side optimistic:
+            // const socket = io('http://localhost:5000');
+            // socket.emit('new-post-client', res.data);
+
+            // Reset
+            setTitle('');
             setContent('');
-            setSelectedTags([]);
-            setProjectLink('');
-            setSelectedImage(null);
-            setPostType('Update');
-            setIsFocused(false);
-            setShowPreview(false);
-
-            // Optional: Show success toast here
+            setTags([]);
+            setMedia([]);
+            setIsActive(false);
+            alert('Post created successfully!');
         } catch (error) {
-            console.error('Error creating post:', error);
-            const msg = error.response?.data?.message || error.message || 'Failed to create post';
-            // Show alert and redirect if unauthorized
-            if (error.response?.status === 401) {
-                alert('Session expired. Please log in again.');
-                window.location.href = '/login';
-            } else {
-                alert(`Error: ${msg}`);
-            }
+            console.error('Post creation failed', error);
+            alert(error.response?.data?.message || 'Failed to create post');
         } finally {
-            setIsSubmitting(false);
+            setLoading(false);
         }
     };
 
-    const handleImageSelect = (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onloadend = () => setSelectedImage(reader.result);
-            reader.readAsDataURL(file);
+    const handleTagKeyDown = (e) => {
+        if (e.key === 'Enter' || e.key === ',') {
+            e.preventDefault();
+            const val = tagInput.trim();
+            if (val && !tags.includes(val)) {
+                setTags([...tags, val]);
+                setTagInput('');
+            }
         }
     };
 
-    // Preview Object Construction
-    const previewPost = {
-        _id: 'preview',
-        author: {
-            _id: user.id || 'me',
-            name: `${user.firstName || 'User'} ${user.lastName || ''}`,
-            role: user.roll || 'Developer',
-            avatar: user.avatar,
-            isMe: true
-        },
-        content: content || 'Start typing to see your post here...',
-        media: selectedImage ? [selectedImage] : [],
-        projectLink,
-        tags: selectedTags,
-        createdAt: new Date().toISOString(),
-        isCreatorPost: postType === 'Project',
-        likes: [],
-        comments: []
+    const removeTag = (tagToRemove) => {
+        setTags(tags.filter(tag => tag !== tagToRemove));
     };
+
+    if (!isActive) {
+        return (
+            <div className="composer-collapsed glass-panel" onClick={() => setIsActive(true)}>
+                <div className="avatar-circle">
+                    {user.firstName ? user.firstName[0] : 'U'}
+                </div>
+                <input
+                    type="text"
+                    placeholder="Create a new post..."
+                    readOnly
+                    className="collapsed-input"
+                />
+                <div className="collapsed-actions">
+                    <button className="icon-btn">🖼️</button>
+                    <button className="icon-btn">🔗</button>
+                </div>
+            </div>
+        );
+    }
 
     return (
-        <div className={`post-composer-container ${isFocused ? 'focused' : ''}`}>
-            {!isFocused && (
-                <div className="composer-collapsed" onClick={() => setIsFocused(true)}>
-                    <div className="composer-avatar">
-                        {user.firstName?.charAt(0) || 'U'}
-                    </div>
-                    <div className="composer-fake-input">
-                        Share something valuable with the community...
-                    </div>
+        <div className="composer-overlay">
+            <div className="composer-modal glass-panel neon-border">
+                <div className="composer-header">
+                    <h2>Create New Post</h2>
+                    <button className="close-btn" onClick={() => setIsActive(false)}>×</button>
                 </div>
-            )}
 
-            {isFocused && (
-                <div className="composer-expanded-card glass-panel">
-                    <div className="composer-header-label">
-                        <span>Create Post</span>
-                        <button className="close-btn" onClick={() => setIsFocused(false)}>×</button>
+                <div className="composer-body">
+                    {/* Community Selector */}
+                    <div className="form-group">
+                        <select
+                            value={communityId}
+                            onChange={(e) => setCommunityId(e.target.value)}
+                            className="neon-select"
+                        >
+                            <option value="">Select a Community (General)</option>
+                            {communities.map(c => (
+                                <option key={c._id} value={c._id}>r/{c.name}</option>
+                            ))}
+                        </select>
                     </div>
 
-                    <div className="post-type-selector">
-                        {['Update', 'Project', 'Question', 'Experience'].map(type => (
+                    {/* Type Switcher */}
+                    <div className="type-tabs">
+                        {['Problem Challenge', 'Solution Proposal', 'General Question'].map(t => (
                             <button
-                                key={type}
-                                className={`type-chip ${postType === type ? 'active' : ''}`}
-                                onClick={() => setPostType(type)}
+                                key={t}
+                                className={`tab-btn ${type === t ? 'active' : ''}`}
+                                onClick={() => setType(t)}
                             >
-                                {type === 'Project' && '🚀 '}
-                                {type === 'Question' && '❓ '}
-                                {type === 'Experience' && '💡 '}
-                                {type === 'Update' && '📢 '}
-                                {type}
+                                {t}
                             </button>
                         ))}
                     </div>
 
-                    <div className="composer-input-area">
-                        <textarea
-                            ref={textareaRef}
-                            className="composer-textarea"
-                            placeholder={placeholders[placeholderIndex]}
-                            value={content}
-                            onChange={(e) => setContent(e.target.value)}
-                            autoFocus
-                            rows={3}
-                        />
-                    </div>
+                    {/* Title */}
+                    <input
+                        type="text"
+                        className="title-input"
+                        placeholder="Enter a descriptive title..."
+                        value={title}
+                        onChange={(e) => setTitle(e.target.value)}
+                        maxLength={120}
+                        autoFocus
+                    />
 
-                    {/* Contextual Inputs */}
-                    <div className="contextual-inputs">
-                        {postType === 'Project' && (
-                            <input
-                                type="text"
-                                className="context-input"
-                                placeholder="http://github.com/your/project"
-                                value={projectLink}
-                                onChange={(e) => setProjectLink(e.target.value)}
-                            />
-                        )}
-                    </div>
+                    {/* Body */}
+                    <textarea
+                        className="body-input"
+                        placeholder="What's on your mind? (Markdown supported)"
+                        value={content}
+                        onChange={(e) => setContent(e.target.value)}
+                        rows={6}
+                    />
 
-                    {selectedImage && (
-                        <div className="preview-image-container">
-                            <img src={selectedImage} alt="Preview" />
-                            <button className="remove-media" onClick={() => setSelectedImage(null)}>×</button>
+                    {/* Media Preview */}
+                    {media.length > 0 && (
+                        <div className="media-preview-grid">
+                            {media.map((m, idx) => (
+                                <div key={idx} className="media-item">
+                                    {m.type === 'image' ? (
+                                        <img src={m.preview} alt="upload" />
+                                    ) : (
+                                        <video src={m.preview} controls />
+                                    )}
+                                    <button
+                                        className="remove-media-btn"
+                                        onClick={() => setMedia(media.filter((_, i) => i !== idx))}
+                                    >
+                                        ×
+                                    </button>
+                                </div>
+                            ))}
                         </div>
                     )}
 
-                    <div className="composer-toolbar">
-                        <div className="tools-left">
-                            <button className="tool-btn" onClick={() => fileInputRef.current.click()} title="Add Media">
-                                🖼️ Media
-                            </button>
-                            <button className="tool-btn" onClick={() => setPostType('Project')} title="Add Project Link">
-                                📎 Project
+                    {/* Tags */}
+                    <div className="tags-input-container">
+                        {tags.map(tag => (
+                            <span key={tag} className="tag-chip">
+                                {tag} <button onClick={() => removeTag(tag)}>×</button>
+                            </span>
+                        ))}
+                        <input
+                            type="text"
+                            placeholder="Add tags (enter to add)"
+                            value={tagInput}
+                            onChange={(e) => setTagInput(e.target.value)}
+                            onKeyDown={handleTagKeyDown}
+                        />
+                    </div>
+
+                    {/* Footer Actions */}
+                    <div className="composer-footer">
+                        <div className="tools">
+                            <button onClick={() => fileInputRef.current.click()}>
+                                📷 Media
                             </button>
                             <input
                                 type="file"
                                 ref={fileInputRef}
-                                style={{ display: 'none' }}
-                                accept="image/*"
-                                onChange={handleImageSelect}
+                                hidden
+                                multiple
+                                accept="image/*,video/*"
+                                onChange={handleFileSelect}
                             />
                         </div>
-                        <div className="tools-right">
+                        <div className="submit-area">
+                            <span className="char-count">{content.length}/2000</span>
                             <button
-                                className={`preview-toggle ${showPreview ? 'active' : ''}`}
-                                onClick={() => setShowPreview(!showPreview)}
-                            >
-                                👁️ Preview
-                            </button>
-                        </div>
-                    </div>
-
-                    {showPreview && (
-                        <div className="live-preview-section">
-                            <div className="preview-label">Live Preview</div>
-                            <PostCard post={previewPost} />
-                        </div>
-                    )}
-
-                    <div className="composer-footer">
-                        <span className="char-count">{content.length}/500</span>
-                        <div className="action-buttons">
-                            <button className="cancel-btn" onClick={() => setIsFocused(false)}>Cancel</button>
-                            <button
-                                className="post-submit-btn"
-                                disabled={!content.trim() && !selectedImage || isSubmitting}
+                                className="post-btn"
+                                disabled={!title || !content || loading}
                                 onClick={handlePost}
                             >
-                                {isSubmitting ? 'Posting...' : 'Post'}
+                                {loading ? 'Posting...' : 'POST'}
                             </button>
                         </div>
                     </div>
                 </div>
-            )}
+            </div>
         </div>
     );
 };
