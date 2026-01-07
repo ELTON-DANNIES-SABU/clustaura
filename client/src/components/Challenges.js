@@ -4,6 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { io } from 'socket.io-client';
 import NotificationBell from './NotificationBell';
+import ChallengeComposer from './ChallengeComposer';
+import StarBadge from './StarBadge';
 import '../styles.css';
 
 const Challenges = () => {
@@ -14,6 +16,7 @@ const Challenges = () => {
     const [sortBy, setSortBy] = useState('trending');
     const [expandedComments, setExpandedComments] = useState({});
     const [commentInputs, setCommentInputs] = useState({});
+    const [commentAllowContact, setCommentAllowContact] = useState({}); // New state for allowContact
 
     // Real-time state
     const [socket, setSocket] = useState(null);
@@ -54,7 +57,7 @@ const Challenges = () => {
             setChallenges(prev => prev.filter(c => c._id !== id));
         });
 
-        newSocket.on('challenge:new', (newChallenge) => {
+        newSocket.on('new-challenge-post', (newChallenge) => {
             setChallenges(prev => [newChallenge, ...prev]);
             // Add to new IDs for glow effect
             setNewChallengeIds(prev => {
@@ -207,6 +210,23 @@ const Challenges = () => {
         }
     };
 
+    const handleTeamInvite = async (challengeId, solverId) => {
+        try {
+            const userStr = localStorage.getItem('user');
+            const userData = JSON.parse(userStr);
+            const token = userData.token;
+            const config = {
+                headers: { Authorization: `Bearer ${token}` }
+            };
+
+            await axios.post(`http://localhost:5000/api/challenges/${challengeId}/invite`, { solverId }, config);
+            alert('Invitation sent successfully!');
+        } catch (error) {
+            console.error('Error sending invite:', error);
+            alert(error.response?.data?.message || 'Failed to send invite');
+        }
+    };
+
     const handleBackToDashboard = () => {
         navigate('/dashboard');
     };
@@ -232,6 +252,7 @@ const Challenges = () => {
 
     const handleSubmitComment = async (challengeId) => {
         const text = commentInputs[challengeId];
+        const allowContact = commentAllowContact[challengeId] || false;
         if (!text || !text.trim()) return;
 
         try {
@@ -242,11 +263,12 @@ const Challenges = () => {
                 headers: { Authorization: `Bearer ${token}` }
             };
 
-            await axios.post(`http://localhost:5000/api/challenges/${challengeId}/comments`, { text }, config);
+            await axios.post(`http://localhost:5000/api/challenges/${challengeId}/comments`, { text, allowContact }, config);
 
             // Clear input and refresh
             // Clear input
             setCommentInputs(prev => ({ ...prev, [challengeId]: '' }));
+            setCommentAllowContact(prev => ({ ...prev, [challengeId]: false }));
 
             // fetchChallenges(); // Handled by socket challenge:update
             // alert('Comment posted!');
@@ -267,74 +289,13 @@ const Challenges = () => {
                     <p>Join the world's most pressing technical challenges and collaborate with experts</p>
                 </div>
                 <div className="header-actions" style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-4)' }}>
-
-                    <button className="join-btn" onClick={() => setShowCreateModal(true)}>
-                        + Post Challenge
-                    </button>
+                    {/* Replaced with ChallengeComposer below */}
                 </div>
             </header>
 
-            {/* Create Challenge Modal */}
-            {
-                showCreateModal && (
-                    <div className="modal-overlay">
-                        <div className="modal-content">
-                            <h2>Post a New Challenge</h2>
-                            <form onSubmit={handleCreateChallenge}>
-                                <div className="form-group">
-                                    <label>Title</label>
-                                    <input
-                                        type="text"
-                                        required
-                                        value={newChallenge.title}
-                                        onChange={(e) => setNewChallenge({ ...newChallenge, title: e.target.value })}
-                                        className="modal-input"
-                                    />
-                                </div>
-                                <div className="form-group">
-                                    <label>Description</label>
-                                    <textarea
-                                        required
-                                        rows="4"
-                                        value={newChallenge.description}
-                                        onChange={(e) => setNewChallenge({ ...newChallenge, description: e.target.value })}
-                                        className="modal-textarea"
-                                    />
-                                </div>
-                                <div className="form-group">
-                                    <label>Tags (comma separated)</label>
-                                    <input
-                                        type="text"
-                                        placeholder="e.g. AI, React, Sustainability"
-                                        value={newChallenge.tags}
-                                        onChange={(e) => setNewChallenge({ ...newChallenge, tags: e.target.value })}
-                                        className="modal-input"
-                                    />
-                                </div>
-                                <div className="form-group">
-                                    <label>Difficulty</label>
-                                    <select
-                                        value={newChallenge.difficulty}
-                                        onChange={(e) => setNewChallenge({ ...newChallenge, difficulty: e.target.value })}
-                                        className="modal-select"
-                                    >
-                                        <option>Beginner</option>
-                                        <option>Intermediate</option>
-                                        <option>Advanced</option>
-                                        <option>Expert</option>
-                                    </select>
-                                </div>
-                                <div className="modal-actions">
-                                    <button type="button" className="cancel-btn" onClick={() => setShowCreateModal(false)}>Cancel</button>
-                                    <button type="submit" className="submit-btn" disabled={isSubmitting}>
-                                        {isSubmitting ? 'Posting...' : 'Post Challenge'}
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                )
-            }
+            <ChallengeComposer />
+
+            {/* Inline Modal removed in favor of ChallengeComposer */}
 
             <main className="challenges-main">
                 <div className="challenges-filters">
@@ -400,12 +361,14 @@ const Challenges = () => {
                                         <span className="author-name">
                                             {challenge.author?.firstName} {challenge.author?.lastName}
                                         </span>
+                                        {challenge.author?._id && <StarBadge userId={challenge.author._id} />}
                                         <span className="challenge-time">{formatDate(challenge.createdAt)}</span>
                                     </div>
                                 </div>
                                 <div className={`difficulty-badge ${challenge.difficulty?.toLowerCase()}`}>
                                     {challenge.difficulty}
                                 </div>
+                                <div className="post-type-badge challenge">CHALLENGE</div>
                             </div>
 
                             <h3 className="challenge-title">{challenge.title}</h3>
@@ -451,42 +414,70 @@ const Challenges = () => {
                                         toggleComments(challenge._id);
                                     }}
                                 >
-                                    💬 {challenge.comments?.length || 0} Comments
+
+                                    💬 {challenge.comments?.length || 0} Solutions
                                 </button>
                             </div>
 
                             {expandedComments[challenge._id] && (
                                 <div className="comments-section" style={{ marginTop: '1rem', borderTop: '1px solid #333', paddingTop: '1rem' }}>
+                                    <h4 style={{ marginBottom: '1rem', color: '#00ffaa' }}>Proposed Solutions</h4>
                                     <div className="comment-list">
                                         {challenge.comments && challenge.comments.length > 0 ? (
                                             challenge.comments.map((comment, idx) => (
                                                 <div key={idx} className="comment-item">
                                                     <div className="comment-header">
+                                                        <span className="post-type-badge solution" style={{ fontSize: '0.7rem', marginRight: '0.5rem' }}>SOLUTION</span>
                                                         <span className="comment-author"
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
                                                                 if (comment.user?._id) navigate(`/profile/${comment.user._id}`);
                                                             }}
-                                                            style={{ cursor: 'pointer' }}
+                                                            style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
                                                         >
                                                             {comment.user?.firstName || 'User'}
+                                                            {comment.user?._id && <StarBadge userId={comment.user._id} />}
                                                         </span>
                                                         <span className="comment-time">
                                                             {new Date(comment.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                         </span>
                                                     </div>
                                                     <p className="comment-text">{comment.text}</p>
+                                                    {/* Show Contact/Invite button if Current User is Author AND Commenter allows contact */}
+                                                    {(() => {
+                                                        const userStr = localStorage.getItem('user');
+                                                        if (!userStr) return null;
+                                                        const currUser = JSON.parse(userStr);
+                                                        const isAuthor = challenge.author?._id === currUser.id || challenge.author === currUser.id; // Check ID match
+                                                        const isSelf = comment.user?._id === currUser.id;
+
+                                                        if (isAuthor && !isSelf && comment.allowContact) {
+                                                            return (
+                                                                <button
+                                                                    className="invite-btn"
+                                                                    style={{ marginTop: '0.5rem', padding: '0.3rem 0.8rem', fontSize: '0.8rem', background: '#00ccff', border: 'none', borderRadius: '4px', cursor: 'pointer', color: '#000' }}
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        handleTeamInvite(challenge._id, comment.user._id);
+                                                                    }}
+                                                                >
+                                                                    ✉️ Contact Solver / Invite
+                                                                </button>
+                                                            );
+                                                        }
+                                                        return null;
+                                                    })()}
                                                 </div>
                                             ))
                                         ) : (
-                                            <p className="no-comments">No comments yet.</p>
+                                            <p className="no-comments">No solutions yet. Be the first to solve this!</p>
                                         )}
                                     </div>
                                     <div className="comment-form" style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem' }}>
                                         <input
                                             type="text"
                                             className="comment-input"
-                                            placeholder="Write a comment..."
+                                            placeholder="Propose a solution..."
                                             value={commentInputs[challenge._id] || ''}
                                             onChange={(e) => {
                                                 e.stopPropagation();
@@ -506,6 +497,24 @@ const Challenges = () => {
                                         >
                                             Post
                                         </button>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginLeft: '0.5rem' }}>
+                                            <input
+                                                type="checkbox"
+                                                id={`allow-contact-${challenge._id}`}
+                                                checked={commentAllowContact[challenge._id] || false}
+                                                onChange={(e) => {
+                                                    e.stopPropagation();
+                                                    setCommentAllowContact(prev => ({
+                                                        ...prev,
+                                                        [challenge._id]: e.target.checked
+                                                    }));
+                                                }}
+                                                style={{ cursor: 'pointer' }}
+                                            />
+                                            <label htmlFor={`allow-contact-${challenge._id}`} style={{ fontSize: '0.8rem', color: '#aaa', cursor: 'pointer' }}>
+                                                Allow Contact from Owner
+                                            </label>
+                                        </div>
                                     </div>
                                 </div>
                             )}

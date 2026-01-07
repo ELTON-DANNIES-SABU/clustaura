@@ -7,6 +7,7 @@ const CommentSchema = new mongoose.Schema({
     parentComment: { type: mongoose.Schema.Types.ObjectId, ref: 'Comment', default: null },
     votes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     downvotes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+    availableForTeam: { type: Boolean, default: false }, // AI Agent Hook
     createdAt: { type: Date, default: Date.now },
 });
 

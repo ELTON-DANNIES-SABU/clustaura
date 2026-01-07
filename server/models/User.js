@@ -32,6 +32,27 @@ const userSchema = new mongoose.Schema({
         default: 'Developer',
         enum: ['Developer', 'Designer', 'PM', 'Tech Lead', 'Creator']
     },
+    // Game Theory Credit System
+    credits: {
+        type: Number,
+        default: 0,
+        index: true
+    },
+    creditStars: {
+        type: Number,
+        default: 0
+    },
+    starTier: {
+        type: String,
+        enum: ['Bronze', 'Silver', 'Neon'],
+        default: 'Bronze'
+    },
+    creditBreakdown: {
+        projects: { type: Number, default: 0 },
+        collaborations: { type: Number, default: 0 },
+        impact: { type: Number, default: 0 },
+        loyalty: { type: Number, default: 0 }
+    },
     avatar: {
         type: String,
         default: ''

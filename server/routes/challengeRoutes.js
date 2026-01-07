@@ -8,7 +8,8 @@ const {
     joinChallenge,
     addComment,
     updateChallenge,
-    deleteChallenge
+    deleteChallenge,
+    sendTeamInvite
 } = require('../controllers/challengeController');
 const { protect } = require('../middleware/authMiddleware');
 
@@ -20,6 +21,7 @@ router.route('/')
 router.post('/:id/comments', protect, addComment);
 router.put('/:id/vote', protect, voteChallenge);
 router.put('/:id/join', protect, joinChallenge);
+router.post('/:id/invite', protect, sendTeamInvite); // New route for team invites
 router.route('/:id')
     .get(protect, getChallengeById)
     .put(protect, updateChallenge)

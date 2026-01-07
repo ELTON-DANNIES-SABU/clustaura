@@ -11,7 +11,22 @@ const ChallengeDetail = () => {
     const [challenge, setChallenge] = useState(null);
     const [loading, setLoading] = useState(true);
     const [commentInput, setCommentInput] = useState('');
+    const [allowContact, setAllowContact] = useState(false);
     const [currentUser, setCurrentUser] = useState(null);
+
+    const handleContactSolver = async (solverId) => {
+        try {
+            const userStr = localStorage.getItem('user');
+            const { token } = JSON.parse(userStr);
+            const config = { headers: { Authorization: `Bearer ${token}` } };
+
+            await axios.post(`http://localhost:5000/api/challenges/${id}/invite`, { solverId }, config);
+            alert('Invitation sent to solver!');
+        } catch (error) {
+            console.error('Error inviting solver:', error);
+            alert('Failed to send invitation');
+        }
+    };
 
     useEffect(() => {
         const userStr = localStorage.getItem('user');
@@ -90,8 +105,12 @@ const ChallengeDetail = () => {
                 headers: { Authorization: `Bearer ${token}` }
             };
 
-            await axios.post(`http://localhost:5000/api/challenges/${id}/comments`, { text: commentInput }, config);
+            await axios.post(`http://localhost:5000/api/challenges/${id}/comments`, {
+                text: commentInput,
+                allowContact
+            }, config);
             setCommentInput('');
+            setAllowContact(false);
             fetchChallengeDetail(); // Refresh to show new comment
         } catch (error) {
             console.error('Error posting comment:', error);
@@ -229,26 +248,39 @@ const ChallengeDetail = () => {
 
                         {/* Comments Section */}
                         <div className="comments-section-detail">
-                            <h2>Discussion ({challenge.comments?.length || 0})</h2>
+                            <h2>Discussion (Solutions) ({challenge.comments?.length || 0})</h2>
 
                             {/* Comment Form */}
                             <form className="comment-form-detail" onSubmit={handleSubmitComment}>
                                 <div className="current-user-avatar">
                                     {currentUser?.firstName?.charAt(0) || 'U'}
                                 </div>
-                                <input
-                                    type="text"
-                                    className="comment-input-detail"
-                                    placeholder="Share your thoughts..."
-                                    value={commentInput}
-                                    onChange={(e) => setCommentInput(e.target.value)}
-                                />
+                                <div className="comment-input-wrapper" style={{ width: '100%' }}>
+                                    <input
+                                        type="text"
+                                        className="comment-input-detail"
+                                        placeholder="Share your solution..."
+                                        value={commentInput}
+                                        onChange={(e) => setCommentInput(e.target.value)}
+                                    />
+                                    <div className="comment-options" style={{ marginTop: '10px' }}>
+                                        <label className="checkbox-container">
+                                            <input
+                                                type="checkbox"
+                                                checked={allowContact}
+                                                onChange={(e) => setAllowContact(e.target.checked)}
+                                            />
+                                            <span className="checkmark"></span>
+                                            Allow challenge owner to contact me
+                                        </label>
+                                    </div>
+                                </div>
                                 <button
                                     type="submit"
                                     className="comment-submit-btn-detail"
                                     disabled={!commentInput.trim()}
                                 >
-                                    Post
+                                    Share Solution
                                 </button>
                             </form>
 
@@ -270,11 +302,23 @@ const ChallengeDetail = () => {
                                                     </span>
                                                 </div>
                                                 <p className="comment-text">{comment.text}</p>
+
+                                                {/* Author Actions */}
+                                                {currentUser?._id === challenge.author?._id &&
+                                                    comment.user?._id !== currentUser._id &&
+                                                    comment.allowContact && (
+                                                        <button
+                                                            className="contact-solver-btn"
+                                                            onClick={() => handleContactSolver(comment.user._id)}
+                                                        >
+                                                            🤝 Contact Solver
+                                                        </button>
+                                                    )}
                                             </div>
                                         </div>
                                     ))
                                 ) : (
-                                    <p className="no-comments-detail">No comments yet. Be the first to share your thoughts!</p>
+                                    <p className="no-comments-detail">No solutions yet. Be the first to solve this!</p>
                                 )}
                             </div>
                         </div>

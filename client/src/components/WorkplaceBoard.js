@@ -5,6 +5,7 @@ import '../styles.css';
 import './Workplace/BoardSidebar.css';
 import { Search, X, Filter, User, CheckCircle, Clock, Layout, FlaskConical } from 'lucide-react';
 import TicketDetailModal from './Workplace/components/TicketDetailModal';
+import AIChatBubble from './AIChatBubble';
 import Board from './Workplace/Board/Board';
 
 const WorkplaceBoard = () => {
@@ -19,6 +20,7 @@ const WorkplaceBoard = () => {
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showAddMemberModal, setShowAddMemberModal] = useState(false);
     const [newMemberEmail, setNewMemberEmail] = useState('');
+
 
     // Sidebar State
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -241,6 +243,7 @@ const WorkplaceBoard = () => {
                         <Link to={`/workplace/project/${projectId}/timeline`} style={{ color: 'var(--primary-mint)', textDecoration: 'none' }}>
                             Roadmap
                         </Link>
+
                         {activeSprint && (
                             <button className="create-issue-btn" onClick={() => setShowCreateModal(true)}>
                                 Create Issue
@@ -249,6 +252,14 @@ const WorkplaceBoard = () => {
                     </div>
                 </div>
             </header>
+
+            {/* AI Chat Bubble */}
+            {activeSprint && (
+                <AIChatBubble
+                    sprintId={activeSprint._id}
+                    onTeamCreated={fetchProjectData}
+                />
+            )}
 
             {/* New Board Component */}
             <Board

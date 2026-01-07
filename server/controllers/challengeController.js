@@ -1,5 +1,6 @@
 const Challenge = require('../models/Challenge');
 const User = require('../models/User');
+const creditService = require('../services/creditService'); // Game Theory Credit System
 
 // @desc    Get all challenges
 // @route   GET /api/challenges
@@ -34,14 +35,18 @@ const createChallenge = async (req, res) => {
 
         const createdChallenge = await challenge.save();
 
+        // Game Theory: Award Creation Credits
+        await creditService.awardPostCreationCredits(req.user._id, createdChallenge);
+
         // Populate author info to return the full object
         await createdChallenge.populate('author', 'firstName lastName');
 
         res.status(201).json({ success: true, message: 'Challenge created', data: createdChallenge });
 
         // Emit new challenge to all connected clients
+        // Emit new challenge to all connected clients
         const io = req.app.get('io');
-        io.emit('challenge:new', createdChallenge);
+        io.emit('new-challenge-post', createdChallenge);
     } catch (error) {
         console.error('Error creating challenge:', error);
         res.status(500).json({ success: false, message: 'Server Error' });
@@ -70,6 +75,11 @@ const voteChallenge = async (req, res) => {
             // Add vote
             challenge.votes.push(req.user._id);
             challenge.upvotes += 1;
+
+            // Game Theory: Award Impact Credits to Author (Author gets rep for good challenge)
+            if (challenge.author.toString() !== req.user._id.toString()) {
+                await creditService.awardImpactCredits(challenge.author, challenge._id, 'vote');
+            }
         }
 
         await challenge.save();
@@ -149,7 +159,7 @@ const getChallengeById = async (req, res) => {
 // @access  Private
 const addComment = async (req, res) => {
     try {
-        const { text } = req.body;
+        const { text, allowContact } = req.body;
         const challenge = await Challenge.findById(req.params.id);
 
         if (!challenge) {
@@ -159,6 +169,7 @@ const addComment = async (req, res) => {
         const newComment = {
             user: req.user._id,
             text,
+            allowContact: allowContact === true, // Ensure boolean
             createdAt: Date.now()
         };
 
@@ -179,6 +190,7 @@ const addComment = async (req, res) => {
 
         // Notification logic
         if (challenge.author.toString() !== req.user._id.toString()) {
+            // Notification logic...
             const Notification = require('../models/Notification');
             const notification = await Notification.create({
                 recipient: challenge.author,
@@ -189,6 +201,12 @@ const addComment = async (req, res) => {
             });
 
             io.to(challenge.author.toString()).emit('receive_notification', notification);
+
+            // Game Theory: Award Impact Credits (to Author)
+            await creditService.awardImpactCredits(challenge.author, challenge._id, 'solution_comment');
+
+            // Game Theory: Award Contribution Credits (to Solver)
+            await creditService.awardContributionCredits(req.user._id, challenge._id, 'Solution');
         }
 
         res.json({ success: true, message: 'Comment added', data: challenge.comments });
@@ -261,6 +279,54 @@ const deleteChallenge = async (req, res) => {
     }
 };
 
+// @desc    Send a team invitation to a solver
+// @route   POST /api/challenges/:id/invite
+// @access  Private
+const sendTeamInvite = async (req, res) => {
+    try {
+        const { solverId } = req.body; // The user ID of the solver to invite
+        const challenge = await Challenge.findById(req.params.id);
+
+        if (!challenge) {
+            return res.status(404).json({ success: false, message: 'Challenge not found' });
+        }
+
+        // Only author can invite
+        if (challenge.author.toString() !== req.user._id.toString()) {
+            return res.status(401).json({ success: false, message: 'Not authorized' });
+        }
+
+        // Check if solver exists and allowContact logic (optional validation)
+        // For now, simpler implementation:
+
+        const io = req.app.get('io');
+
+        // Emit event to valid solver
+        io.to(solverId).emit('team_invite', {
+            challengeId: challenge._id,
+            challengeTitle: challenge.title,
+            inviterId: req.user._id,
+            inviterName: `${req.user.firstName} ${req.user.lastName}`,
+            message: `Invited you to form a team for "${challenge.title}"`
+        });
+
+        // Also create a notification
+        const Notification = require('../models/Notification');
+        await Notification.create({
+            recipient: solverId,
+            sender: req.user._id,
+            type: 'team_invite',
+            content: `Invited you to form a team for "${challenge.title}"`,
+            relatedId: challenge._id
+        });
+
+        res.json({ success: true, message: 'Invitation sent' });
+    } catch (error) {
+        console.error('Error sending invite:', error);
+        res.status(500).json({ success: false, message: 'Server Error' });
+    }
+};
+
 module.exports = {
     getChallenges,
     getChallengeById,
@@ -269,5 +335,6 @@ module.exports = {
     joinChallenge,
     addComment,
     updateChallenge,
-    deleteChallenge
+    deleteChallenge,
+    sendTeamInvite
 };

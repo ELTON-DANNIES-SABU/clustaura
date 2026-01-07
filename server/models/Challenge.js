@@ -42,6 +42,10 @@ const challengeSchema = new mongoose.Schema({
             type: String,
             required: true
         },
+        allowContact: {
+            type: Boolean,
+            default: false
+        },
         createdAt: {
             type: Date,
             default: Date.now
@@ -55,6 +59,14 @@ const challengeSchema = new mongoose.Schema({
         type: Number,
         default: 0
     },
+    contactEnabled: {
+        type: Boolean,
+        default: true
+    },
+    teamIds: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Team' // Assuming Team model exists or will exist
+    }],
     createdAt: {
         type: Date,
         default: Date.now

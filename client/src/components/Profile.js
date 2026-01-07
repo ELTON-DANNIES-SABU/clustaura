@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import NotificationBell from './NotificationBell';
+import StarBadge from './StarBadge';
 import '../styles.css';
 
 const Profile = () => {
@@ -21,6 +22,7 @@ const Profile = () => {
         github: '',
         twitter: ''
     });
+    const [creditStats, setCreditStats] = useState(null);
     const [newSkill, setNewSkill] = useState('');
     const navigate = useNavigate();
 
@@ -39,7 +41,13 @@ const Profile = () => {
                         }
                     };
 
-                    const { data } = await axios.get('http://localhost:5000/api/profile/me', config);
+                    const [profileRes, creditRes] = await Promise.all([
+                        axios.get('http://localhost:5000/api/profile/me', config),
+                        axios.get('http://localhost:5000/api/credits/me', config)
+                    ]);
+
+                    const data = profileRes.data;
+                    setCreditStats(creditRes.data);
 
                     if (data) {
                         setFormData({
@@ -241,6 +249,7 @@ const Profile = () => {
                             <div className="profile-info">
                                 <h2 className="profile-name">
                                     {formData.firstName} {formData.lastName}
+                                    {user?._id && <StarBadge userId={user._id} size="lg" stars={creditStats?.creditStars} tier={creditStats?.starTier} />}
                                 </h2>
                                 <p className="profile-email">{formData.email}</p>
                                 <p className="profile-location">📍 {formData.location}</p>
@@ -251,51 +260,58 @@ const Profile = () => {
                                 </div>
 
                                 <div className="profile-stats">
-                                    <div className="stat-item">
-                                        <span className="stat-value">24</span>
-                                        <span className="stat-label">Challenges</span>
+                                    <div className="stat-item" title="Projects & Updates">
+                                        <span className="stat-value">{creditStats?.creditBreakdown?.projects || 0}</span>
+                                        <span className="stat-label">Project XP</span>
                                     </div>
-                                    <div className="stat-item">
-                                        <span className="stat-value">156</span>
-                                        <span className="stat-label">Solutions</span>
+                                    <div className="stat-item" title="Impact (Likes/Comments)">
+                                        <span className="stat-value">{creditStats?.creditBreakdown?.impact || 0}</span>
+                                        <span className="stat-label">Impact</span>
                                     </div>
-                                    <div className="stat-item">
-                                        <span className="stat-value">42</span>
-                                        <span className="stat-label">Connections</span>
+                                    <div className="stat-item" title="Collaborations & Solutions">
+                                        <span className="stat-value">{creditStats?.creditBreakdown?.collaborations || 0}</span>
+                                        <span className="stat-label">Collab XP</span>
+                                    </div>
+                                    <div className="stat-item" title="Consistency & Loyalty">
+                                        <span className="stat-value">{creditStats?.creditBreakdown?.loyalty || 0}</span>
+                                        <span className="stat-label">Loyalty</span>
                                     </div>
                                 </div>
+                                <div style={{ textAlign: 'center', marginTop: '10px', fontSize: '0.9rem', color: '#00ffaa' }}>
+                                    Total Credits: {creditStats?.credits || 0}
+                                </div>
                             </div>
-                        </div>
 
-                        <div className="skills-card">
-                            <h3>Skills & Expertise</h3>
-                            <div className="skills-list">
-                                {(formData.skills || []).map(skill => (
-                                    <div key={skill} className="skill-item">
-                                        <span>{skill}</span>
-                                        <button
-                                            className="remove-skill-btn"
-                                            onClick={() => handleRemoveSkill(skill)}
-                                        >
-                                            ×
-                                        </button>
-                                    </div>
-                                ))}
-                            </div>
-                            <div className="add-skill-section">
-                                <input
-                                    type="text"
-                                    value={newSkill}
-                                    onChange={(e) => setNewSkill(e.target.value)}
-                                    placeholder="Add a new skill"
-                                    className="skill-input"
-                                />
-                                <button
-                                    className="add-skill-btn"
-                                    onClick={handleAddSkill}
-                                >
-                                    Add
-                                </button>
+                            <div className="skills-card">
+                                <h3>Skills & Expertise</h3>
+                                <div className="skills-list">
+                                    {(formData.skills || []).map(skill => (
+                                        <div key={skill} className="skill-item">
+                                            <span>{skill}</span>
+                                            <button
+                                                className="remove-skill-btn"
+                                                onClick={() => handleRemoveSkill(skill)}
+                                            >
+                                                ×
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                                <div className="add-skill-section">
+                                    <input
+                                        type="text"
+                                        value={newSkill}
+                                        onChange={(e) => setNewSkill(e.target.value)}
+                                        placeholder="Add a new skill"
+                                        className="skill-input"
+                                    />
+                                    <button
+                                        className="add-skill-btn"
+                                        onClick={handleAddSkill}
+                                    >
+                                        Add
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>

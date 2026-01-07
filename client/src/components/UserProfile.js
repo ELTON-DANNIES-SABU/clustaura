@@ -306,6 +306,32 @@ const UserProfile = () => {
                             >
                                 Connect
                             </button>
+                            <button
+                                style={{ ...styles.secondaryBtn, borderColor: '#ffd700', color: '#ffd700' }}
+                                onClick={async () => {
+                                    if (window.confirm(`Endorse ${user.firstName} for their collaboration?`)) {
+                                        try {
+                                            const userStr = localStorage.getItem('user');
+                                            const userData = JSON.parse(userStr);
+                                            await axios.post('http://localhost:5000/api/credits/endorse', {
+                                                collaboratorId: profile.user._id,
+                                                projectId: 'profile_endorsement', // General endorsement
+                                                amount: 10
+                                            }, {
+                                                headers: { Authorization: `Bearer ${userData.token}` }
+                                            });
+                                            alert('Endorsement sent!');
+                                        } catch (e) {
+                                            console.error(e);
+                                            alert('Failed to endorse');
+                                        }
+                                    }
+                                }}
+                                onMouseOver={e => e.currentTarget.style.background = 'rgba(255, 215, 0, 0.1)'}
+                                onMouseOut={e => e.currentTarget.style.background = 'transparent'}
+                            >
+                                ⭐ Endorse
+                            </button>
                         </div>
                     </div>
 
