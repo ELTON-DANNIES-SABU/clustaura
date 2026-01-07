@@ -5,7 +5,7 @@ require('dotenv').config({ path: './server/.env' });
 const testDB = async () => {
     try {
         console.log('Attempting to connect to MongoDB...');
-        const uri = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/clustaura';
+        const uri = process.env.MONGO_URI;
         console.log(`Connection URI: ${uri}`);
 
         await mongoose.connect(uri);

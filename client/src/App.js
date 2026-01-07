@@ -15,6 +15,7 @@ import Friends from './components/Friends';
 import Chat from './components/Chat';
 import Communication from './components/Communication';
 import Community from './components/Community/Community';
+import AIGuide from './components/AIGuide';
 import './styles.css';
 
 // Create a navigation hook component
@@ -36,6 +37,7 @@ function App() {
     return (
         <Router>
             <NavigationHandler />
+            <AIGuide />
             <Routes>
                 <Route path="/" element={<Navigate to="/login" />} />
                 <Route path="/login" element={<Login />} />

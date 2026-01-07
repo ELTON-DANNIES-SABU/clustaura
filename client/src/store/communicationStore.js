@@ -2,9 +2,9 @@ import { create } from 'zustand';
 import axios from 'axios';
 import { io } from 'socket.io-client';
 
-const API_URL = 'http://localhost:5000/api/comm';
-const FRIENDS_API_URL = 'http://localhost:5000/api/friends';
-const SOCKET_URL = 'http://localhost:5000';
+const API_URL = '/api/comm';
+const FRIENDS_API_URL = '/api/friends';
+const SOCKET_URL = '/';
 
 const getAuthHeader = () => {
     const userStr = localStorage.getItem('user');

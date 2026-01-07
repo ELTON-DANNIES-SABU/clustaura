@@ -2,38 +2,29 @@ import React, { useState } from 'react';
 import { ArrowBigUp, ArrowBigDown, MessageSquare, Reply } from 'lucide-react';
 import useCommunityStore from '../../store/communityStore';
 
-const Comment = ({ comment, depth = 0 }) => {
+const Comment = ({ comment, depth = 0, postId }) => {
     const [showReply, setShowReply] = useState(false);
-
-    // Note: Local state used for demo purposes, in real app would use store
-    const [votes, setVotes] = useState(comment.votes || 0);
-    const [userVote, setUserVote] = useState(0);
+    const { voteComment } = useCommunityStore();
 
     const handleVote = (direction) => {
-        if (userVote === direction) {
-            setVotes(votes - direction);
-            setUserVote(0);
-        } else {
-            setVotes(votes + (direction - userVote));
-            setUserVote(direction);
-        }
+        voteComment(postId, comment.id, direction);
     };
 
     return (
         <div className={`flex gap-3 ${depth > 0 ? 'ml-6 mt-4 border-l-2 border-gray-800 pl-4' : 'mt-6'}`}>
             <div className="flex flex-col items-center gap-1">
                 <button
-                    className={`vote-btn up ${userVote === 1 ? 'active' : ''}`}
+                    className={`vote-btn up ${comment.userVote === 1 ? 'active' : ''}`}
                     onClick={() => handleVote(1)}
                 >
-                    <ArrowBigUp size={18} fill={userVote === 1 ? 'currentColor' : 'none'} />
+                    <ArrowBigUp size={18} fill={comment.userVote === 1 ? 'currentColor' : 'none'} />
                 </button>
-                <span className="text-xs font-bold">{votes}</span>
+                <span className="text-xs font-bold">{comment.votes}</span>
                 <button
-                    className={`vote-btn down ${userVote === -1 ? 'active' : ''}`}
+                    className={`vote-btn down ${comment.userVote === -1 ? 'active' : ''}`}
                     onClick={() => handleVote(-1)}
                 >
-                    <ArrowBigDown size={18} fill={userVote === -1 ? 'currentColor' : 'none'} />
+                    <ArrowBigDown size={18} fill={comment.userVote === -1 ? 'currentColor' : 'none'} />
                 </button>
             </div>
 
@@ -47,16 +38,16 @@ const Comment = ({ comment, depth = 0 }) => {
                     {comment.content}
                 </div>
 
-                <div className="flex gap-4 mt-2">
+                <div className="flex gap-4 mt-3">
                     <button
-                        className="flex items-center gap-1 text-xs text-gray-400 hover:text-white transition-colors"
+                        className="flex items-center gap-1.5 text-[10px] uppercase font-bold text-gray-500 hover:text-neon-green transition-all bg-white/5 px-2 py-1 rounded border border-transparent hover:border-neon-green/30"
                         onClick={() => setShowReply(!showReply)}
                     >
-                        <Reply size={14} />
+                        <Reply size={12} />
                         Reply
                     </button>
-                    <button className="text-xs text-gray-400 hover:text-white transition-colors">Share</button>
-                    <button className="text-xs text-gray-400 hover:text-white transition-colors">Report</button>
+                    <button className="text-[10px] uppercase font-bold text-gray-500 hover:text-white transition-all bg-white/5 px-2 py-1 rounded border border-transparent hover:border-white/20">Share</button>
+                    <button className="text-[10px] uppercase font-bold text-gray-500 hover:text-white transition-all bg-white/5 px-2 py-1 rounded border border-transparent hover:border-white/20">Report</button>
                 </div>
 
                 {showReply && (
@@ -88,9 +79,10 @@ const Comment = ({ comment, depth = 0 }) => {
 };
 
 const CommentSection = ({ postId }) => {
-    const { comments, addComment } = useCommunityStore();
+    const { comments, addComment, getLoggedInUser } = useCommunityStore();
     const [newComment, setNewComment] = useState('');
     const postComments = comments[postId] || [];
+    const user = getLoggedInUser();
 
     const handleAddComment = () => {
         if (!newComment.trim()) return;
@@ -101,21 +93,21 @@ const CommentSection = ({ postId }) => {
     return (
         <div className="mt-8 border-t border-gray-800 pt-6">
             <div className="mb-6">
-                <p className="text-xs text-gray-400 mb-2 font-bold tracking-tight">Comment as <span className="text-neon-green">logged_in_user</span></p>
-                <div className="border border-gray-800 rounded-lg overflow-hidden focus-within:border-neon-green transition-all shadow-lg bg-charcoal">
+                <p className="text-xs text-gray-400 mb-2 font-bold tracking-tight">Comment as <span className="text-neon-green">{user?.name || 'User'}</span></p>
+                <div className="border border-gray-800 rounded-lg overflow-hidden focus-within:border-neon-green shadow-[0_0_20px_rgba(0,0,0,0.4)] bg-black/40 transition-all">
                     <textarea
-                        className="w-full bg-transparent p-4 text-sm text-white outline-none min-h-[120px]"
+                        className="w-full bg-transparent p-4 text-sm text-white outline-none min-h-[120px] focus:bg-black/20 transition-all placeholder:text-gray-600"
                         placeholder="What are your thoughts?"
                         value={newComment}
                         onChange={(e) => setNewComment(e.target.value)}
                     />
-                    <div className="bg-black/40 px-4 py-2 flex justify-end">
+                    <div className="bg-white/5 px-4 py-3 flex justify-end border-t border-gray-800/50">
                         <button
-                            className="btn-neon py-2 px-6 text-sm"
+                            className="btn-neon-solid py-2 px-8 text-xs"
                             disabled={!newComment.trim()}
                             onClick={handleAddComment}
                         >
-                            COMMENT
+                            POST COMMENT
                         </button>
                     </div>
                 </div>
@@ -123,7 +115,7 @@ const CommentSection = ({ postId }) => {
 
             <div className="flex flex-col gap-2">
                 {postComments.map(comment => (
-                    <Comment key={comment.id} comment={comment} />
+                    <Comment key={comment.id} comment={comment} postId={postId} />
                 ))}
             </div>
         </div>

@@ -64,9 +64,6 @@ app.use('/api/comm', require('./routes/commRoutes'));
 app.use('/api/community', require('./routes/communityRoutes'));
 app.use('/api/posts', require('./routes/postRoutes'));
 app.use('/api/upload', require('./routes/uploadRoutes'));
-app.use('/api/credits', require('./routes/creditRoutes'));
-app.use('/api/ai', require('./routes/aiRoutes'));
-app.use('/api/teams', require('./routes/teamRoutes'));
 
 // Socket.io connection handling
 io.on('connection', async (socket) => {

@@ -41,13 +41,7 @@ const Profile = () => {
                         }
                     };
 
-                    const [profileRes, creditRes] = await Promise.all([
-                        axios.get('http://localhost:5000/api/profile/me', config),
-                        axios.get('http://localhost:5000/api/credits/me', config)
-                    ]);
-
-                    const data = profileRes.data;
-                    setCreditStats(creditRes.data);
+                    const { data } = await axios.get('http://localhost:5000/api/profile/me', config);
 
                     if (data) {
                         setFormData({
@@ -144,7 +138,7 @@ const Profile = () => {
                 profileImageUrl
             };
 
-            const { data } = await axios.put('http://localhost:5000/api/profile/me', profileData, config);
+            const { data } = await axios.put('/api/profile/me', profileData, config);
 
             if (data.user) {
                 const updatedUser = { ...userData, ...data.user };

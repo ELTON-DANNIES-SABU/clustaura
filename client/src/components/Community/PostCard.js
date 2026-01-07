@@ -1,13 +1,29 @@
-import React from 'react';
-import { ArrowBigUp, ArrowBigDown, MessageSquare, Share2, Lightbulb } from 'lucide-react';
+import React, { useState } from 'react';
+import { ArrowBigUp, ArrowBigDown, MessageSquare, Share2, Lightbulb, Pencil, Trash2 } from 'lucide-react';
 import useCommunityStore from '../../store/communityStore';
+import EditPostModal from './EditPostModal';
 
 const PostCard = ({ post }) => {
-    const { vote } = useCommunityStore();
+    const { vote, deletePost, getLoggedInUser } = useCommunityStore();
+    const currentUser = getLoggedInUser();
+    const isAuthor = currentUser?.id === post.authorId;
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
     const handleVote = (e, direction) => {
         e.stopPropagation();
         vote(post.id, direction);
+    };
+
+    const handleDelete = async (e) => {
+        e.stopPropagation();
+        if (window.confirm('Are you sure you want to delete this post?')) {
+            await deletePost(post.id);
+        }
+    };
+
+    const handleEdit = (e) => {
+        e.stopPropagation();
+        setIsEditModalOpen(true);
     };
 
     return (
@@ -67,21 +83,50 @@ const PostCard = ({ post }) => {
                 </p>
 
                 <div className="flex items-center gap-4 text-gray-400 text-xs font-bold mt-4 pt-3 border-t border-white/5">
-                    <button className="flex items-center gap-2 hover:bg-white/5 px-2 py-1.5 rounded transition-colors text-white hover:text-neon-green">
-                        <Lightbulb size={16} className="text-neon-green" />
+                    <button className="btn-neon flex items-center gap-2">
+                        <Lightbulb size={16} />
                         <span>Suggest Solution</span>
                     </button>
 
-                    <div className="flex items-center gap-1 hover:bg-white/5 px-2 py-1.5 rounded transition-colors">
+                    <div className="flex items-center gap-1 hover:bg-white/5 px-2 py-1.5 rounded border border-transparent hover:border-white/10 transition-colors">
                         <MessageSquare size={16} />
                         <span>{post.commentCount} Comments</span>
                     </div>
-                    <div className="flex items-center gap-1 hover:bg-white/5 px-2 py-1.5 rounded transition-colors">
+                    {/* <button className="flex items-center gap-1 hover:bg-white/5 px-2 py-1.5 rounded border border-transparent hover:border-white/10 transition-colors">
                         <Share2 size={16} />
                         <span>Share</span>
-                    </div>
+                    </button> */}
+
+                    {isAuthor && (
+                        <div className="flex items-center gap-2 ml-auto">
+                            <button
+                                onClick={handleEdit}
+                                className="p-2 rounded bg-transparent border-none text-gray-500 hover:text-neon-green hover:bg-neon-green/10 transition-all"
+                                title="Edit Post"
+                                style={{ background: 'none', border: 'none' }}
+                            >
+                                <Pencil size={16} />
+                            </button>
+                            <button
+                                onClick={handleDelete}
+                                className="p-2 rounded bg-transparent border-none text-gray-500 hover:text-red-500 hover:bg-red-500/10 transition-all"
+                                title="Delete Post"
+                                style={{ background: 'none', border: 'none' }}
+                            >
+                                <Trash2 size={16} />
+                            </button>
+                        </div>
+                    )}
                 </div>
             </div>
+
+            {isEditModalOpen && (
+                <EditPostModal
+                    post={post}
+                    isOpen={isEditModalOpen}
+                    onClose={() => setIsEditModalOpen(false)}
+                />
+            )}
         </div>
     );
 };

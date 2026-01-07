@@ -45,7 +45,7 @@ const CreateIssueModal = ({ isOpen, onClose, project, onIssueCreated, initialTyp
             });
 
             const res = await axios.post(
-                'http://localhost:5000/api/workplace/issues',
+                '/api/workplace/issues',
                 {
                     projectId: project._id,
                     ...formData

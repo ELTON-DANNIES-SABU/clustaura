@@ -46,8 +46,8 @@ const Timeline = () => {
             const config = { headers: { Authorization: `Bearer ${token}` } };
 
             const [projRes, issuesRes] = await Promise.all([
-                axios.get(`http://localhost:5000/api/workplace/projects/${projectId}`, config),
-                axios.get(`http://localhost:5000/api/workplace/projects/${projectId}/issues`, config)
+                axios.get(`/api/workplace/projects/${projectId}`, config),
+                axios.get(`/api/workplace/projects/${projectId}/issues`, config)
             ]);
 
             setProject(projRes.data);
@@ -109,7 +109,7 @@ const Timeline = () => {
         try {
             const userStr = localStorage.getItem('user');
             const { token } = JSON.parse(userStr);
-            await axios.put(`http://localhost:5000/api/workplace/issues/${updatedIssue._id}/status`, // Using status endpoint for general updates? Or need specific update endpoint
+            await axios.put(`/api/workplace/issues/${updatedIssue._id}/status`, // Using status endpoint for general updates? Or need specific update endpoint
                 updatedIssue,
                 { headers: { Authorization: `Bearer ${token}` } }
             );
@@ -121,7 +121,7 @@ const Timeline = () => {
                router.put('/issues/:id/move', protect, moveIssue);
             */
             if (updatedIssue.startDate || updatedIssue.dueDate) {
-                await axios.put(`http://localhost:5000/api/workplace/issues/${updatedIssue._id}/move`,
+                await axios.put(`/api/workplace/issues/${updatedIssue._id}/move`,
                     { startDate: updatedIssue.startDate, dueDate: updatedIssue.dueDate },
                     { headers: { Authorization: `Bearer ${token}` } }
                 );

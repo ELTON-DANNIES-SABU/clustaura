@@ -50,7 +50,7 @@ const ChallengeDetail = () => {
                 }
             };
 
-            const { data } = await axios.get(`http://localhost:5000/api/challenges/${id}`, config);
+            const { data } = await axios.get(`/api/challenges/${id}`, config);
             setChallenge(data);
             setLoading(false);
         } catch (error) {
@@ -68,7 +68,7 @@ const ChallengeDetail = () => {
                 headers: { Authorization: `Bearer ${token}` }
             };
 
-            await axios.put(`http://localhost:5000/api/challenges/${id}/vote`, {}, config);
+            await axios.put(`/api/challenges/${id}/vote`, {}, config);
             fetchChallengeDetail(); // Refresh to see updated vote count
         } catch (error) {
             console.error('Error voting:', error);
@@ -84,7 +84,7 @@ const ChallengeDetail = () => {
                 headers: { Authorization: `Bearer ${token}` }
             };
 
-            await axios.put(`http://localhost:5000/api/challenges/${id}/join`, {}, config);
+            await axios.put(`/api/challenges/${id}/join`, {}, config);
             alert('You have successfully joined the challenge!');
             fetchChallengeDetail();
         } catch (error) {
@@ -105,10 +105,7 @@ const ChallengeDetail = () => {
                 headers: { Authorization: `Bearer ${token}` }
             };
 
-            await axios.post(`http://localhost:5000/api/challenges/${id}/comments`, {
-                text: commentInput,
-                allowContact
-            }, config);
+            await axios.post(`http://localhost:5000/api/challenges/${id}/comments`, { text: commentInput }, config);
             setCommentInput('');
             setAllowContact(false);
             fetchChallengeDetail(); // Refresh to show new comment

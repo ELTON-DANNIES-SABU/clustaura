@@ -18,7 +18,7 @@ const Workplace = () => {
             const userStr = localStorage.getItem('user');
             if (!userStr) return;
             const { token } = JSON.parse(userStr);
-            const { data } = await axios.get('http://localhost:5000/api/workplace/projects', {
+            const { data } = await axios.get('/api/workplace/projects', {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setProjects(data);
@@ -32,7 +32,7 @@ const Workplace = () => {
         try {
             const userStr = localStorage.getItem('user');
             const { token } = JSON.parse(userStr);
-            await axios.post('http://localhost:5000/api/workplace/projects', newProject, {
+            await axios.post('/api/workplace/projects', newProject, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setShowCreateModal(false);

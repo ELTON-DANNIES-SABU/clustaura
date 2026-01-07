@@ -1,7 +1,11 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { TrendingUp, Filter, Flame, MessageCircle } from 'lucide-react';
+import useCommunityStore from '../../store/communityStore';
 
 const CommunityRightSidebar = () => {
+    const navigate = useNavigate();
+    const { posts } = useCommunityStore();
     return (
         <div className="flex flex-col gap-6">
 
@@ -12,18 +16,14 @@ const CommunityRightSidebar = () => {
                     <h3 className="font-bold uppercase tracking-widest text-sm">Top Challenges Today</h3>
                 </div>
                 <div className="flex flex-col gap-4">
-                    {[
-                        { title: "Optimizing React Re-renders in Dashboard", votes: 42, comments: 12 },
-                        { title: "Best architecture for Micro-frontends?", votes: 38, comments: 25 },
-                        { title: "Dealing with Imposter Syndrome as a Senior", votes: 156, comments: 89 }
-                    ].map((item, i) => (
-                        <div key={i} className="group cursor-pointer">
+                    {posts.slice(0, 3).sort((a, b) => b.votes - a.votes).map((item) => (
+                        <div key={item.id} className="group cursor-pointer" onClick={() => navigate(`/community/post/${item.id}`)}>
                             <h4 className="text-sm font-semibold text-gray-200 group-hover:text-neon-green transition-colors mb-1">
                                 {item.title}
                             </h4>
                             <div className="flex gap-3 text-xs text-gray-500">
                                 <span>{item.votes} upvotes</span>
-                                <span>{item.comments} comments</span>
+                                <span>{item.commentCount} comments</span>
                             </div>
                         </div>
                     ))}
@@ -31,7 +31,7 @@ const CommunityRightSidebar = () => {
             </div>
 
             {/* Filters */}
-            <div className="community-sidebar-card">
+            {/* <div className="community-sidebar-card">
                 <div className="flex items-center gap-2 mb-4 text-white border-b border-white/10 pb-2">
                     <Filter size={18} />
                     <h3 className="font-bold uppercase tracking-widest text-sm">Filter Feed</h3>
@@ -46,10 +46,13 @@ const CommunityRightSidebar = () => {
                         </span>
                     ))}
                 </div>
-            </div>
+            </div> */}
 
             {/* Create Button (Desktop) */}
-            <button className="w-full bg-neon-green text-black font-bold py-3 rounded uppercase tracking-widest hover:shadow-[0_0_20px_rgba(0,255,156,0.4)] transition-all">
+            <button
+                onClick={() => navigate('/community/create')}
+                className="btn-neon-solid w-full"
+            >
                 + Create Challenge
             </button>
 
