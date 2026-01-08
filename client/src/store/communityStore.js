@@ -33,7 +33,7 @@ const useCommunityStore = create((set, get) => ({
     fetchCommunities: async () => {
         set({ loading: true });
         try {
-            const { data } = await api.get('/communities');
+            const { data } = await api.get('/communities', { headers: getAuthHeader() });
             set({ communities: data, loading: false });
         } catch (error) {
             set({ error: error.message, loading: false });
@@ -55,7 +55,7 @@ const useCommunityStore = create((set, get) => ({
             if (search) params.append('search', search);
             if (params.toString()) url += `?${params.toString()}`;
 
-            const { data } = await api.get(url);
+            const { data } = await api.get(url, { headers: getAuthHeader() });
             // Format posts for the UI
             const formattedPosts = data.map(post => ({
                 id: post._id,
@@ -134,7 +134,7 @@ const useCommunityStore = create((set, get) => ({
 
     fetchComments: async (postId) => {
         try {
-            const { data } = await api.get(`/posts/${postId}/comments`);
+            const { data } = await api.get(`/posts/${postId}/comments`, { headers: getAuthHeader() });
             set((state) => ({
                 comments: {
                     ...state.comments,

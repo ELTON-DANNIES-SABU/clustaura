@@ -23,13 +23,14 @@ const getChallenges = async (req, res) => {
 // @access  Private
 const createChallenge = async (req, res) => {
     try {
-        const { title, description, tags, difficulty } = req.body;
+        const { title, description, tags, difficulty, type } = req.body;
 
         const challenge = new Challenge({
             title,
             description,
             tags,
             difficulty,
+            type,
             author: req.user._id
         });
 
@@ -221,7 +222,7 @@ const addComment = async (req, res) => {
 // @access  Private
 const updateChallenge = async (req, res) => {
     try {
-        const { title, description, tags, difficulty } = req.body;
+        const { title, description, tags, difficulty, type } = req.body;
         let challenge = await Challenge.findById(req.params.id);
 
         if (!challenge) {
@@ -235,7 +236,7 @@ const updateChallenge = async (req, res) => {
 
         challenge = await Challenge.findByIdAndUpdate(
             req.params.id,
-            { title, description, tags, difficulty },
+            { title, description, tags, difficulty, type },
             { new: true, runValidators: true }
         ).populate('author', 'firstName lastName email');
 

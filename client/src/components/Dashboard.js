@@ -277,25 +277,49 @@ const Dashboard = () => {
     };
 
     // Post modal handler
-    const handlePostModalSubmit = (postData) => {
-        console.log('Post submitted:', postData);
+    const handlePostModalSubmit = async (postData) => {
+        try {
+            const userStr = localStorage.getItem('user');
+            const userData = JSON.parse(userStr);
+            const token = userData.token;
 
-        // Save post to localStorage
-        const savedPosts = JSON.parse(localStorage.getItem('userPosts') || '[]');
-        savedPosts.push(postData);
-        localStorage.setItem('userPosts', JSON.stringify(savedPosts));
+            const config = {
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`
+                }
+            };
 
-        showNotification('Post published successfully!');
+            const payload = {
+                title: postData.title,
+                description: postData.content,
+                tags: postData.tags,
+                type: postData.type, // Sending type if backend supports it
+                difficulty: 'Intermediate'
+            };
 
-        // Add notification
-        const newNotification = {
-            id: Date.now(),
-            title: "Post Published",
-            message: `Your ${postData.type} has been posted successfully`,
-            time: "Just now",
-            read: false
-        };
-        addNotification(newNotification);
+            await axios.post('/api/challenges', payload, config);
+
+            showNotification('Post published successfully!');
+
+            // Refresh challenges list
+            const { data } = await axios.get('/api/challenges', config);
+            setRecentChallenges(data.slice(0, 10));
+
+            // Add notification
+            const newNotification = {
+                id: Date.now(),
+                title: "Post Published",
+                message: `Your ${postData.type} has been posted successfully`,
+                time: "Just now",
+                read: false
+            };
+            addNotification(newNotification);
+
+        } catch (error) {
+            console.error('Error posting from modal:', error);
+            showNotification('Failed to publish post');
+        }
     };
 
     // Chat and Notification handlers

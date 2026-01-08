@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import '../../styles.css';
@@ -14,6 +14,10 @@ const Backlog = () => {
     const [showCreateSprint, setShowCreateSprint] = useState(false);
     const [showCreateIssue, setShowCreateIssue] = useState(false);
     const [selectedIssueDetail, setSelectedIssueDetail] = useState(null);
+
+    // Auto-scroll state
+    const scrollContainerRef = useRef(null);
+    const [isDragging, setIsDragging] = useState(false);
 
     // Get today's date in YYYY-MM-DD format for date constraints
     const today = new Date().toISOString().split('T')[0];
@@ -33,6 +37,49 @@ const Backlog = () => {
     useEffect(() => {
         fetchData();
     }, [projectId]);
+
+    // Auto-scroll logic
+    useEffect(() => {
+        if (!isDragging) return;
+
+        let scrollInterval;
+        const scrollSpeed = 10;
+        const scrollZoneHeight = 100; // px from top/bottom
+
+        const handleDragOver = (e) => {
+            e.preventDefault(); // Necessary to allow dropping and for events to fire continuously
+            const container = scrollContainerRef.current;
+            if (!container) return;
+
+            const { top, bottom, height } = container.getBoundingClientRect();
+            const mouseY = e.clientY;
+
+            // Clear previous interval to avoid stacking
+            if (scrollInterval) cancelAnimationFrame(scrollInterval);
+
+            const scroll = () => {
+                if (mouseY < top + scrollZoneHeight) {
+                    // Scroll Up
+                    container.scrollTop -= scrollSpeed;
+                    scrollInterval = requestAnimationFrame(scroll);
+                } else if (mouseY > bottom - scrollZoneHeight) {
+                    // Scroll Down
+                    container.scrollTop += scrollSpeed;
+                    scrollInterval = requestAnimationFrame(scroll);
+                }
+            };
+
+            scroll();
+        };
+
+        // We attach to window to capture drag position globally
+        window.addEventListener('dragover', handleDragOver);
+
+        return () => {
+            window.removeEventListener('dragover', handleDragOver);
+            if (scrollInterval) cancelAnimationFrame(scrollInterval);
+        };
+    }, [isDragging]);
 
     const fetchData = async () => {
         try {
@@ -98,6 +145,11 @@ const Backlog = () => {
 
     const handleDragStart = (e, issueId) => {
         e.dataTransfer.setData('issueId', issueId);
+        setIsDragging(true);
+    };
+
+    const handleDragEnd = () => {
+        setIsDragging(false);
     };
 
     const handleDragOver = (e) => {
@@ -106,6 +158,7 @@ const Backlog = () => {
 
     // Drop on a sprint to move issue there
     const handleDrop = async (e, sprintId) => {
+        setIsDragging(false);
         const issueId = e.dataTransfer.getData('issueId');
         try {
             const userStr = localStorage.getItem('user');
@@ -176,7 +229,7 @@ const Backlog = () => {
                 </div>
             </header>
 
-            <div className="backlog-layout" style={{ display: 'flex', flexDirection: 'column', width: '100%', flex: 1, overflowY: 'auto', padding: '0 2rem 2rem' }}>
+            <div className="backlog-layout" ref={scrollContainerRef} style={{ display: 'flex', flexDirection: 'column', width: '100%', flex: 1, overflowY: 'auto', padding: '0 2rem 2rem' }}>
                 {/* Sprints Section */}
                 <div className="sprints-section">
                     {sprints.map(sprint => (
@@ -207,6 +260,9 @@ const Backlog = () => {
                                         key={issue._id}
                                         className="sprint-issue-title"
                                         onClick={() => setSelectedIssueDetail(issue)}
+                                        draggable
+                                        onDragStart={e => handleDragStart(e, issue._id)}
+                                        onDragEnd={handleDragEnd}
                                         style={{
                                             padding: '8px 12px',
                                             background: 'rgba(255, 255, 255, 0.05)',
@@ -245,6 +301,7 @@ const Backlog = () => {
                                 className="backlog-issue-row"
                                 draggable
                                 onDragStart={e => handleDragStart(e, issue._id)}
+                                onDragEnd={handleDragEnd}
                                 onClick={() => setSelectedIssueDetail(issue)}
                             >
                                 <div className="issue-row-left">

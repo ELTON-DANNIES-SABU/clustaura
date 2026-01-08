@@ -12,8 +12,8 @@ const Timeline = () => {
     const { projectId } = useParams();
     const navigate = useNavigate();
     const [project, setProject] = useState(null);
-    const [epics, setEpics] = useState([]);
-    const [expandedEpics, setExpandedEpics] = useState({});
+    const [timelineItems, setTimelineItems] = useState([]);
+    const [expandedItems, setExpandedItems] = useState({});
     const [loading, setLoading] = useState(true);
     const [allIssues, setAllIssues] = useState([]); // Store all issues for performance calc
 
@@ -55,18 +55,34 @@ const Timeline = () => {
             const fetchedIssues = issuesRes.data;
             setAllIssues(fetchedIssues);
 
-            // Separate Epics and link children
             const epicList = fetchedIssues.filter(i => i.type === 'epic');
             const otherIssues = fetchedIssues.filter(i => i.type !== 'epic');
 
-            // Attach children to epics (client-side join for now)
+            // 1. Attach children to epics
             const epicsWithChildren = epicList.map(epic => ({
                 ...epic,
                 children: otherIssues.filter(child => child.parent === epic._id || child.parent?._id === epic._id)
             }));
 
-            // Also find orphans if needed, but for now focus on Epics
-            setEpics(epicsWithChildren);
+            // 2. Identify Orphans (Issues with dates but NO parent epic)
+            // Note: If an issue has a parent that is NOT an epic (sub-task?), we might still want to show it if top-level?
+            // Assuming 2 levels: Epic -> [Stories/Tasks/Bugs].
+            // If an issue has no parent, and has dates, it's a top-level timeline item.
+            const orphans = otherIssues.filter(i =>
+                !i.parent && // No parent
+                (i.startDate || i.dueDate) // Has dates
+            );
+
+            // Combine
+            const allItems = [...epicsWithChildren, ...orphans].sort((a, b) => {
+                // Sort by type (Epic first) then date? Or just date?
+                // Let's sort by Start Date
+                const dateA = new Date(a.startDate || 0);
+                const dateB = new Date(b.startDate || 0);
+                return dateA - dateB;
+            });
+
+            setTimelineItems(allItems);
             setLoading(false);
 
         } catch (error) {
@@ -75,10 +91,10 @@ const Timeline = () => {
         }
     };
 
-    const toggleEpic = (epicId) => {
-        setExpandedEpics(prev => ({
+    const toggleItem = (itemId) => {
+        setExpandedItems(prev => ({
             ...prev,
-            [epicId]: !prev[epicId]
+            [itemId]: !prev[itemId]
         }));
     };
 
@@ -93,33 +109,30 @@ const Timeline = () => {
 
     const handleUpdateIssue = async (updatedIssue) => {
         // Optimistic update
-        setEpics(prev => prev.map(e => {
-            if (e._id === updatedIssue._id) return { ...e, ...updatedIssue }; // Update Epic
-            if (e.children) {
-                const childIdx = e.children.findIndex(c => c._id === updatedIssue._id);
+        setTimelineItems(prev => prev.map(item => {
+            if (item._id === updatedIssue._id) return { ...item, ...updatedIssue }; // Update Item itself
+            if (item.children) {
+                const childIdx = item.children.findIndex(c => c._id === updatedIssue._id);
                 if (childIdx > -1) {
-                    const newChildren = [...e.children];
+                    const newChildren = [...item.children];
                     newChildren[childIdx] = { ...newChildren[childIdx], ...updatedIssue };
-                    return { ...e, children: newChildren };
+                    return { ...item, children: newChildren };
                 }
             }
-            return e;
+            return item;
         }));
 
         try {
             const userStr = localStorage.getItem('user');
             const { token } = JSON.parse(userStr);
-            await axios.put(`/api/workplace/issues/${updatedIssue._id}/status`, // Using status endpoint for general updates? Or need specific update endpoint
+
+            // Update status
+            await axios.put(`/api/workplace/issues/${updatedIssue._id}/status`,
                 updatedIssue,
                 { headers: { Authorization: `Bearer ${token}` } }
             );
-            // Note: Depending on backend, might need a generic update endpoint, currently using status endpoint as a proxy if it accepts body data, relying on previous knowledge or assumption.
-            // If moveIssue endpoint exists, use that for dates. 
-            // Let's assume we might need to implement a generic update logic or extend existing routes.
-            // CHECK: workplaceRoutes has `moveIssue`.
-            /* 
-               router.put('/issues/:id/move', protect, moveIssue);
-            */
+
+            // Update dates if changed
             if (updatedIssue.startDate || updatedIssue.dueDate) {
                 await axios.put(`/api/workplace/issues/${updatedIssue._id}/move`,
                     { startDate: updatedIssue.startDate, dueDate: updatedIssue.dueDate },
@@ -191,61 +204,73 @@ const Timeline = () => {
 
                     {/* Sidebar Content */}
                     <div className="timeline-sidebar-content">
-                        {epics.map(epic => (
-                            <React.Fragment key={epic._id}>
+                        {timelineItems.map(item => (
+                            <React.Fragment key={item._id}>
                                 <div
-                                    className={`epic-row-sidebar ${expandedEpics[epic._id] ? 'expanded' : ''}`}
-                                    onClick={() => toggleEpic(epic._id)}
-                                    style={{ display: 'flex', height: '40px', borderBottom: '1px solid rgba(255,255,255,0.05)', alignItems: 'center', background: expandedEpics[epic._id] ? 'rgba(255,255,255,0.02)' : 'transparent' }}
+                                    className={`epic-row-sidebar ${expandedItems[item._id] ? 'expanded' : ''}`}
+                                    onClick={() => toggleItem(item._id)}
+                                    style={{ display: 'flex', height: '40px', borderBottom: '1px solid rgba(255,255,255,0.05)', alignItems: 'center', background: expandedItems[item._id] ? 'rgba(255,255,255,0.02)' : 'transparent' }}
                                 >
                                     {/* Issue Column */}
                                     <div style={{ flex: 2, display: 'flex', alignItems: 'center', padding: '0 1rem', overflow: 'hidden', borderRight: '1px solid rgba(255,255,255,0.05)', height: '100%' }}>
-                                        <button className="epic-toggle-btn" style={{ background: 'none', border: 'none', color: '#888', marginRight: '5px', cursor: 'pointer', display: 'flex' }}>
-                                            {expandedEpics[epic._id] ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                                        </button>
+                                        {item.type === 'epic' ? (
+                                            <button className="epic-toggle-btn" style={{ background: 'none', border: 'none', color: '#888', marginRight: '5px', cursor: 'pointer', display: 'flex' }}>
+                                                {expandedItems[item._id] ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                                            </button>
+                                        ) : (
+                                            <div style={{ width: '19px' }}></div> // Spacer for non-epics
+                                        )}
+
                                         <div className="epic-row-data" style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                            <span style={{ color: '#6c5ce7', background: 'rgba(108, 92, 231, 0.2)', padding: '2px 6px', borderRadius: '4px', fontSize: '0.7rem' }}>EPIC</span>
-                                            <span>{epic.summary}</span>
+                                            {item.type === 'epic' ? (
+                                                <span style={{ color: '#6c5ce7', background: 'rgba(108, 92, 231, 0.2)', padding: '2px 6px', borderRadius: '4px', fontSize: '0.7rem' }}>EPIC</span>
+                                            ) : (
+                                                <span className={`issue-type ${item.type}`} style={{ fontSize: '1rem', color: item.type === 'bug' ? '#e74c3c' : item.type === 'story' ? '#27ae60' : '#3498db', lineHeight: 1 }}>•</span>
+                                            )}
+
+                                            <span>{item.summary}</span>
                                         </div>
                                     </div>
                                     {/* Status Column */}
                                     <div style={{ width: '80px', display: 'flex', justifyContent: 'center', alignItems: 'center', borderRight: '1px solid rgba(255,255,255,0.05)', height: '100%' }}>
-                                        <span style={{ fontSize: '0.65rem', padding: '2px 6px', borderRadius: '2px', background: epic.status === 'Done' ? '#2ecc71' : '#3498db', color: '#fff' }}>
-                                            {epic.status.toUpperCase()}
+                                        <span style={{ fontSize: '0.65rem', padding: '2px 6px', borderRadius: '2px', background: item.status === 'Done' ? '#2ecc71' : '#3498db', color: '#fff' }}>
+                                            {item.status.toUpperCase()}
                                         </span>
                                     </div>
                                     {/* Assignee Column */}
                                     <div style={{ width: '50px', display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-                                        {epic.assignee && (
+                                        {item.assignee && (
                                             <div
                                                 style={{ width: '24px', height: '24px', borderRadius: '50%', background: '#ff7675', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.6rem', color: '#fff', cursor: 'pointer' }}
                                                 onClick={(e) => {
-                                                    e.stopPropagation(); // Prevent toggling epic
-                                                    setSelectedMember(epic.assignee);
+                                                    e.stopPropagation(); // Prevent toggling item
+                                                    setSelectedMember(item.assignee);
                                                 }}
-                                                title={`View ${epic.assignee.firstName}'s performance`}
+                                                title={`View ${item.assignee.firstName}'s performance`}
                                             >
-                                                {epic.assignee.firstName?.charAt(0)}
+                                                {item.assignee.firstName?.charAt(0)}
                                             </div>
                                         )}
                                     </div>
                                     {/* Actions Column */}
                                     <div style={{ width: '30px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                                        <button
-                                            className="icon-btn"
-                                            title="Add Child Issue"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                openCreateModal('story', epic);
-                                            }}
-                                            style={{ background: 'none', border: 'none', color: '#888', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: 0 }}
-                                        >
-                                            <Plus size={14} />
-                                        </button>
+                                        {item.type === 'epic' && (
+                                            <button
+                                                className="icon-btn"
+                                                title="Add Child Issue"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    openCreateModal('story', item);
+                                                }}
+                                                style={{ background: 'none', border: 'none', color: '#888', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: 0 }}
+                                            >
+                                                <Plus size={14} />
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
 
-                                {expandedEpics[epic._id] && epic.children?.map(child => (
+                                {expandedItems[item._id] && item.children?.map(child => (
                                     <div key={child._id} className="child-row-sidebar" style={{ display: 'flex', height: '36px', borderBottom: '1px solid rgba(255,255,255,0.02)', alignItems: 'center' }}>
                                         {/* Issue Column */}
                                         <div style={{ flex: 2, display: 'flex', alignItems: 'center', paddingLeft: '40px', paddingRight: '1rem', borderRight: '1px solid rgba(255,255,255,0.05)', height: '100%', overflow: 'hidden' }}>
@@ -278,16 +303,16 @@ const Timeline = () => {
                                 ))}
                             </React.Fragment>
                         ))}
-                        {/* Placeholder for no epics */}
-                        {epics.length === 0 && <div style={{ padding: '20px', color: '#666' }}>No Epics found. Create one to get started.</div>}
+                        {/* Placeholder for no items */}
+                        {timelineItems.length === 0 && <div style={{ padding: '20px', color: '#666' }}>No roadmap items found. Create an Epic or set dates on an issue.</div>}
                     </div>
                 </div>
 
                 {/* Right Grid: Gantt Chart */}
                 <div className="timeline-grid-wrapper" ref={gridRef} onScroll={handleScroll} style={{ flex: 1, overflow: 'auto', position: 'relative', display: 'flex', flexDirection: 'column' }}>
                     <TimelineGrid
-                        epics={epics}
-                        expandedEpics={expandedEpics}
+                        epics={timelineItems}
+                        expandedEpics={expandedItems}
                         startDate={startDate}
                         endDate={endDate}
                         onUpdateIssue={handleUpdateIssue}

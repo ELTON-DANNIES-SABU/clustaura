@@ -24,6 +24,11 @@ const challengeSchema = new mongoose.Schema({
         enum: ['Beginner', 'Intermediate', 'Advanced', 'Expert'],
         default: 'Intermediate'
     },
+    type: {
+        type: String,
+        enum: ['problem', 'solution', 'question'],
+        default: 'problem'
+    },
     votes: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User'
