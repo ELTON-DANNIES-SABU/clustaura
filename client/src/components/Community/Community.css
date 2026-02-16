@@ -1,0 +1,243 @@
+/* 
+ * Community Module Styles 
+ * Aesthetic: Node.js "Flat 2.0" Professional Minimalist
+ */
+
+:root {
+    /* Node.js Design Tokens */
+    --node-green: #339933;
+    --node-green-hover: #215732;
+    --node-green-glow: rgba(51, 153, 51, 0.2);
+
+    --pure-black: #000000;
+    --dark-bg: #0a0a0a;
+    --surface-bg: #111111;
+    --surface-hover: #1a1a1a;
+
+    --text-primary: #FFFFFF;
+    --text-secondary: #999999;
+    --text-muted: #666666;
+
+    --border-subtle: #222222;
+    --border-focus: var(--node-green);
+
+    --font-heading: 'Orbitron', -apple-system, sans-serif;
+    /* Kept for subtle accents */
+    --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Base Layout */
+.community-container {
+    background: var(--pure-black);
+    color: var(--text-primary);
+    min-height: 100vh;
+    font-family: var(--font-body);
+}
+
+.community-header {
+    background: var(--dark-bg);
+    border-bottom: 1px solid var(--border-subtle);
+    padding: 1rem 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+/* Logo */
+.community-header .brand-logo {
+    display: flex;
+    align-items: center;
+    user-select: none;
+}
+
+/* Search bar */
+.search-wrapper {
+    flex: 0 1 500px;
+    background: var(--pure-black);
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    padding: 0.5rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    transition: all 0.2s ease;
+}
+
+.search-wrapper:focus-within {
+    border-color: var(--node-green);
+    box-shadow: 0 0 0 2px var(--node-green-glow);
+    background: var(--surface-bg);
+}
+
+.search-wrapper input {
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    color: var(--text-primary) !important;
+    font-size: 0.875rem !important;
+    outline: none !important;
+    width: 100%;
+}
+
+/* Layout columns */
+.community-main {
+    max-width: 1600px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 300px 1fr 340px;
+    gap: 3rem;
+    padding: 2rem;
+}
+
+@media (max-width: 1200px) {
+    .community-main {
+        grid-template-columns: 280px 1fr;
+        gap: 2rem;
+    }
+}
+
+@media (max-width: 900px) {
+    .community-main {
+        grid-template-columns: 1fr;
+        padding: 1rem;
+    }
+}
+
+/* Components Style */
+.surface-panel,
+.community-sidebar-card {
+    background: var(--surface-bg);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+}
+
+.post-card {
+    background: var(--surface-bg);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    padding: 1.5rem;
+    transition: all 0.2s ease;
+}
+
+.post-card:hover {
+    border-color: var(--node-green);
+    background: var(--surface-hover);
+    transform: translateY(-2px);
+}
+
+/* Buttons */
+.btn-primary {
+    background: var(--node-green);
+    border: 1px solid var(--node-green);
+    color: #FFFFFF;
+    padding: 0.7rem 1.5rem;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.btn-primary:hover {
+    background: var(--node-green-hover);
+    border-color: var(--node-green-hover);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Forms */
+.community-container input,
+.community-container textarea,
+.community-container select {
+    width: 100%;
+    background: var(--dark-bg);
+    border: 1px solid var(--border-subtle);
+    border-radius: 6px;
+    padding: 0.75rem 1rem;
+    color: var(--text-primary);
+    font-family: var(--font-body);
+    font-size: 0.9rem;
+    transition: all 0.2s ease;
+    outline: none;
+}
+
+.community-container input:focus,
+.community-container textarea:focus,
+.community-container select:focus {
+    border-color: var(--node-green);
+    box-shadow: 0 0 0 2px var(--node-green-glow);
+    background: var(--surface-bg);
+}
+
+.community-container select {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23339933' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 1rem center;
+}
+
+/* Utilities */
+.text-node-green {
+    color: var(--node-green) !important;
+}
+
+.bg-node-green {
+    background-color: var(--node-green) !important;
+}
+
+.border-subtle {
+    border-color: var(--border-subtle) !important;
+}
+
+/* Voting */
+.vote-btn {
+    opacity: 0.6;
+    transition: all 0.2s ease;
+}
+
+.vote-btn:hover {
+    opacity: 1;
+    transform: scale(1.1);
+}
+
+.vote-btn.active {
+    opacity: 1;
+}
+
+/* Animations */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.post-feed>div {
+    animation: fadeIn 0.4s ease-out backwards;
+}
+
+.post-feed>div:nth-child(1) {
+    animation-delay: 0.05s;
+}
+
+.post-feed>div:nth-child(2) {
+    animation-delay: 0.1s;
+}
+
+.post-feed>div:nth-child(3) {
+    animation-delay: 0.15s;
+}

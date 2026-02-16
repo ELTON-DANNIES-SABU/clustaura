@@ -1,0 +1,239 @@
+/* Board Container */
+.board-wrapper {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+}
+
+.kanban-board-area {
+    display: flex;
+    flex: 1;
+    gap: 1.5rem;
+    overflow-x: auto;
+    padding-bottom: 1rem;
+    align-items: flex-start;
+    /* Align columns to top */
+    height: 100%;
+}
+
+/* Column Styles */
+.board-column {
+    background: rgba(20, 20, 30, 0.6);
+    border-radius: 12px;
+    width: 320px;
+    min-width: 320px;
+    display: flex;
+    flex-direction: column;
+    max-height: 100%;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(10px);
+    transition: all 0.3s ease;
+}
+
+.board-column.drag-over {
+    background: rgba(40, 40, 60, 0.8);
+    box-shadow: 0 0 15px rgba(0, 243, 255, 0.1);
+    border-color: rgba(0, 243, 255, 0.2);
+}
+
+.column-header {
+    padding: 1rem 1rem 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    margin-bottom: 0.5rem;
+}
+
+.column-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: #a0a0b0;
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.issue-count-badge {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    font-size: 0.75rem;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 500;
+}
+
+.column-content {
+    padding: 0.5rem 0.8rem 1rem;
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+    min-height: 100px;
+    /* Drop target area */
+}
+
+/* Scrollbar within column */
+.column-content::-webkit-scrollbar {
+    width: 6px;
+}
+
+.column-content::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.column-content::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+}
+
+.column-content::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+/* Issue Card Styles */
+.issue-card-dnd {
+    background: #1e1e2d;
+    /* Dark card background */
+    border-radius: 8px;
+    padding: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+    cursor: grab;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.issue-card-dnd:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 12px rgba(0, 0, 0, 0.3);
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+.issue-card-dnd.dragging {
+    opacity: 0.5;
+    box-shadow: 0 0 0 1px #00f3ff;
+    cursor: grabbing;
+}
+
+/* Drag overlay style (the item being dragged) */
+.issue-card-overlay {
+    background: #252535;
+    border-radius: 8px;
+    padding: 12px;
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.5), 0 0 0 1px #00f3ff;
+    cursor: grabbing;
+    z-index: 9999;
+    transform: scale(1.05);
+}
+
+.card-content {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.card-title {
+    font-size: 0.95rem;
+    color: #e0e0e0;
+    line-height: 1.4;
+    margin: 0;
+    font-weight: 500;
+    word-wrap: break-word;
+}
+
+.card-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 4px;
+}
+
+.card-left-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.issue-type-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+}
+
+.issue-key {
+    font-size: 0.75rem;
+    color: #888;
+    font-weight: 500;
+}
+
+.priority-indicator {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+}
+
+.card-right-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.assignee-avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #333;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    font-weight: 600;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.comment-count {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 0.7rem;
+    color: #666;
+}
+
+/* Task Types Colors */
+.type-bug {
+    color: #ff4757;
+}
+
+.type-story {
+    color: #2ed573;
+}
+
+.type-task {
+    color: #3742fa;
+}
+
+/* Cyberpunk Accents */
+.issue-card-dnd::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 3px;
+    height: 100%;
+    background: transparent;
+    transition: background 0.2s ease;
+}
+
+.issue-card-dnd:hover::before {
+    background: var(--card-accent-color, #00f3ff);
+}

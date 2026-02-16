@@ -1,0 +1,793 @@
+/* InteractiveRobot.css - Cyberpunk Edition */
+
+/* Main Container */
+.cyber-robot-container {
+    position: relative;
+    width: 100px;
+    height: 100px;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    filter: drop-shadow(0 0 10px rgba(0, 255, 163, 0.3));
+}
+
+.cyber-robot-container:hover {
+    transform: scale(1.15) translateY(-5px);
+    filter: drop-shadow(0 0 20px rgba(0, 255, 163, 0.6));
+}
+
+.cyber-robot-container.active {
+    animation: activate-pulse 0.5s ease-out;
+}
+
+@keyframes activate-pulse {
+    0% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.2);
+    }
+
+    100% {
+        transform: scale(1.15);
+    }
+}
+
+/* Hologram Canvas */
+.hologram-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0.3;
+    z-index: 1;
+    pointer-events: none;
+}
+
+/* Robot Core */
+.cyber-robot-core {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    z-index: 2;
+}
+
+/* Body - Hexagonal Design */
+.cyber-body {
+    position: absolute;
+    top: 25%;
+    left: 20%;
+    width: 60%;
+    height: 50%;
+    perspective: 500px;
+}
+
+.body-hexagon {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    transform-style: preserve-3d;
+    transform: rotateX(20deg) rotateY(10deg);
+    transition: transform 0.5s ease;
+}
+
+.cyber-robot-container:hover .body-hexagon {
+    transform: rotateX(15deg) rotateY(15deg) rotateZ(5deg);
+}
+
+.hexagon-face {
+    position: absolute;
+    background: linear-gradient(145deg, #1a1a1a, #0a0a0a);
+    border: 1px solid rgba(0, 255, 163, 0.3);
+}
+
+.hexagon-face.front {
+    width: 100%;
+    height: 100%;
+    transform: translateZ(15px);
+    clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+}
+
+.hexagon-face.top {
+    width: 100%;
+    height: 100%;
+    transform: rotateX(90deg) translateZ(15px);
+    clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+}
+
+/* Panel Lines */
+.panel-line {
+    position: absolute;
+    background: linear-gradient(90deg, transparent, #00ffa3, transparent);
+    z-index: 2;
+}
+
+.panel-line.horizontal {
+    width: 80%;
+    height: 1px;
+    top: 50%;
+    left: 10%;
+    animation: scan-horizontal 3s infinite linear;
+}
+
+.panel-line.vertical {
+    width: 1px;
+    height: 80%;
+    left: 50%;
+    top: 10%;
+    animation: scan-vertical 4s infinite linear;
+}
+
+@keyframes scan-horizontal {
+    0% {
+        background: linear-gradient(90deg, transparent, #00ffa3, transparent);
+    }
+
+    50% {
+        background: linear-gradient(90deg, transparent, #00ffa3, #00ffa3, transparent);
+    }
+
+    100% {
+        background: linear-gradient(90deg, transparent, #00ffa3, transparent);
+    }
+}
+
+@keyframes scan-vertical {
+    0% {
+        background: linear-gradient(0deg, transparent, #00ffa3, transparent);
+    }
+
+    50% {
+        background: linear-gradient(0deg, transparent, #00ffa3, #00ffa3, transparent);
+    }
+
+    100% {
+        background: linear-gradient(0deg, transparent, #00ffa3, transparent);
+    }
+}
+
+/* Status Lights */
+.status-light {
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #00ffa3;
+    box-shadow: 0 0 8px #00ffa3;
+    animation: status-pulse 2s infinite;
+}
+
+@keyframes status-pulse {
+
+    0%,
+    100% {
+        opacity: 0.3;
+    }
+
+    50% {
+        opacity: 1;
+    }
+}
+
+.status-light.power {
+    top: 15%;
+    left: 15%;
+}
+
+.status-light.network {
+    top: 15%;
+    right: 15%;
+}
+
+.status-light.ai {
+    bottom: 15%;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+/* Circuit Pattern */
+.circuit-pattern {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+.circuit-line {
+    position: absolute;
+    background: rgba(0, 255, 163, 0.1);
+    border: 1px solid rgba(0, 255, 163, 0.3);
+}
+
+.circuit-line.line1 {
+    width: 60%;
+    height: 2px;
+    top: 30%;
+    left: 20%;
+}
+
+.circuit-line.line2 {
+    width: 2px;
+    height: 60%;
+    left: 50%;
+    top: 20%;
+    transform: translateX(-50%);
+}
+
+.circuit-node {
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: #00ffa3;
+    box-shadow: 0 0 6px #00ffa3;
+}
+
+.circuit-node.node1 {
+    top: 30%;
+    left: 20%;
+}
+
+.circuit-node.node2 {
+    top: 30%;
+    right: 20%;
+}
+
+.circuit-node.node3 {
+    bottom: 30%;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+/* Head with HUD */
+.cyber-head {
+    position: absolute;
+    top: 10%;
+    left: 30%;
+    width: 40%;
+    height: 25%;
+    z-index: 3;
+}
+
+.hud-display {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 20, 15, 0.8);
+    border: 1px solid rgba(0, 255, 163, 0.4);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.hud-grid {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background:
+        repeating-linear-gradient(90deg,
+            transparent,
+            transparent 19px,
+            rgba(0, 255, 163, 0.05) 20px),
+        repeating-linear-gradient(0deg,
+            transparent,
+            transparent 19px,
+            rgba(0, 255, 163, 0.05) 20px);
+}
+
+/* Cyber Eyes */
+.cyber-eyes {
+    position: absolute;
+    top: 20%;
+    width: 100%;
+    display: flex;
+    justify-content: space-around;
+}
+
+.cyber-eye {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 1px solid #00ffa3;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.cyber-robot-container:hover .cyber-eye {
+    width: 18px;
+    height: 18px;
+}
+
+.eye-inner {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: radial-gradient(circle at 30% 30%, #00ffa3, transparent 70%);
+}
+
+.eye-pupil {
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    background: #000;
+    border-radius: 50%;
+    top: 30%;
+    left: 30%;
+}
+
+.eye-lens-flare {
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    background: white;
+    border-radius: 50%;
+    top: 20%;
+    right: 20%;
+    opacity: 0.7;
+}
+
+.scan-beam {
+    position: absolute;
+    width: 1px;
+    height: 20px;
+    background: linear-gradient(to bottom, transparent, #00ffa3, transparent);
+    top: 100%;
+    left: 50%;
+    animation: scan 1.5s infinite;
+    transform-origin: top;
+}
+
+@keyframes scan {
+    0% {
+        transform: rotate(0deg);
+        height: 20px;
+    }
+
+    50% {
+        transform: rotate(180deg);
+        height: 30px;
+    }
+
+    100% {
+        transform: rotate(360deg);
+        height: 20px;
+    }
+}
+
+/* HUD Text */
+.hud-text {
+    position: absolute;
+    bottom: 10%;
+    width: 100%;
+    text-align: center;
+    font-family: 'Courier New', monospace;
+}
+
+.hud-line {
+    font-size: 6px;
+    color: #00ffa3;
+    text-shadow: 0 0 3px #00ffa3;
+    margin: 1px 0;
+    letter-spacing: 1px;
+}
+
+.hud-line.line-1 {
+    animation: text-flicker 3s infinite;
+}
+
+.hud-line.line-2 {
+    animation: text-flicker 3s infinite 0.5s;
+}
+
+.hud-line.line-3 {
+    animation: text-flicker 3s infinite 1s;
+}
+
+@keyframes text-flicker {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.7;
+    }
+}
+
+/* Antenna with Data Stream */
+.cyber-antenna {
+    position: absolute;
+    top: 5%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 4px;
+    height: 20%;
+    z-index: 4;
+}
+
+.antenna-base {
+    position: absolute;
+    bottom: 0;
+    width: 8px;
+    height: 8px;
+    background: #1a1a1a;
+    border: 1px solid #00ffa3;
+    border-radius: 2px;
+}
+
+.antenna-rod {
+    position: absolute;
+    bottom: 8px;
+    width: 2px;
+    height: calc(100% - 8px);
+    background: linear-gradient(to top, #1a1a1a, #00ffa3);
+}
+
+.data-stream {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+}
+
+.data-bit {
+    position: absolute;
+    width: 3px;
+    height: 3px;
+    background: #00ffa3;
+    border-radius: 50%;
+    bottom: 0;
+    animation: data-flow 2s infinite linear;
+    box-shadow: 0 0 4px #00ffa3;
+}
+
+@keyframes data-flow {
+    0% {
+        bottom: 0;
+        opacity: 0;
+    }
+
+    10% {
+        opacity: 1;
+    }
+
+    90% {
+        opacity: 1;
+    }
+
+    100% {
+        bottom: 100%;
+        opacity: 0;
+    }
+}
+
+.antenna-tip {
+    position: absolute;
+    top: 0;
+    width: 6px;
+    height: 6px;
+    background: #00ffa3;
+    border-radius: 50%;
+    box-shadow: 0 0 10px #00ffa3;
+}
+
+/* Arms */
+.cyber-arms {
+    position: absolute;
+    top: 40%;
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    z-index: 1;
+}
+
+.cyber-arm {
+    display: flex;
+    align-items: center;
+}
+
+.cyber-arm.left {
+    flex-direction: row;
+    margin-left: -15px;
+}
+
+.cyber-arm.right {
+    flex-direction: row-reverse;
+    margin-right: -15px;
+}
+
+.arm-joint {
+    width: 8px;
+    height: 8px;
+    background: #1a1a1a;
+    border: 1px solid #00ffa3;
+    border-radius: 50%;
+}
+
+.arm-segment {
+    width: 20px;
+    height: 3px;
+    background: linear-gradient(90deg, #1a1a1a, #00ffa3, #1a1a1a);
+}
+
+.arm-hand {
+    width: 10px;
+    height: 6px;
+    background: #1a1a1a;
+    border: 1px solid #00ffa3;
+    border-radius: 2px;
+    position: relative;
+}
+
+.hand-finger {
+    position: absolute;
+    width: 2px;
+    height: 4px;
+    background: #00ffa3;
+    border-radius: 1px;
+}
+
+.hand-finger.f1 {
+    left: 1px;
+    top: -4px;
+}
+
+.hand-finger.f2 {
+    left: 4px;
+    top: -4px;
+}
+
+.hand-finger.f3 {
+    left: 7px;
+    top: -4px;
+}
+
+.cyber-robot-container:hover .cyber-arm.left {
+    animation: arm-wave-left 2s infinite alternate;
+}
+
+.cyber-robot-container:hover .cyber-arm.right {
+    animation: arm-wave-right 2s infinite alternate 0.5s;
+}
+
+@keyframes arm-wave-left {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(-15deg);
+    }
+}
+
+@keyframes arm-wave-right {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(15deg);
+    }
+}
+
+/* Base/Thrusters */
+.cyber-base {
+    position: absolute;
+    bottom: 5%;
+    left: 25%;
+    width: 50%;
+    height: 10%;
+    display: flex;
+    justify-content: space-around;
+    z-index: 1;
+}
+
+.thruster {
+    width: 8px;
+    height: 8px;
+    background: #1a1a1a;
+    border: 1px solid #00ffa3;
+    border-radius: 50%;
+    position: relative;
+}
+
+.thruster-glow {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: radial-gradient(circle, #00ffa3, transparent 70%);
+    animation: thruster-pulse 1.5s infinite alternate;
+}
+
+@keyframes thruster-pulse {
+    0% {
+        opacity: 0.3;
+        transform: scale(1);
+    }
+
+    100% {
+        opacity: 0.8;
+        transform: scale(1.2);
+    }
+}
+
+/* Interface Panels */
+.interface-panel {
+    position: absolute;
+    width: 120px;
+    background: rgba(10, 10, 10, 0.95);
+    border: 1px solid rgba(0, 255, 163, 0.4);
+    border-radius: 4px;
+    padding: 8px;
+    font-family: 'Courier New', monospace;
+    z-index: 5;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all 0.3s ease;
+}
+
+.cyber-robot-container:hover .interface-panel {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.left-panel {
+    right: 110%;
+    top: 20%;
+    animation: panel-slide-left 0.5s ease 0.2s forwards;
+}
+
+.right-panel {
+    left: 110%;
+    top: 20%;
+    animation: panel-slide-right 0.5s ease 0.3s forwards;
+}
+
+@keyframes panel-slide-left {
+    from {
+        opacity: 0;
+        transform: translateX(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes panel-slide-right {
+    from {
+        opacity: 0;
+        transform: translateX(-20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.panel-title {
+    color: #00ffa3;
+    font-size: 9px;
+    font-weight: bold;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border-bottom: 1px solid rgba(0, 255, 163, 0.3);
+    padding-bottom: 2px;
+}
+
+.panel-item {
+    color: #00ffa3;
+    font-size: 8px;
+    margin: 3px 0;
+    display: flex;
+    justify-content: space-between;
+}
+
+.panel-item::after {
+    content: '▶';
+    color: rgba(0, 255, 163, 0.5);
+    font-size: 6px;
+}
+
+/* Activation Ring */
+.activation-ring {
+    position: absolute;
+    width: 120%;
+    height: 120%;
+    top: -10%;
+    left: -10%;
+    border: 2px solid transparent;
+    border-radius: 50%;
+    z-index: 0;
+    animation: ring-pulse 3s infinite;
+}
+
+.cyber-robot-container:hover .activation-ring {
+    border-color: rgba(0, 255, 163, 0.3);
+    animation: ring-active 1s infinite;
+}
+
+@keyframes ring-pulse {
+
+    0%,
+    100% {
+        opacity: 0.1;
+    }
+
+    50% {
+        opacity: 0.3;
+    }
+}
+
+@keyframes ring-active {
+    0% {
+        transform: scale(1);
+        opacity: 0.5;
+    }
+
+    50% {
+        transform: scale(1.1);
+        opacity: 0.8;
+    }
+
+    100% {
+        transform: scale(1);
+        opacity: 0.5;
+    }
+}
+
+/* Hologram Text */
+.hologram-text {
+    position: absolute;
+    top: -40px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 20, 15, 0.9);
+    border: 1px solid rgba(0, 255, 163, 0.6);
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-family: 'Courier New', monospace;
+    font-size: 9px;
+    color: #00ffa3;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    white-space: nowrap;
+    z-index: 10;
+    animation: text-float 3s infinite ease-in-out;
+}
+
+@keyframes text-float {
+
+    0%,
+    100% {
+        transform: translateX(-50%) translateY(0);
+    }
+
+    50% {
+        transform: translateX(-50%) translateY(-5px);
+    }
+}
+
+.char {
+    color: #00ffa3;
+    margin-right: 6px;
+    animation: blink 1s infinite;
+}
+
+@keyframes blink {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.5;
+    }
+}

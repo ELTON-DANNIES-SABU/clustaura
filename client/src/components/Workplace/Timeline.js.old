@@ -1,0 +1,177 @@
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate, Link } from 'react-router-dom';
+import axios from 'axios';
+import '../../styles.css';
+import './BoardSidebar.css';
+
+const Timeline = () => {
+    const { projectId } = useParams();
+    const navigate = useNavigate();
+    const [project, setProject] = useState(null);
+    const [issues, setIssues] = useState([]);
+    const [allSprints, setAllSprints] = useState([]);
+    const [selectedSprintId, setSelectedSprintId] = useState('');
+
+    // Simple state for timeline view (months/weeks could be added later)
+    const [zoomLevel, setZoomLevel] = useState('month');
+
+    useEffect(() => {
+        fetchData();
+    }, [projectId, selectedSprintId]);
+
+    const fetchData = async () => {
+        try {
+            const userStr = localStorage.getItem('user');
+            if (!userStr) return;
+            const { token } = JSON.parse(userStr);
+            const config = { headers: { Authorization: `Bearer ${token}` } };
+
+            const [projRes, sprintsRes] = await Promise.all([
+                axios.get(`http://localhost:5000/api/workplace/projects/${projectId}`, config),
+                axios.get(`http://localhost:5000/api/workplace/projects/${projectId}/sprints`, config)
+            ]);
+
+            setProject(projRes.data);
+            setAllSprints(sprintsRes.data);
+
+            // Default selection to active if nothing chosen
+            const active = sprintsRes.data.find(s => s.status === 'active');
+            const sprintToLoad = selectedSprintId || active?._id || (sprintsRes.data[0]?._id);
+            if (!selectedSprintId && sprintToLoad) setSelectedSprintId(sprintToLoad);
+
+            if (sprintToLoad) {
+                const issuesRes = await axios.get(`http://localhost:5000/api/workplace/projects/${projectId}/issues?sprint=${sprintToLoad}`, config);
+                setIssues(issuesRes.data.filter(i => i.startDate || i.dueDate));
+            } else {
+                // If no sprint selected, maybe fetch all issues with dates or none
+                const issuesRes = await axios.get(`http://localhost:5000/api/workplace/projects/${projectId}/issues`, config);
+                setIssues(issuesRes.data.filter(i => i.startDate || i.dueDate));
+            }
+        } catch (error) {
+            console.error('Error fetching timeline data:', error);
+        }
+    };
+
+    // Helper to calculate position and width of bars
+    const calculateBarPosition = (start, end) => {
+        // This is a simplified logic. In a real Gantt lib, this is complex.
+        // We'll calculate offset from "today" or project start.
+        if (!start && !end) return { left: 0, width: 0 };
+
+        const now = new Date();
+        const startDt = start ? new Date(start) : now;
+        const endDt = end ? new Date(end) : new Date(startDt.getTime() + 86400000); // +1 day
+
+        // Base date: First day of current month
+        const baseDate = new Date(now.getFullYear(), now.getMonth(), 1);
+
+        const dayWidth = 30; // px per day
+        const offsetDays = Math.floor((startDt - baseDate) / (1000 * 60 * 60 * 24));
+        const durationDays = Math.max(1, Math.ceil((endDt - startDt) / (1000 * 60 * 60 * 24)));
+
+        return {
+            left: `${Math.max(0, offsetDays * dayWidth)}px`,
+            width: `${durationDays * dayWidth}px`
+        };
+    };
+
+    if (!project) return <div className="loading-spinner">Loading Timeline...</div>;
+
+    // Generate calendar header dates (current month + next 2)
+    const renderCalendarHeader = () => {
+        const days = [];
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const daysToShow = 90; // Show 3 months roughly
+
+        for (let i = 0; i < daysToShow; i++) {
+            const d = new Date(startOfMonth.getTime() + i * 24 * 60 * 60 * 1000);
+            days.push(
+                <div key={i} className="timeline-header-day">
+                    <span className="day-name">{d.getDate()}</span>
+                    <span className="month-name">{i === 0 || d.getDate() === 1 ? d.toLocaleString('default', { month: 'short' }) : ''}</span>
+                </div>
+            );
+        }
+        return days;
+    };
+
+    return (
+        <div className="board-container">
+            <header className="board-header">
+                <div className="board-breadcrumbs">
+                    <span onClick={() => navigate('/workplace')} style={{ cursor: 'pointer' }}>Projects</span>
+                    <span> / </span>
+                    <span className="current-project">{project.key}</span>
+                    <span> / Timeline</span>
+                </div>
+                <div className="board-title-section">
+                    <h1>{project.name} Timeline</h1>
+                    <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
+                        {allSprints.length > 0 && (
+                            <select
+                                className="sprint-selector-dropdown"
+                                value={selectedSprintId}
+                                onChange={(e) => setSelectedSprintId(e.target.value)}
+                                style={{ marginRight: '10px' }}
+                            >
+                                <option value="">All Issues</option>
+                                {allSprints.map(s => (
+                                    <option key={s._id} value={s._id}>
+                                        {s.name} ({s.status.toUpperCase()})
+                                    </option>
+                                ))}
+                            </select>
+                        )}
+                        <Link to={`/workplace/project/${projectId}/backlog`} style={{ color: 'var(--primary-mint)', textDecoration: 'none' }}>
+                            Backlog
+                        </Link>
+                        <Link to={`/workplace/project/${projectId}/board`} style={{ color: 'var(--primary-mint)', textDecoration: 'none' }}>
+                            Board
+                        </Link>
+                    </div>
+                </div>
+            </header>
+
+            <div className="timeline-container">
+                <div className="timeline-sidebar">
+                    <div className="timeline-sidebar-header">Issues</div>
+                    {issues.map(issue => (
+                        <div key={issue._id} className="timeline-issue-row-label">
+                            <span className={`issue-type-icon ${issue.type}`}></span>
+                            {issue.issueKey} - {issue.summary}
+                        </div>
+                    ))}
+                    {issues.length === 0 && <div style={{ padding: '20px', color: '#666' }}>No issues with dates set.</div>}
+                </div>
+
+                <div className="timeline-chart-area">
+                    <div className="timeline-header-row">
+                        {renderCalendarHeader()}
+                    </div>
+                    <div className="timeline-bars-container">
+                        {issues.map(issue => {
+                            const style = calculateBarPosition(issue.startDate, issue.dueDate);
+                            return (
+                                <div key={issue._id} className="timeline-bar-row">
+                                    <div
+                                        className={`timeline-bar ${issue.status.replace(' ', '-').toLowerCase()}`}
+                                        style={{
+                                            left: style.left,
+                                            width: style.width
+                                        }}
+                                        title={`${issue.summary} (${new Date(issue.startDate).toLocaleDateString()} - ${new Date(issue.dueDate).toLocaleDateString()})`}
+                                    >
+                                        <div className="bar-progress"></div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export default Timeline;

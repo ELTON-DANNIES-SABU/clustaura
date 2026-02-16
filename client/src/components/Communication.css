@@ -1,0 +1,644 @@
+/* Cyberpunk MS Teams Theme - Communication Module */
+
+:root {
+    --comm-bg-pure: #0B0F14;
+    --comm-neon-green: #00FF9C;
+    --comm-electric-blue: #00B4FF;
+    --comm-dark-gray: #1F2937;
+    --comm-charcoal: #111827;
+    --comm-text-primary: #FFFFFF;
+    --comm-text-secondary: #D1D5DB;
+    --comm-border: rgba(31, 41, 55, 1);
+    --comm-glass: rgba(0, 0, 0, 0.3);
+    --comm-neon-glow: 0 0 15px rgba(0, 255, 156, 0.3);
+    --comm-hover-glow: 0 0 20px rgba(0, 255, 156, 0.4);
+}
+
+.comm-layout {
+    display: flex;
+    height: 100vh;
+    background-color: var(--comm-bg-pure);
+    color: var(--comm-text-primary);
+    overflow: hidden;
+    font-family: 'Inter', sans-serif;
+}
+
+/* 1. Left Icon Bar */
+.comm-left-bar {
+    width: 64px;
+    background-color: var(--comm-charcoal);
+    border-right: 1px solid var(--comm-border);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 16px 0;
+    gap: 24px;
+}
+
+.comm-logo-box {
+    width: 40px;
+    height: 40px;
+    background-color: var(--comm-neon-green);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 0 15px rgba(0, 255, 156, 0.4);
+    transition: all 0.3s ease;
+}
+
+.comm-logo-box:hover {
+    transform: scale(1.05);
+    box-shadow: var(--comm-hover-glow);
+}
+
+.comm-icon-group {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.comm-icon-btn {
+    padding: 8px;
+    color: #9CA3AF;
+    cursor: pointer;
+    transition: color 0.3s ease;
+}
+
+.comm-icon-btn:hover,
+.comm-icon-btn.active {
+    color: var(--comm-neon-green);
+}
+
+.comm-icon-logout {
+    margin-top: auto;
+    padding: 8px;
+    color: #9CA3AF;
+    cursor: pointer;
+}
+
+.comm-icon-logout:hover {
+    color: #EF4444;
+}
+
+/* 2. Side Navigation (Teams & Channels) */
+.comm-side-nav {
+    width: 260px;
+    background-color: var(--comm-charcoal);
+    border-right: 1px solid var(--comm-border);
+    display: flex;
+    flex-direction: column;
+}
+
+.comm-nav-header {
+    padding: 16px;
+    border-bottom: 1px solid var(--comm-border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.comm-nav-title {
+    font-size: 20px;
+    font-weight: 800;
+    background: linear-gradient(to right, var(--comm-neon-green), var(--comm-electric-blue));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.comm-add-btn {
+    padding: 4px;
+    background: transparent;
+    border: none;
+    color: var(--comm-neon-green);
+    cursor: pointer;
+    border-radius: 6px;
+}
+
+.comm-add-btn:hover {
+    background-color: var(--comm-dark-gray);
+}
+
+.comm-nav-scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px;
+}
+
+.comm-section-label {
+    padding: 0 8px;
+    margin-bottom: 8px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #6B7280;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+.comm-team-block {
+    margin-bottom: 24px;
+}
+
+/* Sidebar Items */
+.comm-side-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    margin-bottom: 4px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    color: #9CA3AF;
+}
+
+.comm-side-item:hover {
+    background-color: var(--comm-dark-gray);
+    color: #FFFFFF;
+}
+
+.comm-side-item.active {
+    background-color: rgba(0, 255, 156, 0.15);
+    color: var(--comm-neon-green);
+    box-shadow: 0 0 10px rgba(0, 255, 156, 0.1);
+}
+
+.comm-item-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.comm-avatar {
+    position: relative;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background-color: var(--comm-dark-gray);
+    border: 1px solid rgba(0, 255, 156, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.comm-status-dot {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: 2px solid var(--comm-bg-pure);
+}
+
+.comm-unread-badge {
+    background-color: var(--comm-neon-green);
+    color: #000;
+    font-size: 10px;
+    font-weight: 800;
+    padding: 2px 6px;
+    border-radius: 10px;
+    animation: comm-pulse 2s infinite;
+}
+
+@keyframes comm-pulse {
+    0% {
+        opacity: 1;
+        transform: scale(1);
+    }
+
+    50% {
+        opacity: 0.7;
+        transform: scale(1.05);
+    }
+
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* User Profile Sidebar */
+.comm-user-presence {
+    padding: 16px;
+    background-color: rgba(11, 15, 20, 0.5);
+    border-top: 1px solid var(--comm-border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.comm-user-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.comm-username {
+    font-size: 14px;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.comm-user-status-text {
+    font-size: 10px;
+    color: #6B7280;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+}
+
+.comm-user-status-text:hover {
+    color: var(--comm-neon-green);
+}
+
+/* 3. Main Chat Area */
+.comm-main-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+}
+
+.comm-chat-header {
+    height: 64px;
+    border-bottom: 1px solid var(--comm-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    background-color: rgba(11, 15, 20, 0.8);
+    backdrop-filter: blur(12px);
+    z-index: 10;
+}
+
+.comm-header-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.comm-header-title {
+    font-size: 18px;
+    font-weight: 700;
+}
+
+.comm-header-subtitle {
+    font-size: 12px;
+    color: rgba(0, 255, 156, 0.6);
+}
+
+.comm-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.comm-action-tool {
+    color: #9CA3AF;
+    cursor: pointer;
+    transition: color 0.3s ease;
+}
+
+.comm-action-tool:hover {
+    color: var(--comm-neon-green);
+}
+
+.comm-v-divider {
+    width: 1px;
+    height: 16px;
+    background-color: var(--comm-border);
+}
+
+/* Messages */
+.comm-messages-container {
+    flex: 1;
+    overflow-y: auto;
+    padding: 32px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.comm-message-row {
+    display: flex;
+    gap: 16px;
+    padding: 8px 16px;
+    margin: 0 -16px;
+    border-radius: 4px;
+    transition: background 0.2s ease;
+}
+
+.comm-message-row:hover {
+    background-color: rgba(17, 24, 39, 0.5);
+}
+
+.comm-msg-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    background-color: var(--comm-dark-gray);
+    border: 1px solid var(--comm-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--comm-neon-green);
+    font-size: 14px;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.comm-msg-body {
+    flex: 1;
+    min-width: 0;
+}
+
+.comm-msg-header {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+.comm-msg-sender {
+    font-weight: 700;
+    color: var(--comm-neon-green);
+    cursor: pointer;
+}
+
+.comm-msg-sender:hover {
+    text-decoration: underline;
+}
+
+.comm-msg-time {
+    font-size: 10px;
+    color: #6B7280;
+}
+
+.comm-msg-content {
+    font-size: 14px;
+    color: #E5E7EB;
+    line-height: 1.6;
+    white-space: pre-wrap;
+}
+
+.comm-reactions {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.comm-reaction-chip {
+    padding: 2px 8px;
+    border-radius: 20px;
+    background-color: var(--comm-dark-gray);
+    border: 1px solid rgba(0, 255, 156, 0.2);
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.comm-reaction-chip:hover {
+    border-color: var(--comm-neon-green);
+}
+
+/* Input Area */
+.comm-input-area {
+    padding: 16px 24px 24px;
+    background-color: var(--comm-bg-pure);
+}
+
+.comm-input-wrapper {
+    background-color: var(--comm-charcoal);
+    border: 1px solid var(--comm-border);
+    border-radius: 12px;
+    overflow: hidden;
+    transition: border-color 0.3s ease;
+}
+
+.comm-input-wrapper:focus-within {
+    border-color: var(--comm-neon-green);
+}
+
+.comm-input-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    border-bottom: 1px solid rgba(31, 41, 55, 0.5);
+}
+
+.comm-tool-btn {
+    padding: 6px;
+    color: #9CA3AF;
+    cursor: pointer;
+}
+
+.comm-tool-btn:hover {
+    color: #FFF;
+}
+
+.comm-text-tool {
+    font-weight: 900;
+    font-style: italic;
+    font-size: 14px;
+    padding: 0 8px;
+    color: var(--comm-neon-green);
+}
+
+.comm-input-main {
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    gap: 12px;
+}
+
+.comm-text-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: #FFF;
+    font-size: 14px;
+}
+
+.comm-send-btn {
+    padding: 8px;
+    background-color: var(--comm-neon-green);
+    border: none;
+    border-radius: 8px;
+    color: #000;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+}
+
+.comm-send-btn:hover:not(:disabled) {
+    box-shadow: 0 0 15px rgba(0, 255, 156, 0.6);
+}
+
+.comm-send-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Call Overlay */
+.comm-call-overlay {
+    position: absolute;
+    inset: 0;
+    background-color: var(--comm-bg-pure);
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+}
+
+.comm-call-header {
+    padding: 16px 24px;
+    background-color: rgba(17, 24, 39, 0.5);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.comm-call-timer {
+    font-family: monospace;
+    background-color: var(--comm-dark-gray);
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+}
+
+.comm-call-grid {
+    flex: 1;
+    padding: 24px;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+}
+
+.comm-participant-tile {
+    background-color: var(--comm-dark-gray);
+    border-radius: 16px;
+    border: 1px solid rgba(0, 255, 156, 0.2);
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.comm-p-avatar-large {
+    width: 96px;
+    height: 96px;
+    border-radius: 50%;
+    background-color: var(--comm-charcoal);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    font-weight: 800;
+    color: var(--comm-neon-green);
+    box-shadow: 0 0 20px rgba(0, 255, 156, 0.2);
+}
+
+.comm-p-label {
+    position: absolute;
+    bottom: 16px;
+    left: 16px;
+    background-color: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(8px);
+    padding: 4px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.comm-call-controls {
+    height: 96px;
+    background-color: rgba(17, 24, 39, 0.8);
+    backdrop-filter: blur(20px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+}
+
+.comm-control-btn {
+    width: 56px;
+    height: 56px;
+    border-radius: 16px;
+    background-color: var(--comm-dark-gray);
+    border: none;
+    color: #FFF;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+}
+
+.comm-control-btn:hover {
+    background-color: #374151;
+}
+
+.comm-control-btn.active {
+    background-color: rgba(239, 68, 68, 0.2);
+    color: #EF4444;
+    border: 1px solid rgba(239, 68, 68, 0.5);
+}
+
+.comm-hangup-btn {
+    background-color: #EF4444;
+    box-shadow: 0 0 20px rgba(239, 68, 68, 0.4);
+}
+
+.comm-hangup-btn:hover {
+    background-color: #DC2626;
+    transform: scale(1.05);
+}
+
+.comm-call-btn {
+    background: transparent;
+    border: none;
+    color: #CBD5E1;
+    padding: 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.comm-call-btn:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: #FFFFFF;
+}
+
+.comm-call-btn.active {
+    background-color: #FFFFFF;
+    color: #000000;
+}
+
+/* Custom Scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: var(--comm-dark-gray);
+    border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: var(--comm-neon-green);
+}

@@ -1,0 +1,154 @@
+.ai-insights-panel {
+    background: #1e1e24;
+    /* Dark/Cyberpunk theme base */
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 20px;
+    color: #e0e0e0;
+    font-family: 'Inter', sans-serif;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.ai-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.ai-header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.risk-badge {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: bold;
+}
+
+.risk-badge.high {
+    background: rgba(255, 77, 77, 0.2);
+    color: #ff4d4d;
+    border: 1px solid #ff4d4d;
+}
+
+.risk-badge.medium {
+    background: rgba(255, 166, 0, 0.2);
+    color: #ffa600;
+    border: 1px solid #ffa600;
+}
+
+.risk-badge.low {
+    background: rgba(76, 175, 80, 0.2);
+    color: #4caf50;
+    border: 1px solid #4caf50;
+}
+
+.ai-narrative {
+    font-style: italic;
+    color: #aaa;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #333;
+}
+
+.ai-section {
+    margin-bottom: 16px;
+}
+
+.ai-section h4 {
+    margin: 0 0 8px 0;
+    font-size: 0.9rem;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.workload-item {
+    margin-bottom: 6px;
+}
+
+.workload-info {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85rem;
+    margin-bottom: 2px;
+}
+
+.progress-bar-bg {
+    background: #333;
+    height: 6px;
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    transition: width 0.3s ease;
+}
+
+.progress-fill.overload {
+    background: #ff4d4d;
+}
+
+.progress-fill.underload {
+    background: #ffa600;
+}
+
+.progress-fill.optimal {
+    background: #4caf50;
+}
+
+.suggestions-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.suggestion-item {
+    background: #2a2a30;
+    padding: 8px 12px;
+    border-radius: 4px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+    font-size: 0.9rem;
+}
+
+.suggestion-text .icon {
+    margin-right: 8px;
+}
+
+.apply-btn-sm {
+    background: #007bff;
+    border: none;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.75rem;
+}
+
+.refresh-insights-btn {
+    width: 100%;
+    background: #333;
+    border: none;
+    color: #ccc;
+    padding: 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.refresh-insights-btn:hover {
+    background: #444;
+    color: #fff;
+}
