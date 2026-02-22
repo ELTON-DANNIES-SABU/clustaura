@@ -4,10 +4,12 @@ import {
     Send, Plus, Search, MoreVertical, Smile, Paperclip,
     Zap, Bell, LogOut, ChevronDown, AtSign, Clock,
     Check, CheckCheck, Mic, MicOff, VideoOff, Camera, X,
-    Loader2, Shield, MonitorUp, Hand, MoreHorizontal, UserPlus
+    Loader2, Shield, MonitorUp, Hand, MoreHorizontal, UserPlus,
+    Calendar, Edit3, Trash2
 } from 'lucide-react';
 import useCommunicationStore from '../store/communicationStore';
 import { useNavigate } from 'react-router-dom';
+import MeetingScheduler from './MeetingScheduler';
 import './Communication.css';
 
 const Communication = () => {
@@ -16,10 +18,13 @@ const Communication = () => {
         teams, channels, directMessages, messages,
         activeId, activeType, currentUserStatus, isLoading,
         setActive, setStatus, sendMessage, init, createTeam, createChannel, addMemberToTeam,
-        startCallGlobal, joinCall, callState, typingUsers, sendTyping
+        startCallGlobal, joinCall, callState, typingUsers, sendTyping, activeCallParticipants,
+        editMessage, deleteMessage, addReaction, meetings
     } = useCommunicationStore();
 
     const [messageInput, setMessageInput] = useState('');
+    const [editingId, setEditingId] = useState(null);
+    const [editContent, setEditContent] = useState('');
     const [showTeamModal, setShowTeamModal] = useState(false);
     const [showChannelModal, setShowChannelModal] = useState(false);
     const [showMemberModal, setShowMemberModal] = useState(false);
@@ -28,6 +33,8 @@ const Communication = () => {
     const [newMemberEmail, setNewMemberEmail] = useState('');
     const [selectedTeamId, setSelectedTeamId] = useState('');
     const [showMembersSidebar, setShowMembersSidebar] = useState(false);
+    const [view, setView] = useState('chat'); // 'chat' or 'meetings'
+    const [showMeetingScheduler, setShowMeetingScheduler] = useState(false);
 
     const chatEndRef = useRef(null);
     const typingTimeoutRef = useRef(null);
@@ -110,9 +117,26 @@ const Communication = () => {
             case 'online': return '#00FF9C';
             case 'away': return '#FFD700';
             case 'busy': return '#FF4B4B';
+            case 'in-call': return '#A78BFA';
             default: return '#9CA3AF';
         }
     };
+
+    const handleEditSave = (e) => {
+        e.preventDefault();
+        if (editContent.trim()) {
+            editMessage(editingId, editContent);
+            setEditingId(null);
+            setEditContent('');
+        }
+    };
+
+    const handleCancelEdit = () => {
+        setEditingId(null);
+        setEditContent('');
+    };
+
+    const emojiList = ['👍', '❤️', '😂', '😮', '😢', '🔥'];
 
     if (isLoading) return <div className="comm-layout" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Loader2 className="animate-spin text-[#00FF9C]" size={48} /></div>;
 
@@ -123,7 +147,8 @@ const Communication = () => {
                 <div className="comm-logo-box" onClick={() => navigate('/dashboard')}><Zap size={24} color="black" /></div>
                 <div className="comm-icon-group">
                     <div className="comm-icon-btn active"><Bell size={24} /></div>
-                    <div className="comm-icon-btn"><MessageSquare size={24} /></div>
+                    <div className={`comm-icon-btn ${view === 'chat' ? 'active' : ''}`} onClick={() => setView('chat')}><MessageSquare size={24} /></div>
+                    <div className={`comm-icon-btn ${view === 'meetings' ? 'active' : ''}`} onClick={() => setView('meetings')}><Calendar size={24} /></div>
                     <div className="comm-icon-btn"><Users size={24} /></div>
                     <div className="comm-icon-btn"><Clock size={24} /></div>
                     <div className="comm-icon-btn"><Settings size={24} /></div>
@@ -135,49 +160,64 @@ const Communication = () => {
             <div className="comm-side-nav">
                 <div className="comm-nav-header">
                     <h2 className="comm-nav-title">ClustAura</h2>
-                    <button className="comm-add-btn" onClick={() => setShowTeamModal(true)}><Plus size={20} title="Add Team" /></button>
+                    {view === 'meetings' ? (
+                        <button className="comm-add-btn" onClick={() => setShowMeetingScheduler(true)}><Plus size={20} title="Schedule Meeting" /></button>
+                    ) : (
+                        <button className="comm-add-btn" onClick={() => setShowTeamModal(true)}><Plus size={20} title="Add Team" /></button>
+                    )}
                 </div>
                 <div className="comm-nav-scroll custom-scrollbar">
-                    {/* Teams */}
-                    <div className="comm-team-block">
-                        <div className="comm-section-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            Your Teams
-                            <Plus size={14} style={{ cursor: 'pointer' }} onClick={() => setShowTeamModal(true)} title="Create New Team" />
+                    {view === 'meetings' ? (
+                        <div>
+                            <div className="comm-section-label">Your Meetings</div>
+                            <div className="comm-side-item active" onClick={() => { setView('meetings'); setActive(null, 'meetings_all'); }}>
+                                <div className="comm-item-left"><Calendar size={18} /><span>Upcoming</span></div>
+                            </div>
                         </div>
-                        {teams.map(team => (
-                            <div key={team._id}>
-                                <div style={{ padding: '8px 12px', fontSize: '13px', fontWeight: 'bold', color: '#FFF', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    {team.name}
-                                    <div style={{ display: 'flex', gap: '8px' }}>
-                                        <UserPlus size={12} style={{ cursor: 'pointer', opacity: 0.7 }} onClick={(e) => { e.stopPropagation(); setSelectedTeamId(team._id); setShowMemberModal(true); }} title="Add Member" />
-                                        <Plus size={12} style={{ cursor: 'pointer', opacity: 0.7 }} onClick={(e) => { e.stopPropagation(); setSelectedTeamId(team._id); setShowChannelModal(true); }} title="Add Channel" />
-                                    </div>
+                    ) : (
+                        <>
+                            {/* Teams */}
+                            <div className="comm-team-block">
+                                <div className="comm-section-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    Your Teams
+                                    <Plus size={14} style={{ cursor: 'pointer' }} onClick={() => setShowTeamModal(true)} title="Create New Team" />
                                 </div>
-                                {channels.filter(c => c.teamId === team._id).map(channel => (
-                                    <div key={channel._id} className={`comm-side-item ${activeId === channel._id ? 'active' : ''}`} onClick={() => setActive(channel._id, 'channel')}>
-                                        <div className="comm-item-left"><Hash size={18} /><span style={{ fontSize: '14px' }}>{channel.name}</span></div>
-                                        {channel.unread > 0 && <div style={{ background: '#FF4B4B', color: 'white', borderRadius: '10px', padding: '2px 6px', fontSize: '10px', fontWeight: 'bold' }}>{channel.unread}</div>}
+                                {teams.map(team => (
+                                    <div key={team._id}>
+                                        <div style={{ padding: '8px 12px', fontSize: '13px', fontWeight: 'bold', color: '#FFF', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            {team.name}
+                                            <div style={{ display: 'flex', gap: '8px' }}>
+                                                <UserPlus size={12} style={{ cursor: 'pointer', opacity: 0.7 }} onClick={(e) => { e.stopPropagation(); setSelectedTeamId(team._id); setShowMemberModal(true); }} title="Add Member" />
+                                                <Plus size={12} style={{ cursor: 'pointer', opacity: 0.7 }} onClick={(e) => { e.stopPropagation(); setSelectedTeamId(team._id); setShowChannelModal(true); }} title="Add Channel" />
+                                            </div>
+                                        </div>
+                                        {channels.filter(c => c.teamId === team._id).map(channel => (
+                                            <div key={channel._id} className={`comm-side-item ${activeId === channel._id ? 'active' : ''}`} onClick={() => setActive(channel._id, 'channel')}>
+                                                <div className="comm-item-left"><Hash size={18} /><span style={{ fontSize: '14px' }}>{channel.name}</span></div>
+                                                {channel.unread > 0 && <div style={{ background: '#FF4B4B', color: 'white', borderRadius: '10px', padding: '2px 6px', fontSize: '10px', fontWeight: 'bold' }}>{channel.unread}</div>}
+                                            </div>
+                                        ))}
                                     </div>
                                 ))}
                             </div>
-                        ))}
-                    </div>
-                    {/* DMs */}
-                    <div>
-                        <div className="comm-section-label">Direct Messages</div>
-                        {directMessages.map(dm => (
-                            <div key={dm.id} className={`comm-side-item ${activeId === dm.id ? 'active' : ''}`} onClick={() => setActive(dm.id, 'dm')}>
-                                <div className="comm-item-left">
-                                    <div className="comm-avatar">
-                                        {dm.name.split(' ').map(n => n[0]).join('')}
-                                        <div className="comm-status-dot" style={{ backgroundColor: getStatusColor(dm.status) }} />
+                            {/* DMs */}
+                            <div>
+                                <div className="comm-section-label">Direct Messages</div>
+                                {directMessages.map(dm => (
+                                    <div key={dm.id} className={`comm-side-item ${activeId === dm.id ? 'active' : ''}`} onClick={() => setActive(dm.id, 'dm')}>
+                                        <div className="comm-item-left">
+                                            <div className="comm-avatar">
+                                                {dm.name.split(' ').map(n => n[0]).join('')}
+                                                <div className="comm-status-dot" style={{ backgroundColor: getStatusColor(dm.status) }} />
+                                            </div>
+                                            <span style={{ fontSize: '14px' }}>{dm.name}</span>
+                                        </div>
+                                        {dm.unread > 0 && <div style={{ background: '#FF4B4B', color: 'white', borderRadius: '10px', padding: '2px 6px', fontSize: '10px', fontWeight: 'bold' }}>{dm.unread}</div>}
                                     </div>
-                                    <span style={{ fontSize: '14px' }}>{dm.name}</span>
-                                </div>
-                                {dm.unread > 0 && <div style={{ background: '#FF4B4B', color: 'white', borderRadius: '10px', padding: '2px 6px', fontSize: '10px', fontWeight: 'bold' }}>{dm.unread}</div>}
+                                ))}
                             </div>
-                        ))}
-                    </div>
+                        </>
+                    )}
                 </div>
                 {/* Presence */}
                 <div className="comm-user-presence">
@@ -194,7 +234,69 @@ const Communication = () => {
 
             {/* Main Area */}
             <div className="comm-main-area">
-                {!activeId ? (
+                {view === 'meetings' ? (
+                    <div style={{ flex: 1, padding: '32px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div>
+                                <h2 style={{ fontSize: '28px', fontWeight: 'bold' }}>Meetings</h2>
+                                <p style={{ color: '#9CA3AF' }}>Schedule and manage your sessions</p>
+                            </div>
+                            <button
+                                onClick={() => setShowMeetingScheduler(true)}
+                                style={{
+                                    padding: '12px 24px', background: '#00FF9C', color: 'black',
+                                    border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer',
+                                    display: 'flex', alignItems: 'center', gap: '8px'
+                                }}
+                            >
+                                <Plus size={20} /> New Meeting
+                            </button>
+                        </div>
+
+                        <div style={{ display: 'grid', gap: '16px' }}>
+                            {meetings.length === 0 ? (
+                                <div style={{ padding: '60px', textAlign: 'center', background: '#111827', borderRadius: '12px', border: '1px dashed #1F2937' }}>
+                                    <div style={{ marginBottom: '16px', color: '#374151' }}><Calendar size={48} /></div>
+                                    <h3 style={{ color: '#E5E7EB' }}>No meetings scheduled</h3>
+                                    <p style={{ color: '#6B7280' }}>Host your first meeting by clicking the button above.</p>
+                                </div>
+                            ) : (
+                                meetings.map(meeting => (
+                                    <div key={meeting._id} style={{
+                                        background: '#111827', border: '1px solid #1F2937', borderRadius: '12px',
+                                        padding: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+                                    }}>
+                                        <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
+                                            <div style={{ padding: '12px', background: '#1F2937', borderRadius: '12px', textAlign: 'center', minWidth: '60px' }}>
+                                                <div style={{ fontSize: '10px', color: '#00FF9C', fontWeight: 'bold' }}>{new Date(meeting.scheduledAt).toLocaleString('en-US', { month: 'short' }).toUpperCase()}</div>
+                                                <div style={{ fontSize: '20px', fontWeight: 'bold' }}>{new Date(meeting.scheduledAt).getDate()}</div>
+                                            </div>
+                                            <div>
+                                                <h4 style={{ margin: 0, fontSize: '18px' }}>{meeting.title}</h4>
+                                                <div style={{ display: 'flex', gap: '16px', marginTop: '4px', fontSize: '12px', color: '#9CA3AF' }}>
+                                                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Clock size={14} /> {new Date(meeting.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ({meeting.duration} mins)</span>
+                                                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Users size={14} /> {meeting.participants?.length || 0} participants</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div style={{ display: 'flex', gap: '12px' }}>
+                                            <button
+                                                onClick={() => joinCall(meeting.meetingLink, 'video', false)}
+                                                style={{
+                                                    padding: '10px 20px', background: '#00FF9C', color: 'black',
+                                                    border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer'
+                                                }}
+                                            >
+                                                Join
+                                            </button>
+                                            <button style={{ padding: '10px', background: '#1F2937', border: 'none', borderRadius: '6px', color: '#9CA3AF', cursor: 'pointer' }}><MoreHorizontal size={20} /></button>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+                ) : !activeId ? (
                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px' }}>
                         <div className="comm-logo-box" style={{ width: '80px', height: '80px', borderRadius: '24px' }}><Zap size={40} color="black" /></div>
                         <h3 className="comm-nav-title" style={{ fontSize: '24px' }}>Welcome to ClustAura</h3>
@@ -212,8 +314,8 @@ const Communication = () => {
                                 </div>
                             </div>
                             <div className="comm-header-actions">
-                                <div className="comm-action-tool" onClick={() => startCall(false)}><Phone size={20} /></div>
-                                <div className="comm-action-tool" onClick={() => startCall(true)}><Video size={20} /></div>
+                                <div className="comm-action-tool" onClick={() => startCallGlobal(activeId, 'audio')}><Phone size={20} /></div>
+                                <div className="comm-action-tool" onClick={() => startCallGlobal(activeId, 'video')}><Video size={20} /></div>
                                 <div className="comm-v-divider"></div>
                                 <div className={`comm-action-tool ${showMembersSidebar ? 'active-tool' : ''}`} onClick={() => setShowMembersSidebar(!showMembersSidebar)} title="View Members" style={{ color: showMembersSidebar ? '#00FF9C' : 'inherit' }}><Users size={20} /></div>
                             </div>
@@ -228,35 +330,81 @@ const Communication = () => {
                                     {currentMessages.map((msg) => {
                                         if (msg.type === 'call') {
                                             return (
-                                                <div key={msg._id || msg.id} className="comm-message-row system-call" style={{ justifyContent: 'center', padding: '16px 0' }}>
-                                                    <div style={{ background: '#1F2937', border: '1px solid #374151', borderRadius: '12px', padding: '16px', display: 'flex', alignItems: 'center', gap: '16px', maxWidth: '400px', width: '100%' }}>
-                                                        <div style={{ padding: '12px', background: '#374151', borderRadius: '50%' }}>
-                                                            <Phone size={24} color="#00FF9C" />
-                                                        </div>
-                                                        <div style={{ flex: 1 }}>
-                                                            <div style={{ color: '#E2E8F0', fontWeight: 'bold' }}>Call started by {msg.sender?.firstName}</div>
-                                                            <div style={{ color: '#9CA3AF', fontSize: '12px' }}>{new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
-                                                        </div>
-                                                        <button
-                                                            onClick={() => joinCall(msg.metadata?.roomId || msg.channelId, msg.metadata?.callType || 'video')}
-                                                            style={{ background: '#00FF9C', color: 'black', border: 'none', padding: '8px 16px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}
-                                                        >
-                                                            Join Call
-                                                        </button>
+                                                <div key={msg._id || msg.id} className="comm-call-log">
+                                                    <div className="comm-call-log-icon">
+                                                        {msg.callType === 'video' ? <Video size={16} /> : <Phone size={16} />}
                                                     </div>
+                                                    <div className="comm-call-log-info">
+                                                        <div className="comm-call-title">{msg.content}</div>
+                                                        <div className="comm-call-time">{new Date(msg.timestamp || msg.createdAt).toLocaleTimeString()}</div>
+                                                    </div>
+                                                    {msg.status === 'active' && (
+                                                        <button className="comm-call-join-btn" onClick={() => joinCall(msg.roomId || activeId, msg.callType || 'video', true)}>
+                                                            Join
+                                                        </button>
+                                                    )}
                                                 </div>
                                             );
                                         }
 
+                                        const isMe = msg.sender?._id === (localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user'))._id : null);
+                                        const isEditing = editingId === msg._id;
+
                                         return (
-                                            <div key={msg._id || msg.id} className="comm-message-row">
+                                            <div key={msg._id || msg.id} className={`comm-message-row ${isMe ? 'msg-me' : ''}`}>
                                                 <div className="comm-msg-avatar">{msg.sender?.firstName?.[0]}</div>
                                                 <div className="comm-msg-body">
                                                     <div className="comm-msg-header">
                                                         <span className="comm-msg-sender">{msg.sender?.firstName}</span>
-                                                        <span className="comm-msg-time">{new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                                        <span className="comm-msg-time">
+                                                            {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                            {msg.isEdited && <span style={{ marginLeft: '4px', opacity: 0.5, fontSize: '10px' }}>(edited)</span>}
+                                                        </span>
+
+                                                        {/* Actions */}
+                                                        <div className="comm-msg-actions">
+                                                            <div className="msg-action-btn-group">
+                                                                {emojiList.map(emoji => (
+                                                                    <span key={emoji} className="emoji-action" onClick={() => addReaction(msg._id, emoji)}>{emoji}</span>
+                                                                ))}
+                                                            </div>
+                                                            {isMe && (
+                                                                <div className="msg-more-actions">
+                                                                    <button onClick={() => { setEditingId(msg._id); setEditContent(msg.content); }}><AtSign size={14} title="Edit" /></button>
+                                                                    <button onClick={() => deleteMessage(msg._id)}><X size={14} title="Delete" /></button>
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                     </div>
-                                                    <div className="comm-msg-content">{msg.content}</div>
+
+                                                    {isEditing ? (
+                                                        <form onSubmit={handleEditSave} className="comm-edit-form">
+                                                            <input
+                                                                type="text"
+                                                                value={editContent}
+                                                                onChange={(e) => setEditContent(e.target.value)}
+                                                                className="comm-edit-input"
+                                                                autoFocus
+                                                            />
+                                                            <div className="comm-edit-btns">
+                                                                <button type="submit" style={{ color: '#00FF9C' }}><Check size={14} /></button>
+                                                                <button type="button" onClick={handleCancelEdit} style={{ color: '#FF4B4B' }}><X size={14} /></button>
+                                                            </div>
+                                                        </form>
+                                                    ) : (
+                                                        <div className="comm-msg-content">{msg.content}</div>
+                                                    )}
+
+                                                    {/* Reactions Display */}
+                                                    {msg.reactions?.length > 0 && (
+                                                        <div className="comm-msg-reactions">
+                                                            {Array.from(new Set(msg.reactions.map(r => r.emoji))).map(emoji => (
+                                                                <div key={emoji} className="comm-reaction-tag" onClick={() => addReaction(msg._id, emoji)}>
+                                                                    {emoji} <span>{msg.reactions.filter(r => r.emoji === emoji).length}</span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
                                         );
@@ -361,6 +509,7 @@ const Communication = () => {
                     </div>
                 )}
 
+                {showMeetingScheduler && <MeetingScheduler onClose={() => setShowMeetingScheduler(false)} />}
             </div>
         </div>
     );

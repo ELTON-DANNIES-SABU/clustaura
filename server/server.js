@@ -103,14 +103,75 @@ app.use('/api/community', require('./routes/communityRoutes'));
 app.use('/api/posts', require('./routes/postRoutes'));
 app.use('/api/upload', require('./routes/uploadRoutes'));
 
+// --- Socket.io Middleware & Presence ---
+const userSockets = new Map(); // userId -> Set of socketIds
+const userPresence = new Map(); // userId -> status ('online', 'away', 'busy', 'in-call')
+
+// --- Group Call Signaling ---
+const activeCalls = new Map(); // roomId -> Set of participants { socketId, userId, name, avatar, mediaState }
+
+const broadcastParticipants = (io, roomIdOrObj) => {
+    const roomId = String(roomIdOrObj);
+    const participants = activeCalls.get(roomId);
+    if (participants) {
+        const list = Array.from(participants);
+        console.log(`[CALL] Broadcasting ${list.length} participants to room ${roomId}`);
+        io.to(roomId).emit('call:participants-update', { roomId, participants: list });
+    }
+};
+
+io.use(async (socket, next) => {
+    try {
+        const token = socket.handshake.auth.token || socket.handshake.headers['authorization']?.split(' ')[1];
+        if (!token) {
+            return next(new Error('Authentication error: No token provided'));
+        }
+
+        const jwt = require('jsonwebtoken');
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret123');
+
+        const User = require('./models/User');
+        const user = await User.findById(decoded.id).select('-password');
+
+        if (!user) {
+            return next(new Error('Authentication error: User not found'));
+        }
+
+        socket.user = user;
+        next();
+    } catch (err) {
+        console.error('Socket Auth Error:', err.message);
+        next(new Error('Authentication error: Invalid token'));
+    }
+});
+
 // Socket.io connection handling
 io.on('connection', async (socket) => {
-    console.log('A user connected:', socket.id);
+    const userId = socket.user._id.toString();
+    console.log(`User connected: ${socket.user.firstName} (${socket.id})`);
 
-    socket.on('join_room', (userId) => {
-        socket.join(userId);
-        console.log(`User ${userId} joined their room`);
+    // Track user socket
+    if (!userSockets.has(userId)) {
+        userSockets.set(userId, new Set());
+    }
+    userSockets.get(userId).add(socket.id);
+
+    // Set initial presence if first socket
+    if (!userPresence.has(userId)) {
+        userPresence.set(userId, 'online');
+    }
+
+    // Join personal room
+    socket.join(userId);
+
+    // Broadcast current presence to all
+    io.emit('presence_update', {
+        userId,
+        status: userPresence.get(userId)
     });
+
+    // Send all current presence to the new user
+    socket.emit('presence_sync', Array.from(userPresence.entries()).map(([uid, status]) => ({ userId: uid, status })));
 
     // --- Typing Indicators ---
     socket.on('typing', ({ roomId, user }) => {
@@ -131,6 +192,110 @@ io.on('connection', async (socket) => {
         }
     });
 
+    // --- Channel Handling ---
+    socket.on('join_channel', (channelId) => {
+        socket.join(channelId);
+        console.log(`User ${socket.user.firstName} joined channel: ${channelId}`);
+    });
+
+    socket.on('leave_channel', (channelId) => {
+        socket.leave(channelId);
+        console.log(`User ${socket.user.firstName} left channel: ${channelId}`);
+    });
+
+    // --- Presence Handling ---
+    socket.on('update_presence', (status) => {
+        userPresence.set(userId, status);
+        io.emit('presence_update', { userId, status });
+        console.log(`Presence updated for ${socket.user.firstName}: ${status}`);
+    });
+
+    // --- Message Interactions ---
+    socket.on('message:edit', async ({ messageId, content }) => {
+        try {
+            const CommMessage = require('./models/CommMessage');
+            const message = await CommMessage.findById(messageId);
+
+            if (!message) return;
+            // Validate owner
+            if (message.sender.toString() !== userId) return;
+
+            message.content = content;
+            message.isEdited = true;
+            await message.save();
+
+            const target = message.channelId ? message.channelId.toString() : message.recipient.toString();
+            io.to(target).emit('message:updated', message);
+            if (!message.channelId) socket.emit('message:updated', message);
+        } catch (error) {
+            console.error('Error editing message:', error);
+        }
+    });
+
+    socket.on('message:delete', async ({ messageId }) => {
+        try {
+            const CommMessage = require('./models/CommMessage');
+            const message = await CommMessage.findById(messageId);
+
+            if (!message) return;
+            if (message.sender.toString() !== userId) return;
+
+            await CommMessage.findByIdAndDelete(messageId);
+
+            const target = message.channelId ? message.channelId.toString() : message.recipient.toString();
+            io.to(target).emit('message:deleted', messageId);
+            if (!message.channelId) socket.emit('message:deleted', messageId);
+        } catch (error) {
+            console.error('Error deleting message:', error);
+        }
+    });
+
+    socket.on('message:reaction', async ({ messageId, emoji }) => {
+        try {
+            const CommMessage = require('./models/CommMessage');
+            const message = await CommMessage.findById(messageId);
+
+            if (!message) return;
+
+            // Simple reaction logic: toggle reaction
+            const existingIndex = message.reactions.findIndex(r => r.user.toString() === userId && r.emoji === emoji);
+
+            if (existingIndex > -1) {
+                message.reactions.splice(existingIndex, 1);
+            } else {
+                message.reactions.push({ user: userId, emoji });
+            }
+
+            await message.save();
+            const populatedMsg = await CommMessage.findById(messageId).populate('sender', 'firstName lastName email');
+
+            const target = message.channelId ? message.channelId.toString() : message.recipient.toString();
+            io.to(target).emit('message:updated', populatedMsg);
+            if (!message.channelId) socket.emit('message:updated', populatedMsg);
+        } catch (error) {
+            console.error('Error reacting to message:', error);
+        }
+    });
+
+    // --- Typing Indicators ---
+    socket.on('typing', ({ roomId, user }) => {
+        socket.to(roomId).emit('display_typing', { user, roomId });
+    });
+
+    socket.on('stop_typing', ({ roomId, user }) => {
+        socket.to(roomId).emit('hide_typing', { user, roomId });
+    });
+
+    // --- Read Receipts ---
+    socket.on('mark_channel_read', async ({ channelId, userId }) => {
+        try {
+            // Updated: Use the message model if we were to persist this.
+            // For now, just a placeholder as requested in the plan.
+        } catch (error) {
+            console.error('Error marking read:', error);
+        }
+    });
+
     socket.on('send_message', async (data) => {
         try {
             if (!isDBConnected) {
@@ -138,131 +303,151 @@ io.on('connection', async (socket) => {
                 return;
             }
 
-            const { sender, recipient, content } = data;
+            const { sender, recipient, content, channelId } = data;
 
-            // Save to database
-            const message = await Message.create({
-                sender,
-                recipient,
-                content
-            });
+            // In our new schema, we should use CommMessage
+            const CommMessage = require('./models/CommMessage');
 
-            // Emit to recipient (in their room)
-            io.to(recipient).emit('receive_message', message);
+            const msgData = {
+                sender: sender || socket.user._id,
+                content,
+                type: 'text'
+            };
 
-            // Emit back to sender
-            io.to(sender).emit('receive_message', message);
+            if (channelId) msgData.channelId = channelId;
+            else if (recipient) msgData.recipient = recipient;
 
-            // Create a persistent notification record
-            const User = require('./models/User');
-            const senderUser = await User.findById(sender);
+            const message = await CommMessage.create(msgData);
+            const populatedMsg = await CommMessage.findById(message._id).populate('sender', 'firstName lastName email');
 
-            const Notification = require('./models/Notification');
-            const notification = await Notification.create({
-                recipient: recipient,
-                sender: sender,
-                type: 'message',
-                content: `New message from ${senderUser.firstName} ${senderUser.lastName}`
-            });
+            // Emit to channel if exists, otherwise to recipient and sender
+            if (channelId) {
+                io.to(channelId).emit('receive_comm_message', populatedMsg);
+            } else if (recipient) {
+                io.to(recipient).emit('receive_comm_message', populatedMsg);
+                socket.emit('receive_comm_message', populatedMsg); // Emit back to sender
+            }
 
-            // Emit the notification for the bell icon
-            io.to(recipient).emit('receive_notification', notification);
+            // Create a notification for the recipient (if not a channel message, or for mentions later)
+            if (recipient) {
+                const Notification = require('./models/Notification');
+                const notification = await Notification.create({
+                    recipient: recipient,
+                    sender: socket.user._id,
+                    type: 'message',
+                    content: `New message from ${socket.user.firstName} ${socket.user.lastName}`
+                });
+                io.to(recipient).emit('receive_notification', notification);
+            }
 
         } catch (error) {
             console.error('Error sending message:', error);
+            socket.emit('error', { message: 'Failed to send message' });
         }
     });
 
-    // Send last 50 challenges on connect
-    socket.on('request_challenges', async () => {
-        try {
-            if (!isDBConnected) {
-                socket.emit('challenge:error', { message: 'Database not available' });
-                return;
-            }
-
-            const Challenge = require('./models/Challenge');
-            const challenges = await Challenge.find()
-                .populate('author', 'firstName lastName email')
-                .populate('comments.user', 'firstName lastName')
-                .sort({ createdAt: -1 })
-                .limit(50);
-
-            socket.emit('challenge:initial', challenges);
-        } catch (error) {
-            console.error('Error sending initial challenges:', error);
-        }
-    });
-
-
-    // --- Group Call & Global Signaling Logic ---
-
-    // User joins a "Call Room"
-    socket.on('join_call_room', ({ roomId, userId }) => {
+    // --- Group Call Signaling ---
+    socket.on('call:join', ({ roomId: rawRoomId, userId, userName, userAvatar }) => {
+        const roomId = String(rawRoomId);
         socket.join(roomId);
-        socket.userId = userId; // Store userId on socket for retrieval
-        console.log(`User ${userId} (${socket.id}) joined call room: ${roomId}`);
 
-        // Notify others in room that a user joined (for signaling + presence)
-        socket.to(roomId).emit('call_user_joined', {
-            signal: null,
-            callerId: socket.id,
-            userId: userId
-        });
+        const participant = {
+            socketId: socket.id,
+            userId: String(userId),
+            name: userName,
+            avatar: userAvatar,
+            mediaState: { mic: true, video: true }
+        };
 
-        // Get list of all users in this room (excluding self)
-        const clients = io.sockets.adapter.rooms.get(roomId);
-        const usersInRoom = [];
+        if (!activeCalls.has(roomId)) {
+            activeCalls.set(roomId, new Set());
+        }
 
-        if (clients) {
-            clients.forEach(socketId => {
-                if (socketId !== socket.id) {
-                    const clientSocket = io.sockets.sockets.get(socketId);
-                    if (clientSocket) {
-                        usersInRoom.push({
-                            socketId: socketId,
-                            userId: clientSocket.userId
-                        });
-                    }
+        const participants = activeCalls.get(roomId);
+        // Remove old entry if same socket somehow
+        participants.forEach(p => { if (p.socketId === socket.id) participants.delete(p); });
+        participants.add(participant);
+
+        console.log(`[CALL] User ${userName} joined room ${roomId}`);
+
+        // 1. Send current participants to the new joiner (legacy support)
+        socket.emit('call:participants', Array.from(participants));
+
+        // 2. Broadcast FULL authoritative list to EVERYONE in the room
+        broadcastParticipants(io, roomId);
+
+        // Update presence
+        userPresence.set(String(userId), 'in-call');
+        io.emit('presence_update', { userId: String(userId), status: 'in-call' });
+    });
+
+    socket.on('call:offer', ({ to, offer, from }) => {
+        io.to(to).emit('call:offer', { offer, from });
+    });
+
+    socket.on('call:answer', ({ to, answer, from }) => {
+        io.to(to).emit('call:answer', { answer, from });
+    });
+
+    socket.on('call:ice-candidate', ({ to, candidate, from }) => {
+        io.to(to).emit('call:ice-candidate', { candidate, from });
+    });
+
+    socket.on('call:media-toggle', ({ roomId: rawRoomId, userId, mediaType, enabled }) => {
+        const roomId = String(rawRoomId);
+        const participants = activeCalls.get(roomId);
+        if (participants) {
+            participants.forEach(p => {
+                if (p.userId === userId) {
+                    p.mediaState[mediaType] = enabled;
                 }
             });
+            // Broadcast full updated list
+            broadcastParticipants(io, roomId);
+        }
+    });
+
+    socket.on('call:leave', ({ roomId: rawRoomId, userId }) => {
+        const roomId = String(rawRoomId);
+        socket.leave(roomId);
+        const participants = activeCalls.get(roomId);
+        if (participants) {
+            participants.forEach(p => {
+                if (p.socketId === socket.id) participants.delete(p);
+            });
+            if (participants.size === 0) {
+                activeCalls.delete(roomId);
+            } else {
+                broadcastParticipants(io, roomId);
+            }
         }
 
-        socket.emit('all_users_in_call', usersInRoom);
-    });
+        socket.to(roomId).emit('call:user-left', { socketId: socket.id, userId });
 
-    socket.on('sending_signal', payload => {
-        io.to(payload.userToSignal).emit('user_joined_signal', {
-            signal: payload.signal,
-            callerId: payload.callerId
-        });
-    });
-
-    socket.on('returning_signal', payload => {
-        io.to(payload.callerId).emit('receiving_returned_signal', {
-            signal: payload.signal,
-            id: socket.id
-        });
+        userPresence.set(String(userId), 'online');
+        io.emit('presence_update', { userId: String(userId), status: 'online' });
+        console.log(`[CALL] User ${userId} left room ${roomId}`);
     });
 
     // Global: Start a call (notify channel/user)
     socket.on('start_call', async ({ roomId, type, participants, userId }) => {
         try {
-            // Determine if it's a Channel or DM
-            // For now, if participants are provided, it's a DM, otherwise it's a channel call where we need to fetch members.
-
             let usersToNotify = [];
-            const initiatorId = userId || socket.id; // Prefer userId from client, fallback to socket
+            const initiatorId = userId || socket.user._id.toString();
+
+            // Create Call Session
+            const CallSession = require('./models/CallSession');
+            const session = await CallSession.create({
+                roomId,
+                initiator: initiatorId,
+                callType: type || 'video',
+                status: 'active',
+                participants: [initiatorId]
+            });
 
             if (participants && participants.length > 0) {
-                // Direct Message Call
                 usersToNotify = participants;
             } else {
-                // Channel Call - Fetch members from DB
-                // We need to find the Team that owns this channel to get members
-                // First, find the channel to get teamId
-                // NOTE: In this schema, we might need to look up. 
-                // Assuming roomId is channelId.
                 const CommChannel = require('./models/CommChannel');
                 const CommTeam = require('./models/CommTeam');
 
@@ -272,71 +457,54 @@ io.on('connection', async (socket) => {
                     if (team) {
                         usersToNotify = team.members.map(m => m._id.toString());
                     }
+                    session.channelId = channel._id;
+                    await session.save();
                 }
             }
 
-            const User = require('./models/User');
-            let initiatorName = 'Someone';
-            if (userId) {
-                const initiator = await User.findById(userId);
-                if (initiator) initiatorName = `${initiator.firstName} ${initiator.lastName}`;
-            }
+            console.log(`Starting call in room ${roomId}, notifying ${usersToNotify.length} users. Initiator: ${socket.user.firstName}`);
 
-            console.log(`Starting call in room ${roomId}, notifying ${usersToNotify.length} users. Initiator: ${initiatorName}`);
-
-            // 1. Broadcast Call Signal to each user's personal room (Notification Popup)
+            // 1. Broadcast Call Signal to each user's personal room
             usersToNotify.forEach(uid => {
-                if (uid !== initiatorId && uid !== socket.id) { // Don't ring the caller
+                if (uid !== initiatorId) {
                     io.to(uid).emit('incoming_call', {
                         roomId,
                         type,
                         initiatorId,
-                        initiatorName,
+                        initiatorName: `${socket.user.firstName} ${socket.user.lastName}`,
                         participants
                     });
                 }
             });
 
-            // 2. Create System Message in Chat (Teams-style)
-            if (userId) { // Only if we have a valid User ID to link sender
-                try {
-                    const CommMessage = require('./models/CommMessage');
-                    const systemMsgData = {
-                        sender: userId,
-                        content: "started a call",
-                        type: "call",
-                        metadata: {
-                            roomId,
-                            callType: type,
-                            initiatorId: userId
-                        }
-                    };
-
-                    if (participants && participants.length > 0) {
-                        // DM Message
-                        // DM needs recipient. If group DM exists, handled differently. 
-                        // For 1:1 DM:
-                        const recipient = participants.find(p => p !== userId);
-                        if (recipient) systemMsgData.recipient = recipient;
-                    } else {
-                        // Channel Message
-                        systemMsgData.channelId = roomId;
-                    }
-
-                    const systemMsg = await CommMessage.create(systemMsgData);
-                    const populatedMsg = await CommMessage.findById(systemMsg._id).populate('sender', 'firstName lastName email');
-
-                    // Broadcast message to room (chat update)
-                    if (systemMsgData.channelId) {
-                        io.to(systemMsgData.channelId.toString()).emit('receive_comm_message', populatedMsg);
-                    } else if (systemMsgData.recipient) {
-                        io.to(systemMsgData.recipient.toString()).emit('receive_comm_message', populatedMsg);
-                        io.to(userId).emit('receive_comm_message', populatedMsg);
-                    }
-
-                } catch (msgErr) {
-                    console.error("Failed to create system call message:", msgErr);
+            // 2. Create System Message in Chat
+            const CommMessage = require('./models/CommMessage');
+            const systemMsgData = {
+                sender: initiatorId,
+                content: "started a call",
+                type: "call",
+                metadata: {
+                    roomId,
+                    callType: type,
+                    initiatorId: initiatorId
                 }
+            };
+
+            if (participants && participants.length > 0) {
+                const recipient = participants.find(p => p !== initiatorId);
+                if (recipient) systemMsgData.recipient = recipient;
+            } else {
+                systemMsgData.channelId = roomId;
+            }
+
+            const systemMsg = await CommMessage.create(systemMsgData);
+            const populatedMsg = await CommMessage.findById(systemMsg._id).populate('sender', 'firstName lastName email');
+
+            if (systemMsgData.channelId) {
+                io.to(systemMsgData.channelId.toString()).emit('receive_comm_message', populatedMsg);
+            } else if (systemMsgData.recipient) {
+                io.to(systemMsgData.recipient.toString()).emit('receive_comm_message', populatedMsg);
+                socket.emit('receive_comm_message', populatedMsg);
             }
 
         } catch (error) {
@@ -344,27 +512,24 @@ io.on('connection', async (socket) => {
         }
     });
 
-    socket.on('leave_call_room', ({ roomId }) => {
-        socket.leave(roomId);
-        if (socket.userId) {
-            socket.to(roomId).emit('user_left_call', socket.userId);
-        }
-    });
-
-    // Handle disconnect during call
-    socket.on('disconnecting', () => {
-        const rooms = [...socket.rooms];
-        rooms.forEach((roomId) => {
-            if (socket.userId) {
-                socket.to(roomId).emit('user_left_call', socket.userId);
-            } else {
-                socket.to(roomId).emit('user_left_call', socket.id);
+    // Handle disconnect
+    socket.on('disconnect', async () => {
+        const userId = socket.user._id.toString();
+        // Cleanup from calls
+        activeCalls.forEach((participants, roomId) => {
+            let changed = false;
+            participants.forEach(p => {
+                if (p.socketId === socket.id) {
+                    participants.delete(p);
+                    changed = true;
+                    socket.to(roomId).emit('call:user-left', { socketId: socket.id, userId });
+                }
+            });
+            if (changed) {
+                if (participants.size === 0) activeCalls.delete(roomId);
+                else broadcastParticipants(io, roomId);
             }
         });
-    });
-
-    socket.on('disconnect', () => {
-        console.log('User disconnected:', socket.id);
     });
 });
 

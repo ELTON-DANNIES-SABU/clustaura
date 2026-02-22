@@ -19,7 +19,11 @@ const commChannelSchema = new mongoose.Schema({
     description: {
         type: String,
         trim: true
-    }
+    },
+    members: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    }]
 }, {
     timestamps: true
 });

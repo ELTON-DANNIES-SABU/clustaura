@@ -19,6 +19,7 @@ const useCommunicationStore = create((set, get) => ({
     teams: [],
     channels: [],
     directMessages: [],
+    meetings: [],
     messages: {},
     activeId: null,
     activeType: 'channel',
@@ -26,6 +27,7 @@ const useCommunicationStore = create((set, get) => ({
     socket: null,
     isLoading: false,
     typingUsers: {}, // { [roomId]: [user1, user2] }
+    activeCallParticipants: {}, // { [roomId]: [{ socketId, userId }] }
 
     // Initialization
     init: async () => {
@@ -62,6 +64,9 @@ const useCommunicationStore = create((set, get) => ({
                 isLoading: false
             });
 
+            // Fetch Meetings
+            get().fetchMeetings();
+
             // Initialize Socket (Singleton)
             let { socket } = get();
             if (!socket) {
@@ -71,7 +76,7 @@ const useCommunicationStore = create((set, get) => ({
 
             // Join rooms for all channels
             allChannels.forEach(channel => {
-                socket.emit('join_room', channel._id);
+                socket.emit('join_channel', channel._id);
             });
             // Listener is already attached in initSocket
 
@@ -232,7 +237,7 @@ const useCommunicationStore = create((set, get) => ({
 
             // Join socket room
             const { socket } = get();
-            if (socket) socket.emit('join_room', channel._id);
+            if (socket) socket.emit('join_channel', channel._id);
 
             return channel;
         } catch (error) {
@@ -258,13 +263,39 @@ const useCommunicationStore = create((set, get) => ({
         const { socket } = get();
         if (socket) return;
 
-        // Initialize Socket Global
-        const newSocket = io(SOCKET_URL);
+        // Initialize Socket Global with Auth
         const userStr = localStorage.getItem('user');
-        if (userStr) {
-            const user = JSON.parse(userStr);
-            newSocket.emit('join_room', user._id || user.id);
-        }
+        if (!userStr) return;
+        const user = JSON.parse(userStr);
+
+        const newSocket = io(SOCKET_URL, {
+            auth: { token: user.token }
+        });
+
+        newSocket.on('connect', () => {
+            console.log("Socket connected with Auth");
+        });
+
+        newSocket.on('presence_sync', (presenceList) => {
+            // Update presence for all users
+            set(state => {
+                const newDMs = state.directMessages.map(dm => {
+                    const presence = presenceList.find(p => p.userId === dm.id);
+                    return presence ? { ...dm, status: presence.status } : dm;
+                });
+                return { directMessages: newDMs };
+            });
+        });
+
+        newSocket.on('presence_update', ({ userId, status }) => {
+            set(state => {
+                const newDMs = state.directMessages.map(dm => {
+                    if (dm.id === userId) return { ...dm, status };
+                    return dm;
+                });
+                return { directMessages: newDMs };
+            });
+        });
 
         newSocket.on('incoming_call', (data) => {
             console.log("Global Incoming Call:", data);
@@ -275,16 +306,39 @@ const useCommunicationStore = create((set, get) => ({
                     callStatus: 'incoming',
                     roomId: data.roomId,
                     callType: data.type,
-                    initiator: data.initiatorName || data.initiatorId, // Prefer name
-                    initiatorId: data.initiatorId // Keep ID for logic
+                    initiator: data.initiatorName || data.initiatorId,
+                    initiatorId: data.initiatorId
                 }
             }));
         });
 
-        // Listen for standard comm messages too
         newSocket.on('receive_comm_message', (message) => {
-            const targetId = message.channelId || message.sender._id;
+            const targetId = message.channelId || message.recipient || message.sender._id;
             get().addMessageToState(targetId, message);
+        });
+
+        newSocket.on('message:updated', (updatedMsg) => {
+            const targetId = updatedMsg.channelId || updatedMsg.recipient || updatedMsg.sender._id;
+            set(state => {
+                const currentMsgs = state.messages[targetId] || [];
+                const newMsgs = currentMsgs.map(m => m._id === updatedMsg._id ? updatedMsg : m);
+                return {
+                    messages: {
+                        ...state.messages,
+                        [targetId]: newMsgs
+                    }
+                };
+            });
+        });
+
+        newSocket.on('message:deleted', (messageId) => {
+            set(state => {
+                const newMessages = { ...state.messages };
+                Object.keys(newMessages).forEach(key => {
+                    newMessages[key] = newMessages[key].filter(m => m._id !== messageId);
+                });
+                return { messages: newMessages };
+            });
         });
 
         newSocket.on('display_typing', ({ user, roomId }) => {
@@ -312,6 +366,48 @@ const useCommunicationStore = create((set, get) => ({
             });
         });
 
+        // Consolidating all participant list management to the authoritative update
+        newSocket.on('call:participants-update', ({ roomId, participants }) => {
+            console.log(`[Store] Full sync for ${roomId}: ${participants.length} users`);
+            set((state) => ({
+                activeCallParticipants: {
+                    ...state.activeCallParticipants,
+                    [String(roomId)]: participants
+                }
+            }));
+        });
+
+        // Removed call:user-joined in favor of authoritative list updates
+
+        newSocket.on('call:user-left', ({ socketId, userId }) => {
+            console.log("User left call:", userId);
+            const { callState } = get();
+            if (callState.roomId) {
+                set(state => {
+                    const current = state.activeCallParticipants[callState.roomId] || [];
+                    return {
+                        activeCallParticipants: {
+                            ...state.activeCallParticipants,
+                            [callState.roomId]: current.filter(p => p.socketId !== socketId)
+                        }
+                    };
+                });
+            }
+        });
+
+        newSocket.on('call:media-update', ({ userId, mediaType, enabled }) => {
+            console.log("Media Update received:", userId, mediaType, enabled);
+            set(state => {
+                const currentParticipants = { ...state.activeCallParticipants };
+                Object.keys(currentParticipants).forEach(roomId => {
+                    currentParticipants[roomId] = currentParticipants[roomId].map(p =>
+                        p.userId === userId ? { ...p, mediaState: { ...p.mediaState, [mediaType]: enabled } } : p
+                    );
+                });
+                return { activeCallParticipants: currentParticipants };
+            });
+        });
+
         set({ socket: newSocket });
     },
 
@@ -330,19 +426,19 @@ const useCommunicationStore = create((set, get) => ({
             callState: {
                 ...state.callState,
                 inCall: true,
-                callStatus: 'calling', // Waiting for others to join
+                callStatus: 'preview',
                 roomId,
                 callType: type
             }
         }));
     },
 
-    joinCall: (roomId, type) => {
+    joinCall: (roomId, type, skipPreview = false) => {
         set((state) => ({
             callState: {
                 ...state.callState,
                 inCall: true,
-                callStatus: 'preview', // Show preview screen first
+                callStatus: skipPreview ? 'connected' : 'preview',
                 roomId,
                 callType: type
             }
@@ -350,6 +446,17 @@ const useCommunicationStore = create((set, get) => ({
     },
 
     enterCall: () => {
+        const { socket, callState } = get();
+        const userStr = localStorage.getItem('user');
+        if (socket && callState.roomId && userStr) {
+            const user = JSON.parse(userStr);
+            socket.emit('call:join', {
+                roomId: callState.roomId,
+                userId: user._id,
+                userName: `${user.firstName} ${user.lastName}`,
+                userAvatar: user.avatar
+            });
+        }
         set((state) => ({
             callState: {
                 ...state.callState,
@@ -360,8 +467,10 @@ const useCommunicationStore = create((set, get) => ({
 
     endCallGlobal: () => {
         const { socket, callState } = get();
-        if (socket && callState.roomId) {
-            socket.emit('leave_call_room', { roomId: callState.roomId });
+        const userStr = localStorage.getItem('user');
+        if (socket && callState.roomId && userStr) {
+            const userId = JSON.parse(userStr)._id;
+            socket.emit('call:leave', { roomId: callState.roomId, userId });
         }
         set({
             callState: {
@@ -385,6 +494,65 @@ const useCommunicationStore = create((set, get) => ({
             console.error('Error adding member:', error);
             alert(error.response?.data?.message || 'Failed to add member');
             return false;
+        }
+    },
+
+    editMessage: (messageId, content) => {
+        const { socket } = get();
+        if (socket) socket.emit('message:edit', { messageId, content });
+    },
+
+    deleteMessage: (messageId) => {
+        const { socket } = get();
+        if (socket) socket.emit('message:delete', { messageId });
+    },
+
+    addReaction: (messageId, emoji) => {
+        const { socket } = get();
+        if (socket) socket.emit('message:reaction', { messageId, emoji });
+    },
+
+    updateMediaState: (roomId, mediaState) => {
+        const { socket } = get();
+        const userStr = localStorage.getItem('user');
+        if (!userStr || !socket || !roomId) return;
+        const userId = JSON.parse(userStr)._id;
+
+        socket.emit('call:media_update', { roomId, userId, mediaState });
+    },
+
+    fetchMeetings: async () => {
+        try {
+            const config = { headers: getAuthHeader() };
+            const res = await axios.get(`${API_URL}/meetings`, config);
+            set({ meetings: res.data });
+        } catch (error) {
+            console.error('Error fetching meetings:', error);
+        }
+    },
+
+    scheduleMeeting: async (meetingData) => {
+        try {
+            const config = { headers: getAuthHeader() };
+            const res = await axios.post(`${API_URL}/meetings`, meetingData, config);
+            set(state => ({ meetings: [...state.meetings, res.data] }));
+            return res.data;
+        } catch (error) {
+            console.error('Error scheduling meeting:', error);
+            throw error;
+        }
+    },
+
+    updateMeeting: async (meetingId, updates) => {
+        try {
+            const config = { headers: getAuthHeader() };
+            const res = await axios.put(`${API_URL}/meetings/${meetingId}`, updates, config);
+            set(state => ({
+                meetings: state.meetings.map(m => m._id === meetingId ? res.data : m)
+            }));
+            return res.data;
+        } catch (error) {
+            console.error('Error updating meeting:', error);
         }
     }
 }));
