@@ -28,9 +28,10 @@ const ChallengeComposer = () => {
                 contactEnabled
             };
 
-            await axios.post('http://localhost:5000/api/challenges', payload, {
+            await axios.post('/api/challenges', payload, {
                 headers: { Authorization: `Bearer ${token}` }
             });
+
 
             // Reset and close
             setTitle('');

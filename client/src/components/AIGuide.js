@@ -206,23 +206,58 @@ const AIGuide = () => {
     };
 
     const handleQuickQuestions = (question) => {
-        const quickResponses = {
-            "How to post a problem?": "You can post problems in the Challenge section. Click 'Create Problem' and fill in the details. Our AI will then find experts who can help! 🚀",
-            "Find experts": "Our AI matches experts based on skills and past work. Post a problem and we'll recommend the right people for you! 🔍",
-            "Community guide": "The Community is where everyone shares knowledge. You can browse posts, vote, comment, and filter by profession! 👥",
-            "Dashboard help": "Your Dashboard shows all your activity - posted problems, collaborations, and notifications. It's your command center! 📊"
-        };
+        setInput(question);
+        // We trigger the same logic as handleSendMessage
+        // but we need to pass the question text directly since setInput is async
+        handleDynamicSendMessage(question);
+    };
 
-        const userMessage = { text: question, sender: 'user' };
+    const handleDynamicSendMessage = async (text) => {
+        if (!text.trim()) return;
+
+        const userMessage = { text: text, sender: 'user' };
         setMessages(prev => [...prev, userMessage]);
+        setInput('');
+        setIsLoading(true);
+        playRobotSound('notification');
 
-        setTimeout(() => {
-            setMessages(prev => [...prev, {
-                text: quickResponses[question] || "I can help with that! Try asking more specifically about what you need. 🤖",
+        try {
+            setTimeout(() => playRobotSound('speak'), 300);
+
+            const response = await axios.post('/api/ai-guide/query', {
+                query: text,
+                currentPage: location.pathname
+            });
+
+            let botResponse = response.data.text;
+            let emoji = "🤖";
+
+            if (botResponse.toLowerCase().includes('help') || botResponse.toLowerCase().includes('guide')) emoji = "🔍";
+            if (botResponse.toLowerCase().includes('success') || botResponse.toLowerCase().includes('great') || botResponse.toLowerCase().includes('perfect')) emoji = "🎯";
+            if (botResponse.toLowerCase().includes('error') || botResponse.toLowerCase().includes('sorry') || botResponse.toLowerCase().includes('problem')) emoji = "⚠️";
+            if (botResponse.toLowerCase().includes('welcome') || botResponse.toLowerCase().includes('thank')) emoji = "👋";
+
+            const botMessage = {
+                text: `${emoji} ${botResponse}`,
                 sender: 'bot',
-                action: question === "How to post a problem?" ? { label: 'Create Problem →', link: '/create-challenge' } : null
-            }]);
-        }, 400);
+                action: response.data.action
+            };
+
+            setTimeout(() => {
+                setMessages(prev => [...prev, botMessage]);
+                setIsLoading(false);
+            }, 600);
+
+        } catch (error) {
+            console.error("AI Guide Error:", error);
+            setTimeout(() => {
+                setMessages(prev => [...prev, {
+                    text: "🤖 Beep boop! I'm having technical difficulties connecting to my neural network. Please try again later.",
+                    sender: 'bot'
+                }]);
+                setIsLoading(false);
+            }, 600);
+        }
     };
 
     const toggleSound = () => {
@@ -244,6 +279,10 @@ const AIGuide = () => {
             playRobotSound('notification');
         }
     };
+
+    // Hide bot on login and register pages
+    const isAuthPage = location.pathname === '/login' || location.pathname === '/register' || location.pathname === '/';
+    if (isAuthPage) return null;
 
     return (
         <div className="ai-guide-container">

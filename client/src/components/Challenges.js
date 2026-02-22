@@ -28,7 +28,12 @@ const Challenges = () => {
     const navigate = useNavigate();
 
     useEffect(() => {
-        const newSocket = io('http://localhost:5000');
+        const userStr = localStorage.getItem('user');
+        const token = userStr ? JSON.parse(userStr).token : null;
+
+        const newSocket = io('http://localhost:5000', {
+            auth: { token }
+        });
         setSocket(newSocket);
 
         newSocket.on('connect', () => {

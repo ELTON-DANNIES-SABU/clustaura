@@ -5,18 +5,16 @@ class GuideLogic:
         # Map intents to base responses and actions
         self.intent_map = {
             "onboarding": {
-                "text": "ClustAura helps you post professional problems and connect with people who can solve them. Would you like to explore problems or post your own?",
-                "action": {"label": "Explore Problems", "link": "/problems"} 
-                # Note: Link might need adjustment based on actual frontend routes, assuming /problems for now
+                "text": "ClustAura helps you post professional problems and connect with people who can solve them. Would you like to explore existing challenges or post your own?",
+                "action": {"label": "Explore Challenges", "link": "/challenges"} 
             },
             "post_problem": {
-                "text": "You can post your problem, and our AI will recommend experts based on their skills and past work. Go to Create Problem to get started.",
-                "action": {"label": "Create Problem", "link": "/create-challenge"} 
-                # Assuming /create-challenge based on ChallengeDetail.js existence
+                "text": "You can post your problem in the Challenges section using the composer. Our AI will then match you with experts! Want to go there now?",
+                "action": {"label": "Go to Challenges", "link": "/challenges"} 
             },
             "find_experts": {
-                "text": "Our AI looks at your problem and finds people whose past work and skills best match it. You can see this in action by posting a problem.",
-                "action": {"label": "Create & Match", "link": "/create-challenge"}
+                "text": "Our AI looks at your problem and finds people whose past work and skills best match it. You can see this in action on the Challenges page.",
+                "action": {"label": "Find Experts", "link": "/challenges"}
             },
             "profile_help": {
                 "text": "Keeping your profile updated helps us match you with the right opportunities. You can edit your skills and experience in your Profile.",
@@ -59,8 +57,8 @@ class GuideLogic:
                 "action": {"label": "My Posts", "link": "/community"}
             },
             "navigation_home": {
-                "text": "Need to get back? Click the Home icon in the Community header or use this link to return to your Dashboard.",
-                "action": {"label": "Go to Dashboard", "link": "/"}
+                "text": "Need to get back? Click the Home icon or use this link to return to your main Dashboard.",
+                "action": {"label": "Go to Dashboard", "link": "/dashboard"}
             }
         }
 

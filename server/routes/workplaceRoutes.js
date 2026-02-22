@@ -13,7 +13,9 @@ const {
     updateSprintStatus,
     addProjectMember,
     leaveProject,
-    removeProjectMember
+    removeProjectMember,
+    getProjectLeaveRequests,
+    respondToLeaveRequest
 } = require('../controllers/workplaceController');
 const { protect } = require('../middleware/authMiddleware');
 
@@ -21,6 +23,8 @@ const { protect } = require('../middleware/authMiddleware');
 router.post('/projects', protect, createProject);
 router.get('/projects', protect, getProjects);
 router.get('/projects/:id', protect, getProjectById);
+router.get('/projects/:id/leave-requests', protect, getProjectLeaveRequests);
+router.post('/projects/:id/leave-requests/:userId/respond', protect, respondToLeaveRequest);
 
 // Issue Routes
 router.post('/issues', protect, createIssue);

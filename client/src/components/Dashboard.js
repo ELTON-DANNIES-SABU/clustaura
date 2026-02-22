@@ -1349,8 +1349,6 @@ const Dashboard = () => {
                 onSubmit={handlePostModalSubmit}
             />
 
-            {/* AI Guide - Only on Dashboard */}
-            <AIGuide />
         </div>
     );
 };

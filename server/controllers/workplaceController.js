@@ -3,6 +3,7 @@ const Issue = require('../models/Issue');
 const Sprint = require('../models/Sprint');
 const User = require('../models/User');
 const Post = require('../models/Post');
+const Notification = require('../models/Notification');
 
 // @desc    Create a new sprint
 // @route   POST /api/workplace/sprints
@@ -330,7 +331,7 @@ const addProjectMember = async (req, res) => {
     }
 };
 
-// @desc    Leave a project
+// @desc    Leave a project (Send request to lead)
 // @route   DELETE /api/workplace/projects/:id/leave
 // @access  Private
 const leaveProject = async (req, res) => {
@@ -341,18 +342,135 @@ const leaveProject = async (req, res) => {
             return res.status(404).json({ message: 'Project not found' });
         }
 
-        // Owner cannot leave their own project (they must delete it or transfer ownership)
+        // Owner cannot leave their own project
         if (project.owner.toString() === req.user._id.toString()) {
             return res.status(400).json({ message: 'Owner cannot leave the project' });
         }
 
-        // Remove from members
-        project.members = project.members.filter(m => m.toString() !== req.user._id.toString());
+        // Check if already requested
+        const alreadyRequested = project.leaveRequests.some(
+            req_item => req_item.user.toString() === req.user._id.toString()
+        );
+
+        if (alreadyRequested) {
+            return res.status(400).json({ message: 'Leave request already pending approval' });
+        }
+
+        // Add to leave requests
+        project.leaveRequests.push({ user: req.user._id });
         await project.save();
 
-        res.json({ success: true, message: 'You have left the project' });
+        // Notify Lead
+        try {
+            const notification = await Notification.create({
+                recipient: project.owner,
+                sender: req.user._id,
+                type: 'leave_request',
+                content: `${req.user.firstName} ${req.user.lastName} has requested to leave the project "${project.name}"`,
+                relatedId: project._id
+            });
+
+            const io = req.app.get('io');
+            if (io) {
+                io.to(project.owner.toString()).emit('receive_notification', notification);
+            }
+        } catch (notifyErr) {
+            console.error('Error sending leave request notification:', notifyErr);
+        }
+
+        res.json({ success: true, message: 'Leave request sent to project lead' });
     } catch (error) {
         console.error('Error leaving project:', error);
+        res.status(500).json({ message: 'Server Error' });
+    }
+};
+
+// @desc    Get pending leave requests for a project
+// @route   GET /api/workplace/projects/:id/leave-requests
+// @access  Private (Lead only)
+const getProjectLeaveRequests = async (req, res) => {
+    try {
+        const project = await Project.findById(req.params.id).populate('leaveRequests.user', 'firstName lastName email profileImageUrl');
+
+        if (!project) {
+            return res.status(404).json({ message: 'Project not found' });
+        }
+
+        // Only lead can see requests
+        if (project.owner.toString() !== req.user._id.toString()) {
+            return res.status(403).json({ message: 'Only project lead can view leave requests' });
+        }
+
+        res.json(project.leaveRequests);
+    } catch (error) {
+        console.error('Error fetching leave requests:', error);
+        res.status(500).json({ message: 'Server Error' });
+    }
+};
+
+// @desc    Respond to leave request
+// @route   POST /api/workplace/projects/:id/leave-requests/:userId/respond
+// @access  Private (Lead only)
+const respondToLeaveRequest = async (req, res) => {
+    try {
+        const { action } = req.body; // 'approve' or 'reject'
+        const { userId } = req.params;
+        const project = await Project.findById(req.params.id);
+
+        if (!project) {
+            return res.status(404).json({ message: 'Project not found' });
+        }
+
+        // Only lead can respond
+        if (project.owner.toString() !== req.user._id.toString()) {
+            return res.status(403).json({ message: 'Only project lead can respond to leave requests' });
+        }
+
+        // Remove from leave requests regardless of action
+        project.leaveRequests = project.leaveRequests.filter(
+            r => r.user.toString() !== userId
+        );
+
+        if (action === 'approve') {
+            // Remove from members
+            project.members = project.members.filter(m => m.toString() !== userId);
+
+            // Notify user
+            try {
+                await Notification.create({
+                    recipient: userId,
+                    sender: req.user._id,
+                    type: 'leave_approved',
+                    content: `Your request to leave project "${project.name}" has been approved`,
+                    relatedId: project._id
+                });
+            } catch (notifyErr) {
+                console.error('Error sending leave approval notification:', notifyErr);
+            }
+        } else {
+            // Notify user of rejection
+            try {
+                await Notification.create({
+                    recipient: userId,
+                    sender: req.user._id,
+                    type: 'leave_rejected',
+                    content: `Your request to leave project "${project.name}" was declined by the lead`,
+                    relatedId: project._id
+                });
+            } catch (notifyErr) {
+                console.error('Error sending leave rejection notification:', notifyErr);
+            }
+        }
+
+        await project.save();
+
+        const updatedProject = await Project.findById(project._id)
+            .populate('owner', 'firstName lastName email')
+            .populate('members', 'firstName lastName email profileImageUrl');
+
+        res.json({ success: true, action, project: updatedProject });
+    } catch (error) {
+        console.error('Error responding to leave request:', error);
         res.status(500).json({ message: 'Server Error' });
     }
 };
@@ -408,5 +526,7 @@ module.exports = {
     updateSprintStatus,
     addProjectMember,
     leaveProject,
-    removeProjectMember
+    removeProjectMember,
+    getProjectLeaveRequests,
+    respondToLeaveRequest
 };

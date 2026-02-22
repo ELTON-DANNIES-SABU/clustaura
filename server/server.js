@@ -102,6 +102,8 @@ app.use('/api/comm', require('./routes/commRoutes'));
 app.use('/api/community', require('./routes/communityRoutes'));
 app.use('/api/posts', require('./routes/postRoutes'));
 app.use('/api/upload', require('./routes/uploadRoutes'));
+app.use('/api/ai-guide', require('./routes/aiGuideRoutes'));
+app.use('/api/ai', require('./routes/aiRoutes'));
 
 // --- Socket.io Middleware & Presence ---
 const userSockets = new Map(); // userId -> Set of socketIds
@@ -173,7 +175,22 @@ io.on('connection', async (socket) => {
     // Send all current presence to the new user
     socket.emit('presence_sync', Array.from(userPresence.entries()).map(([uid, status]) => ({ userId: uid, status })));
 
+    // --- Challenges Handling ---
+    socket.on('request_challenges', async () => {
+        try {
+            const challenges = await Challenge.find()
+                .populate('author', 'firstName lastName email')
+                .populate('comments.user', 'firstName lastName')
+                .sort({ createdAt: -1 });
+            socket.emit('challenge:initial', challenges);
+            console.log(`[CHALLENGE] Sent ${challenges.length} challenges to user ${socket.user.firstName}`);
+        } catch (error) {
+            console.error('Error fetching challenges for socket:', error);
+        }
+    });
+
     // --- Typing Indicators ---
+
     socket.on('typing', ({ roomId, user }) => {
         socket.to(roomId).emit('display_typing', { user, roomId });
     });

@@ -4,7 +4,7 @@ import axios from 'axios';
 import '../styles.css';
 import { Search, X, Filter, User, CheckCircle, Clock, Layout, FlaskConical, ChevronRight, Plus, MoreVertical, Target, Flag, MessageSquare, BarChart3 } from 'lucide-react';
 import TicketDetailModal from './Workplace/components/TicketDetailModal';
-import AIChatBubble from './AIChatBubble';
+
 
 const WorkplaceBoard = () => {
     const { projectId } = useParams();
@@ -24,6 +24,7 @@ const WorkplaceBoard = () => {
     const [selectedIssueDetail, setSelectedIssueDetail] = useState(null);
     const [dragOverColumn, setDragOverColumn] = useState(null);
     const [currentUser, setCurrentUser] = useState(null);
+    const [leaveRequests, setLeaveRequests] = useState([]);
 
     const today = new Date().toISOString().split('T')[0];
 
@@ -49,7 +50,7 @@ const WorkplaceBoard = () => {
         try {
             const userStr = localStorage.getItem('user');
             if (!userStr) return;
-            const { token } = JSON.parse(userStr);
+            const { token, _id } = JSON.parse(userStr);
             const config = {
                 headers: {
                     Authorization: `Bearer ${token}`
@@ -75,6 +76,11 @@ const WorkplaceBoard = () => {
                 setIssues(issuesRes.data);
             } else {
                 setIssues([]);
+            }
+
+            if (projRes.data.owner._id === _id) {
+                const leaveReqRes = await axios.get(`/api/workplace/projects/${projectId}/leave-requests`, config);
+                setLeaveRequests(leaveReqRes.data);
             }
 
         } catch (error) {
@@ -116,18 +122,58 @@ const WorkplaceBoard = () => {
         }
     };
 
+    const handleAddMember = async (e) => {
+        e.preventDefault();
+        try {
+            const userStr = localStorage.getItem('user');
+            const { token } = JSON.parse(userStr);
+            const res = await axios.post(`/api/workplace/projects/${projectId}/members`,
+                { email: newMemberEmail },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            setShowAddMemberModal(false);
+            setNewMemberEmail('');
+            alert('Member added successfully');
+            fetchProjectData();
+        } catch (error) {
+            console.error('Error adding member:', error);
+            alert(error.response?.data?.message || 'Error adding member');
+        }
+    };
+
+
     const handleLeaveProject = async () => {
-        if (!window.confirm('Are you sure you want to leave this project?')) return;
+        if (!window.confirm('Are you sure you want to leave this project? (A request will be sent to the lead)')) return;
         try {
             const { token } = currentUser;
-            await axios.delete(`/api/workplace/projects/${projectId}/leave`, {
+            const res = await axios.delete(`/api/workplace/projects/${projectId}/leave`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            alert('You have left the project');
-            navigate('/workplace');
+            alert(res.data.message || 'Leave request sent successfully');
         } catch (error) {
             console.error('Error leaving project:', error);
             alert(error.response?.data?.message || 'Error leaving project');
+        }
+    };
+
+    const handleRespondToLeaveRequest = async (userId, action) => {
+        const confirmMsg = action === 'approve'
+            ? 'Are you sure you want to approve this leave request? The member will be removed from the project.'
+            : 'Are you sure you want to decline this leave request?';
+
+        if (!window.confirm(confirmMsg)) return;
+
+        try {
+            const { token } = currentUser;
+            await axios.post(`/api/workplace/projects/${projectId}/leave-requests/${userId}/respond`,
+                { action },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            alert(`Leave request ${action === 'approve' ? 'approved' : 'declined'} successfully`);
+            fetchProjectData();
+        } catch (error) {
+            console.error('Error responding to leave request:', error);
+            alert(error.response?.data?.message || 'Error responding to leave request');
         }
     };
 
@@ -303,6 +349,39 @@ const WorkplaceBoard = () => {
                         </Link>
                     </div>
                 </div>
+
+                {project.owner._id === currentUser?._id && leaveRequests.length > 0 && (
+                    <div className="leave-requests-banner" style={{ background: 'rgba(255, 71, 87, 0.1)', border: '1px solid rgba(255, 71, 87, 0.3)', borderRadius: '8px', padding: '12px 20px', marginTop: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <div style={{ background: '#ff4757', color: 'white', borderRadius: '50%', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 'bold' }}>
+                                {leaveRequests.length}
+                            </div>
+                            <div>
+                                <h4 style={{ margin: 0, color: '#ff4757', fontSize: '0.9rem' }}>Pending Leave Requests</h4>
+                                <p style={{ margin: 0, fontSize: '0.8rem', opacity: 0.8 }}>Members are waiting for your approval to leave the project.</p>
+                            </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: '10px' }}>
+                            {leaveRequests.map(req => (
+                                <div key={req.user._id} className="leave-request-item" style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(255,255,255,0.05)', padding: '4px 8px', borderRadius: '4px' }}>
+                                    <span style={{ fontSize: '0.85rem' }}>{req.user.firstName} {req.user.lastName}</span>
+                                    <button
+                                        onClick={() => handleRespondToLeaveRequest(req.user._id, 'approve')}
+                                        style={{ background: '#2ed573', border: 'none', color: 'white', padding: '2px 8px', borderRadius: '3px', cursor: 'pointer', fontSize: '0.75rem' }}
+                                    >
+                                        Approve
+                                    </button>
+                                    <button
+                                        onClick={() => handleRespondToLeaveRequest(req.user._id, 'reject')}
+                                        style={{ background: '#ff4757', border: 'none', color: 'white', padding: '2px 8px', borderRadius: '3px', cursor: 'pointer', fontSize: '0.75rem' }}
+                                    >
+                                        Decline
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
             </header>
 
             <div className="board-controls">
@@ -345,13 +424,7 @@ const WorkplaceBoard = () => {
                 )}
             </div>
 
-            {/* AI Chat Bubble */}
-            {activeSprint && (
-                <AIChatBubble
-                    sprintId={activeSprint._id}
-                    onTeamCreated={fetchProjectData}
-                />
-            )}
+
 
             <div className="board-columns-container">
                 {columns.map(column => (

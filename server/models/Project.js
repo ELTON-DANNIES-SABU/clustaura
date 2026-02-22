@@ -24,6 +24,17 @@ const ProjectSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User'
     }],
+    leaveRequests: [{
+        user: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User'
+        },
+        requestDate: {
+            type: Date,
+            default: Date.now
+        }
+    }],
+
     columns: {
         type: [String],
         default: ['To Do', 'In Progress', 'Done']

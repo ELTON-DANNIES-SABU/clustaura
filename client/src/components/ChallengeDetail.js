@@ -161,7 +161,8 @@ const ChallengeDetail = () => {
                 headers: { Authorization: `Bearer ${token}` }
             };
 
-            await axios.post(`http://localhost:5000/api/challenges/${id}/comments`, { text: commentInput, allowContact }, config);
+            await axios.post(`/api/challenges/${id}/comments`, { text: commentInput, allowContact }, config);
+
             setCommentInput('');
             setAllowContact(false);
             fetchChallengeDetail(); // Refresh to show new comment

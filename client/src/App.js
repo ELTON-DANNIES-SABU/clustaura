@@ -59,6 +59,7 @@ function App() {
                 <Route path="/communication" element={<Communication />} />
                 <Route path="/community/*" element={<Community />} />
             </Routes>
+            <AIGuide />
         </Router>
     );
 }
