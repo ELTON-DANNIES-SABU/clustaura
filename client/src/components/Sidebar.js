@@ -31,11 +31,11 @@ const Sidebar = ({ activeLayout, onLayoutChange }) => {
                     </button>
 
                     <button
-                        className={`sidebar-btn ${activeLayout === 'workplace' ? 'active' : ''}`}
-                        onClick={() => onLayoutChange('workplace')}
+                        className={`sidebar-btn ${activeLayout === 'assessment' ? 'active' : ''}`}
+                        onClick={() => onLayoutChange('assessment')}
                     >
-                        <span className="sidebar-icon">🏢</span>
-                        <span className="sidebar-text">Clustaura Workplace</span>
+                        <span className="sidebar-icon">📝</span>
+                        <span className="sidebar-text">Assessment Portal</span>
                     </button>
                 </div>
             </div>

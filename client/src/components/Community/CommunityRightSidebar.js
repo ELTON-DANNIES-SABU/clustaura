@@ -1,28 +1,84 @@
+import React, { useMemo, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import useCommunityStore from '../../store/communityStore';
-import { TrendingUp, MessageSquare } from 'lucide-react';
+import {
+    TrendingUp, MessageSquare, PlusCircle, Globe, Award,
+    Flame, Zap, Users, Rocket, ChevronRight, Star,
+    Clock, Trophy, Medal, Crown, Sparkles, X
+} from 'lucide-react';
 import RecommendedExperts from './RecommendedExperts';
 
-const CommunityRightSidebar = () => {
+const CommunityRightSidebar = ({ onToast, onClose }) => {
     const navigate = useNavigate();
     const location = useLocation();
     const { posts } = useCommunityStore();
+    const [activeTab, setActiveTab] = useState('trending');
 
-    // Get trending challenges (e.g. posts with most comments or just newest)
-    const challenges = posts.slice(0, 4);
-
-    // Check if we are viewing a post
     const match = location.pathname.match(/\/community\/post\/(.+)/);
     const currentPostId = match ? match[1] : null;
 
-    const handleInvite = (userId) => {
-        alert(`Invite sent to expert ${userId}!`);
-        // Implement actual invite logic here
+    const challenges = useMemo(() => {
+        if (!posts) return [];
+        return [...posts]
+            .map(post => ({
+                ...post,
+                score: (post.votes * 3) + (post.commentCount * 5) + (new Date(post.timestamp).getTime() / 100000)
+            }))
+            .sort((a, b) => b.score - a.score)
+            .slice(0, 5);
+    }, [posts]);
+
+    const topChallenges = useMemo(() => {
+        if (!posts) return [];
+        return [...posts]
+            .sort((a, b) => b.votes - a.votes)
+            .slice(0, 5);
+    }, [posts]);
+
+    const risingChallenges = useMemo(() => {
+        if (!posts) return [];
+        const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        return [...posts]
+            .filter(post => new Date(post.timestamp) > oneDayAgo)
+            .sort((a, b) => (b.commentCount * 2 + b.votes) - (a.commentCount * 2 + a.votes))
+            .slice(0, 5);
+    }, [posts]);
+
+    const handleInvite = () => {
+        onToast?.('✨ Invitation sent to expert!', 'success');
+    };
+
+    const getRankIcon = (index) => {
+        if (index === 0) return <Crown size={12} style={{ color: '#ffd700' }} />;
+        if (index === 1) return <Medal size={12} style={{ color: '#c0c0c0' }} />;
+        if (index === 2) return <Medal size={12} style={{ color: '#cd7f32' }} />;
+        return null;
+    };
+
+    const getRankClass = (index) => {
+        if (index === 0) return 'gold';
+        if (index === 1) return 'silver';
+        if (index === 2) return 'bronze';
+        return '';
+    };
+
+    const getCurrentChallenges = () => {
+        switch (activeTab) {
+            case 'trending': return challenges;
+            case 'top': return topChallenges;
+            case 'rising': return risingChallenges;
+            default: return challenges;
+        }
     };
 
     return (
-        <div className="community-sidebar-right flex flex-col gap-8">
-            {/* Show Experts if on a post page */}
+        <div className="community-sidebar-right">
+            {onClose && (
+                <button className="sidebar-close-btn" onClick={onClose}>
+                    <X size={20} />
+                </button>
+            )}
+
             {currentPostId && (
                 <RecommendedExperts
                     challengeId={currentPostId}
@@ -30,58 +86,198 @@ const CommunityRightSidebar = () => {
                 />
             )}
 
-            <div className="community-sidebar-card p-8">
-                <h3 className="text-[11px] font-black text-gray-500 uppercase tracking-widest mb-8 flex items-center gap-3">
-                    <TrendingUp size={18} className="text-node-green" style={{ color: 'var(--node-green)' }} />
-                    Trending Challenges
-                </h3>
-                <div className="flex flex-col gap-6">
-                    {challenges.map((challenge) => (
-                        <div
-                            key={challenge.id}
-                            className="group cursor-pointer border-b border-subtle pb-6 last:border-0 last:pb-0"
-                            style={{ borderColor: 'var(--border-subtle)' }}
-                            onClick={() => navigate(`/community/post/${challenge.id}`)}
-                        >
-                            <h4 className="text-[15px] font-bold text-gray-100 group-hover:text-node-green transition-colors mb-3 line-clamp-2 leading-snug">
-                                {challenge.title}
-                            </h4>
-                            <div className="flex items-center gap-5 text-[11px] text-gray-500 font-bold uppercase tracking-widest">
-                                <span className="flex items-center gap-1.5">
-                                    <MessageSquare size={14} />
-                                    {challenge.commentCount} solutions
-                                </span>
-                                <span>u/{challenge.author}</span>
-                            </div>
-                        </div>
-                    ))}
-                    {challenges.length === 0 && (
-                        <p className="text-xs text-gray-500 italic">No trending challenges yet</p>
-                    )}
+            {/* Stats Card */}
+            <div className="stats-card">
+                <div className="stats-header">
+                    <div className="stats-icon">
+                        <Globe size={20} color="white" />
+                    </div>
+                    <h3>Global Stats</h3>
+                </div>
+
+                <div className="stats-grid">
+                    <div className="stat-box">
+                        <div className="value">{posts?.length || 0}</div>
+                        <div className="label">Challenges</div>
+                    </div>
+                    <div className="stat-box">
+                        <div className="value">{posts?.reduce((acc, p) => acc + p.commentCount, 0) || 0}</div>
+                        <div className="label">Solutions</div>
+                    </div>
+                </div>
+
+                <div className="active-developers">
+                    <span>Active Developers</span>
+                    <span>
+                        <Users size={14} />
+                        {Math.floor(Math.random() * 500) + 1000}
+                    </span>
                 </div>
             </div>
 
-            <div className="community-sidebar-card p-8" style={{ background: 'var(--surface-bg)', border: '1px solid var(--border-subtle)' }}>
-                <h3 className="text-base font-bold text-white mb-3">Create a Challenge</h3>
-                <p className="text-sm text-gray-400 mb-8 leading-relaxed">
-                    Post a problem and collaborate with experts to find a solution.
-                </p>
+            {/* Tab Navigation */}
+            <div className="tab-nav">
                 <button
-                    className="btn-primary w-full py-4 text-xs tracking-widest"
-                    onClick={() => navigate('/community/create')}
+                    className={`tab-btn ${activeTab === 'trending' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('trending')}
                 >
-                    POST NEW CHALLENGE
+                    <Flame size={14} />
+                    Trending
+                </button>
+                <button
+                    className={`tab-btn ${activeTab === 'top' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('top')}
+                >
+                    <Trophy size={14} />
+                    Top
+                </button>
+                <button
+                    className={`tab-btn ${activeTab === 'rising' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('rising')}
+                >
+                    <Rocket size={14} />
+                    Rising
                 </button>
             </div>
 
-            <div className="text-[11px] text-gray-600 px-4 flex flex-wrap gap-x-6 gap-y-3 uppercase tracking-widest font-bold">
-                <a href="#" className="hover:text-gray-400 transition-colors">Privacy</a>
-                <a href="#" className="hover:text-gray-400 transition-colors">Policies</a>
-                <a href="#" className="hover:text-gray-400 transition-colors">Guidelines</a>
-                <span>© 2026 Clustaura</span>
+            {/* Challenge List */}
+            <div className="stats-card">
+                <div className="stats-header">
+                    <h3 style={{ fontSize: '11px' }}>
+                        {activeTab === 'trending' && 'Trending Challenges'}
+                        {activeTab === 'top' && 'Top Challenges'}
+                        {activeTab === 'rising' && 'Rising Challenges'}
+                    </h3>
+                    <span className="stat-label">Live</span>
+                </div>
+
+                <div className="challenge-list">
+                    {getCurrentChallenges().map((challenge, index) => (
+                        <div
+                            key={challenge.id}
+                            className="challenge-item"
+                            onClick={() => navigate(`/community/post/${challenge.id}`)}
+                        >
+                            <div className="challenge-rank" />
+                            <div className="challenge-content">
+                                <div className={`rank-number ${getRankClass(index)}`}>
+                                    {getRankIcon(index)}
+                                    {index + 1}
+                                </div>
+                                <div className="challenge-info">
+                                    <div className="challenge-title">{challenge.title}</div>
+                                    <div className="challenge-meta">
+                                        <span className="meta-item">
+                                            <MessageSquare size={8} />
+                                            {challenge.commentCount}
+                                        </span>
+                                        <span className="meta-item">
+                                            <TrendingUp size={8} />
+                                            {challenge.votes}
+                                        </span>
+                                        <span className="meta-item">
+                                            <Clock size={8} />
+                                            {new Date(challenge.timestamp).toLocaleDateString()}
+                                        </span>
+                                    </div>
+                                </div>
+                                {activeTab === 'trending' && (
+                                    <span className="score-badge trending">
+                                        {challenge.score ? Math.round(challenge.score / 1000) : '🔥'}
+                                    </span>
+                                )}
+                                {activeTab === 'top' && (
+                                    <span className="score-badge top">
+                                        {challenge.votes} pts
+                                    </span>
+                                )}
+                                {activeTab === 'rising' && (
+                                    <span className="score-badge rising">
+                                        +{challenge.commentCount}
+                                    </span>
+                                )}
+                            </div>
+                            {challenge.tags && challenge.tags.length > 0 && (
+                                <div className="challenge-tags">
+                                    {challenge.tags.slice(0, 2).map(tag => (
+                                        <span key={tag} className="tag-mini">
+                                            #{tag}
+                                        </span>
+                                    ))}
+                                    {challenge.tags.length > 2 && (
+                                        <span className="tag-mini">+{challenge.tags.length - 2}</span>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    ))}
+
+                    {getCurrentChallenges().length === 0 && (
+                        <div className="empty-state-small">
+                            <Rocket size={24} />
+                            <p>No challenges yet</p>
+                        </div>
+                    )}
+                </div>
+
+                {getCurrentChallenges().length > 0 && (
+                    <button className="load-more-btn" onClick={() => setActiveTab('trending')}>
+                        View All
+                        <ChevronRight size={12} />
+                    </button>
+                )}
+            </div>
+
+            {/* Top Contributors */}
+            <div className="stats-card">
+                <div className="stats-header">
+                    <Award size={16} style={{ color: '#ffd700' }} />
+                    <h3 style={{ fontSize: '11px' }}>Top Contributors</h3>
+                </div>
+
+                <div className="contributors-list">
+                    {[1, 2, 3].map((_, i) => (
+                        <div key={i} className="contributor-item">
+                            <div className="contributor-avatar">
+                                {String.fromCharCode(65 + i)}
+                            </div>
+                            <div className="contributor-info">
+                                <div className="contributor-name">Contributor {i + 1}</div>
+                                <div className="contributor-stats">
+                                    {Math.floor(Math.random() * 50) + 50} solutions
+                                </div>
+                            </div>
+                            <div className={`contributor-medal ${i === 0 ? 'gold' : i === 1 ? 'silver' : 'bronze'}`}>
+                                {i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉'}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            {/* CTA Card */}
+            <div className="cta-card">
+                <Rocket className="cta-icon" />
+                <h3>Post a Challenge</h3>
+                <p>Share your technical problem and get help from experts worldwide.</p>
+                <button className="btn-primary" onClick={() => navigate('/community/create')}>
+                    <PlusCircle size={14} />
+                    New Challenge
+                </button>
+            </div>
+
+            {/* Footer Links */}
+            <div className="footer-links-row">
+                <a href="#" className="footer-link">About</a>
+                <a href="#" className="footer-link">Privacy</a>
+                <a href="#" className="footer-link">Terms</a>
+                <a href="#" className="footer-link">Guidelines</a>
+            </div>
+            <div className="footer-copyright">
+                © 2026 Clustaura Global Community
             </div>
         </div>
     );
 };
 
-export default CommunityRightSidebar;
+export default React.memo(CommunityRightSidebar);

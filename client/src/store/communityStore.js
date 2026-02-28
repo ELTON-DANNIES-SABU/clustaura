@@ -26,6 +26,7 @@ const getAuthHeader = () => {
 const useCommunityStore = create((set, get) => ({
     communities: [],
     posts: [],
+    comments: {},
     selectedProfessionTags: [],
     loading: false,
     error: null,
@@ -121,16 +122,35 @@ const useCommunityStore = create((set, get) => ({
     },
 
     vote: async (postId, direction) => {
-        // Current post state for optimistic UI
-        const post = get().posts.find(p => p.id === postId);
+        const posts = get().posts;
+        const post = posts.find(p => p.id === postId);
         if (!post) return;
+
+        // Optimistic update
+        const previousVote = post.userVote;
+        const voteDelta = direction === previousVote ? -direction : direction - previousVote;
+        set({
+            posts: posts.map(p =>
+                p.id === postId
+                    ? { ...p, votes: p.votes + voteDelta, userVote: direction === previousVote ? 0 : direction }
+                    : p
+            )
+        });
 
         try {
             await api.put(`/posts/${postId}/vote`, { direction }, { headers: getAuthHeader() });
-            get().fetchPosts(); // Refresh data to get synced state
+            // Sync with server after optimistic update
+            get().fetchPosts();
         } catch (error) {
             console.error('Vote failed', error);
-            set({ error: 'Failed to vote' });
+            // Revert optimistic update
+            set({
+                posts: get().posts.map(p =>
+                    p.id === postId ? { ...p, votes: post.votes, userVote: post.userVote } : p
+                ),
+                error: 'Failed to vote'
+            });
+            throw error; // Allow caller to show toast
         }
     },
 

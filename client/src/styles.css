@@ -149,6 +149,12 @@ body {
     overflow-x: hidden;
 }
 
+body.exam-mode .footer-navbar,
+body.exam-mode .ai-guide-container,
+body.exam-mode .ai-guide-robot-fab {
+    display: none !important;
+}
+
 /* Typography Scale */
 h1,
 .h1 {

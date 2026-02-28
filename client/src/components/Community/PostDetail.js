@@ -1,10 +1,13 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, ArrowBigUp, ArrowBigDown, MessageSquare } from 'lucide-react';
+import { ArrowLeft, MessageSquare } from 'lucide-react';
 import useCommunityStore from '../../store/communityStore';
 import CommentSection from './CommentSection';
+import VoteButtons from './shared/VoteButtons';
+import UserAvatar from './shared/UserAvatar';
+import TagList from './shared/TagList';
 
-const PostDetail = () => {
+const PostDetail = ({ onToast }) => {
     const { postId } = useParams();
     const navigate = useNavigate();
     const { posts, vote, fetchComments } = useCommunityStore();
@@ -15,87 +18,170 @@ const PostDetail = () => {
 
     const post = posts.find(p => p.id === postId);
 
+    const handleVote = useCallback(async (direction) => {
+        try {
+            await vote(post.id, direction);
+        } catch {
+            onToast?.('Vote failed. Please try again.', 'error');
+        }
+    }, [post?.id, vote, onToast]);
+
     if (!post) {
         return (
-            <div className="community-container flex flex-col items-center justify-center min-h-[400px] text-gray-500">
-                <p className="text-xl mb-4 font-bold">Post not found</p>
+            <div
+                className="empty-state"
+                role="status"
+                aria-label="Post not found"
+            >
+                <div style={{ fontSize: 40, marginBottom: 'var(--sp-4)' }}>🔍</div>
+                <p style={{ fontSize: 'var(--text-xl)', fontWeight: 700, marginBottom: 'var(--sp-2)' }}>
+                    Post not found
+                </p>
+                <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)', marginBottom: 'var(--sp-6)' }}>
+                    This post may have been removed or the link is incorrect.
+                </p>
                 <button
-                    className="text-node-green hover:underline font-bold"
-                    style={{ color: 'var(--node-green)' }}
+                    className="btn-primary"
                     onClick={() => navigate('/community')}
                 >
-                    Return to home
+                    Return to Community
                 </button>
             </div>
         );
     }
 
-    const handleVote = (direction) => {
-        vote(post.id, direction);
-    };
+    const relativeTime = new Date(post.timestamp).toLocaleDateString(undefined, {
+        month: 'long', day: 'numeric', year: 'numeric'
+    });
 
     return (
-        <div className="community-container max-w-4xl mx-auto p-6">
+        <section
+            className="community-container"
+            style={{ maxWidth: '100%', padding: 'var(--sp-6)' }}
+            aria-label="Post detail"
+        >
+            {/* Back button */}
             <button
-                className="flex items-center gap-2 text-gray-500 hover:text-white mb-8 transition-colors text-xs font-bold uppercase tracking-widest"
-                style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+                className="post-action-btn"
+                style={{ marginBottom: 'var(--sp-8)', fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}
                 onClick={() => navigate('/community')}
+                aria-label="Back to feed"
             >
-                <ArrowLeft size={16} />
+                <ArrowLeft size={15} aria-hidden="true" />
                 Back to Feed
             </button>
 
-            <div className="surface-panel rounded-xl overflow-hidden shadow-2xl border border-subtle" style={{ background: 'var(--surface-bg)', borderColor: 'var(--border-subtle)' }}>
-                <div className="flex">
-                    <div className="voting-sidebar flex flex-col items-center py-8 gap-2 border-r border-subtle" style={{ borderColor: 'var(--border-subtle)', width: '60px', background: 'rgba(0,0,0,0.2)' }}>
-                        <button
-                            className={`vote-btn up ${post.userVote === 1 ? 'active' : ''} text-gray-500 hover:text-node-green transition-colors`}
-                            onClick={() => handleVote(1)}
-                            style={{ background: 'none', border: 'none', cursor: 'pointer' }}
-                        >
-                            <ArrowBigUp size={28} fill={post.userVote === 1 ? "var(--node-green)" : "none"} color={post.userVote === 1 ? "var(--node-green)" : "currentColor"} />
-                        </button>
-                        <span className={`font-bold text-lg ${post.userVote !== 0 ? 'text-node-green' : 'text-gray-400'}`}>
-                            {post.votes}
-                        </span>
-                        <button
-                            className={`vote-btn down ${post.userVote === -1 ? 'active' : ''} text-gray-500 hover:text-node-green transition-colors`}
-                            onClick={() => handleVote(-1)}
-                            style={{ background: 'none', border: 'none', cursor: 'pointer' }}
-                        >
-                            <ArrowBigDown size={28} fill={post.userVote === -1 ? "var(--node-green)" : "none"} color={post.userVote === -1 ? "var(--node-green)" : "currentColor"} />
-                        </button>
+            <div
+                className="surface-panel"
+                style={{ overflow: 'hidden', boxShadow: 'var(--shadow-modal)' }}
+            >
+                <div style={{ display: 'flex' }}>
+                    {/* Vote sidebar */}
+                    <div
+                        style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            padding: 'var(--sp-8) var(--sp-4)',
+                            borderRight: '1px solid var(--border-subtle)',
+                            background: 'rgba(0,0,0,0.2)',
+                            width: 64,
+                            flexShrink: 0,
+                        }}
+                        aria-label="Post vote controls"
+                    >
+                        <VoteButtons
+                            votes={post.votes}
+                            userVote={post.userVote}
+                            onVote={handleVote}
+                            size="lg"
+                            vertical={true}
+                        />
                     </div>
 
-                    <div className="flex-1 p-10">
-                        <div className="flex items-center gap-3 text-xs text-gray-500 mb-6 font-medium">
-                            <span className="text-node-green font-bold uppercase tracking-widest" style={{ color: 'var(--node-green)' }}>r/{post.communityId}</span>
-                            <span>•</span>
-                            <span className="hover:text-white transition-colors cursor-pointer">u/{post.author}</span>
-                            <span>•</span>
-                            <span>{new Date(post.timestamp).toLocaleDateString()}</span>
+                    {/* Content */}
+                    <div style={{ flex: 1, padding: 'var(--sp-10)', minWidth: 0 }}>
+                        {/* Meta */}
+                        <div
+                            className="post-meta-row"
+                            style={{ marginBottom: 'var(--sp-6)' }}
+                        >
+                            <UserAvatar name={post.author} size="sm" />
+                            <span
+                                style={{ color: 'var(--node-green)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}
+                            >
+                                r/{post.communityId}
+                            </span>
+                            <span className="post-meta-dot" aria-hidden="true">•</span>
+                            <span>
+                                u/<span style={{ color: 'var(--text-secondary)' }}>{post.author}</span>
+                            </span>
+                            <span className="post-meta-dot" aria-hidden="true">•</span>
+                            <time dateTime={post.timestamp}>{relativeTime}</time>
                         </div>
 
-                        <h1 className="text-3xl font-bold mb-6 text-white tracking-tight leading-tight">{post.title}</h1>
+                        {/* Title */}
+                        <h1
+                            style={{
+                                fontSize: 'var(--text-3xl)',
+                                fontWeight: 700,
+                                marginBottom: 'var(--sp-5)',
+                                lineHeight: 'var(--lh-tight)',
+                                color: 'var(--text-primary)',
+                            }}
+                        >
+                            {post.title}
+                        </h1>
 
-                        <div className="text-gray-300 leading-relaxed mb-10 whitespace-pre-wrap text-[15px] border-b border-subtle pb-10" style={{ borderColor: 'var(--border-subtle)' }}>
+                        {/* Tags */}
+                        <div style={{ marginBottom: 'var(--sp-6)' }}>
+                            <TagList tags={post.tags} />
+                        </div>
+
+                        {/* Content */}
+                        <div
+                            style={{
+                                color: 'var(--text-secondary)',
+                                fontSize: 15,
+                                lineHeight: 'var(--lh-relaxed)',
+                                marginBottom: 'var(--sp-10)',
+                                paddingBottom: 'var(--sp-10)',
+                                borderBottom: '1px solid var(--border-subtle)',
+                                whiteSpace: 'pre-wrap',
+                            }}
+                        >
                             {post.content}
                         </div>
 
-                        <div className="flex items-center gap-4 text-gray-500 font-bold uppercase tracking-widest text-[10px]">
-                            <div className="flex items-center gap-2 bg-surface-hover px-4 py-2 rounded border border-subtle" style={{ background: 'var(--surface-hover)', borderColor: 'var(--border-subtle)' }}>
-                                <MessageSquare size={16} />
+                        {/* Stats */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-4)', marginBottom: 'var(--sp-12)' }}>
+                            <div
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 'var(--sp-2)',
+                                    background: 'var(--surface-hover)',
+                                    padding: 'var(--sp-2) var(--sp-4)',
+                                    borderRadius: 'var(--radius-md)',
+                                    border: '1px solid var(--border-subtle)',
+                                    fontSize: 'var(--text-xs)',
+                                    fontWeight: 700,
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.08em',
+                                    color: 'var(--text-muted)',
+                                }}
+                            >
+                                <MessageSquare size={15} aria-hidden="true" />
                                 {post.commentCount} Solutions & Comments
                             </div>
                         </div>
 
-                        <div className="mt-12">
-                            <CommentSection postId={post.id} />
-                        </div>
+                        {/* Comments */}
+                        <CommentSection postId={post.id} onToast={onToast} />
                     </div>
                 </div>
             </div>
-        </div>
+        </section>
     );
 };
 

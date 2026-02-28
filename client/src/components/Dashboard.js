@@ -9,6 +9,7 @@ import ProjectsView from './ProjectsView';
 import Friends from './Friends';
 import Profile from './Profile';
 import AIGuide from './AIGuide';
+import AssessmentPortal from './Assessment/AssessmentPortal';
 import '../styles.css';
 
 // SVG Icons
@@ -628,6 +629,9 @@ const Dashboard = () => {
                 break;
             case 'workplace':
                 navigate('/workplace');
+                break;
+            case 'assessment':
+                setActiveNav('assessment');
                 break;
             default:
                 break;
@@ -1308,6 +1312,10 @@ const Dashboard = () => {
                         ) : activeNav === 'profile' ? (
                             <div className="section-fade-in">
                                 <Profile />
+                            </div>
+                        ) : activeNav === 'assessment' ? (
+                            <div className="section-fade-in">
+                                <AssessmentPortal />
                             </div>
                         ) : null}
                     </div>
