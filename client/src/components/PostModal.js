@@ -295,50 +295,14 @@ const PostModal = ({ isOpen, onClose, onSubmit }) => {
                     {/* Content Area based on active tab */}
                     {activeTab === 'text' && (
                         <div className="form-section">
-                            <div className="rich-text-editor">
-                                <div className="editor-toolbar">
-                                    <button className="toolbar-btn" title="Bold">
-                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                                            <path d="M6 12h9a4 4 0 1 1 0 8H6V4h7a4 4 0 0 1 0 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                                        </svg>
-                                    </button>
-                                    <button className="toolbar-btn" title="Italic">
-                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                                            <path d="M19 4h-9M15 20H5M14 4L10 20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                                        </svg>
-                                    </button>
-                                    <button className="toolbar-btn" title="Link">
-                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                                            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                                            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                                        </svg>
-                                    </button>
-                                    <button className="toolbar-btn" title="Code">
-                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                                            <polyline points="16 18 22 12 16 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                                            <polyline points="8 6 2 12 8 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                                        </svg>
-                                    </button>
-                                    <button className="toolbar-btn" title="List">
-                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                                            <line x1="8" y1="6" x2="21" y2="6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                                            <line x1="8" y1="12" x2="21" y2="12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                                            <line x1="8" y1="18" x2="21" y2="18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                                            <circle cx="3" cy="6" r="2" stroke="currentColor" strokeWidth="2" />
-                                            <circle cx="3" cy="12" r="2" stroke="currentColor" strokeWidth="2" />
-                                            <circle cx="3" cy="18" r="2" stroke="currentColor" strokeWidth="2" />
-                                        </svg>
-                                    </button>
-                                </div>
-                                <textarea
-                                    ref={textareaRef}
-                                    className="editor-textarea"
-                                    placeholder="Write your post content here... (Markdown supported)"
-                                    value={content}
-                                    onChange={handleContentChange}
-                                    rows={6}
-                                />
-                            </div>
+                            <textarea
+                                ref={textareaRef}
+                                className="editor-textarea"
+                                placeholder="Write your post content here... (Markdown supported)"
+                                value={content}
+                                onChange={handleContentChange}
+                                rows={6}
+                            />
                         </div>
                     )}
 
@@ -435,22 +399,17 @@ const PostModal = ({ isOpen, onClose, onSubmit }) => {
                     <button className="cancel-btn" onClick={onClose}>
                         Cancel
                     </button>
-                    <div className="footer-actions">
-                        <button className="draft-btn">
-                            Save Draft
-                        </button>
-                        <button
-                            className="post-submit-btn"
-                            onClick={handleSubmit}
-                            disabled={isSubmitDisabled}
-                        >
-                            <span className="btn-glow"></span>
-                            {activeTab === 'text' ? 'Create Post' :
-                                activeTab === 'link' ? 'Share Link' :
-                                    activeTab === 'poll' ? 'Create Poll' :
-                                        'Upload Content'}
-                        </button>
-                    </div>
+                    <button
+                        className="post-submit-btn"
+                        onClick={handleSubmit}
+                        disabled={isSubmitDisabled}
+                    >
+                        <span className="btn-glow"></span>
+                        {activeTab === 'text' ? 'Create Post' :
+                            activeTab === 'link' ? 'Share Link' :
+                                activeTab === 'poll' ? 'Create Poll' :
+                                    'Upload Content'}
+                    </button>
                 </div>
             </div>
         </div>

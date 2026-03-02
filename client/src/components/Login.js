@@ -81,6 +81,7 @@ const Login = () => {
         <div className="layout-container">
             {/* Background Animation */}
             <div className="bg-grid" />
+            <div className="bg-grid-extra" />
             <div className="floating-particle"></div>
             <div className="floating-particle"></div>
             <div className="floating-particle"></div>

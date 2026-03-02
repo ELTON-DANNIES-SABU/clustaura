@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import '../styles.css';
+import './Friends.css';
 
 const Friends = () => {
     const [friendRequests, setFriendRequests] = useState([]);
@@ -185,17 +185,9 @@ const Friends = () => {
         return `${firstName?.charAt(0) || ''}${lastName?.charAt(0) || ''}`;
     };
 
-    // REMOVE THIS ENTIRE useEffect BLOCK (lines 207-213):
-    // useEffect(() => {
-    //     const styleSheet = document.createElement('style');
-    //     styleSheet.textContent = styles;
-    //     document.head.appendChild(styleSheet);
-    //     return () => document.head.removeChild(styleSheet);
-    // }, []);
-
     return (
         <div className="friends-page">
-            {/* REMOVE THIS LINE: <style>{styles}</style> */}
+            <div className="background-connections"></div>
 
             <header className="friends-header">
                 <button className="back-button" onClick={handleBackToDashboard}>

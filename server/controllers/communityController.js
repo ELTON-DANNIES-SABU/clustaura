@@ -9,7 +9,9 @@ const Challenge = require('../models/Challenge');
 // @route   GET /api/communities
 exports.getAllCommunities = async (req, res) => {
     try {
-        const communities = await Community.find().select('name slug members');
+        const communities = await Community.find()
+            .select('name slug members icon color description rules')
+            .populate('members', 'firstName lastName');
         res.json(communities);
     } catch (error) {
         console.error('Error fetching communities:', error);
@@ -38,7 +40,9 @@ exports.createCommunity = async (req, res) => {
 
 exports.getCommunities = async (req, res) => {
     try {
-        const communities = await Community.find();
+        const communities = await Community.find()
+            .populate('members', 'firstName lastName')
+            .populate('moderators', 'firstName lastName');
         res.json(communities);
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -119,8 +123,12 @@ exports.createPost = async (req, res) => {
 
 exports.getPosts = async (req, res) => {
     try {
-        const { tags, search } = req.query;
+        const { tags, search, communityId } = req.query;
         let query = {};
+
+        if (communityId) {
+            query.community = communityId;
+        }
 
         if (tags) {
             const tagArray = Array.isArray(tags) ? tags : [tags];

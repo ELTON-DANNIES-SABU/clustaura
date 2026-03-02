@@ -3,19 +3,18 @@ import api from '../services/api';
 import { io } from 'socket.io-client';
 import '../styles.css';
 
-const PostComposer = () => {
-    const [isActive, setIsActive] = useState(false);
+const PostComposer = ({ isActive, setIsActive, onSuccess, defaultCommunity }) => {
     const [loading, setLoading] = useState(false);
     const [communities, setCommunities] = useState([]);
 
     // Form State
     const [title, setTitle] = useState('');
-    const [communityId, setCommunityId] = useState('');
+    const [communityId, setCommunityId] = useState(defaultCommunity || '');
     const [type, setType] = useState('General Question');
     const [content, setContent] = useState('');
     const [tags, setTags] = useState([]);
     const [tagInput, setTagInput] = useState('');
-    const [media, setMedia] = useState([]); // Array of { file, preview, url }
+    const [media, setMedia] = useState([]);
     const [projectLink, setProjectLink] = useState('');
 
     const fileInputRef = useRef(null);
@@ -23,7 +22,7 @@ const PostComposer = () => {
 
     // Fetch Communities on mount
     useEffect(() => {
-        const fetchCommunities = async () => {
+        const fetchCommunitiesList = async () => {
             try {
                 const res = await api.get('/community');
                 setCommunities(res.data);
@@ -31,17 +30,19 @@ const PostComposer = () => {
                 console.error('Failed to load communities', err);
             }
         };
-        fetchCommunities();
+        fetchCommunitiesList();
     }, []);
 
-    // Handle File Select
+    // Sync default community when it changes in parent
+    useEffect(() => {
+        if (defaultCommunity && !communityId) {
+            setCommunityId(defaultCommunity);
+        }
+    }, [defaultCommunity, communityId]);
+
     const handleFileSelect = async (e) => {
         const files = Array.from(e.target.files);
         if (files.length === 0) return;
-
-        // Upload immediately or just preview? 
-        // Plan: Preview first, upload on submit. BUT we need URL for backend.
-        // Better UX: Upload immediately to get URL, show spinner.
 
         const newMedia = [];
 
@@ -55,7 +56,7 @@ const PostComposer = () => {
                 });
                 newMedia.push({
                     type: file.type.startsWith('image') ? 'image' : 'video',
-                    url: `http://localhost:5000${res.data.filePath}`, // Assuming local dev
+                    url: `http://localhost:5000${res.data.filePath}`,
                     preview: URL.createObjectURL(file)
                 });
             } catch (error) {
@@ -74,7 +75,7 @@ const PostComposer = () => {
         try {
             const payload = {
                 title,
-                community: communityId || null, // Optional if general
+                community: communityId || null,
                 type,
                 content,
                 tags,
@@ -84,15 +85,11 @@ const PostComposer = () => {
 
             const res = await api.post('/posts', payload);
 
-            // Socket emit handled by backend usually, but if client-side optimistic:
-            // const socket = io('http://localhost:5000');
-            // socket.emit('new-post-client', res.data);
-
-            // Reset
             setTitle('');
             setContent('');
             setTags([]);
             setMedia([]);
+            if (onSuccess) onSuccess();
             setIsActive(false);
             alert('Post created successfully!');
         } catch (error) {
@@ -130,10 +127,6 @@ const PostComposer = () => {
                     readOnly
                     className="collapsed-input"
                 />
-                <div className="collapsed-actions">
-                    <button className="icon-btn">🖼️</button>
-                    <button className="icon-btn">🔗</button>
-                </div>
             </div>
         );
     }

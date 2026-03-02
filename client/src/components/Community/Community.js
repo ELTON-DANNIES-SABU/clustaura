@@ -1,33 +1,37 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import {
-    Search, Menu, X, ChevronRight, Sparkles, Bell, Settings,
+    Menu, X, ChevronRight, Sparkles, Bell, Settings,
     Home, TrendingUp as TrendingUpIcon, Clock, Users, PlusCircle,
     Globe, Zap
 } from 'lucide-react';
 import useCommunityStore from '../../store/communityStore';
 import Feed from './Feed';
 import PostDetail from './PostDetail';
-import CreatePost from './CreatePost';
 import CommunityLeftSidebar from './CommunityLeftSidebar';
 import CommunityRightSidebar from './CommunityRightSidebar';
+import CreatePostModal from './CreatePostModal';
 import { ToastProvider, useToast } from './shared/Toast';
 import './Community.css';
 
 const CommunityInner = () => {
     const navigate = useNavigate();
     const location = useLocation();
-    const { fetchCommunities, fetchPosts, getLoggedInUser } = useCommunityStore();
+    const { communities, fetchCommunities, fetchPosts, getLoggedInUser } = useCommunityStore();
     const toast = useToast();
     const user = getLoggedInUser();
 
-    const [search, setSearch] = useState('');
+    useEffect(() => {
+        if (!user || !user.token) {
+            navigate('/login');
+        }
+    }, [user, navigate]);
+
     const [sidebarLeftOpen, setSidebarLeftOpen] = useState(false);
     const [sidebarRightOpen, setSidebarRightOpen] = useState(false);
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [isScrolled, setIsScrolled] = useState(false);
-    const [showSearchSuggestions, setShowSearchSuggestions] = useState(false);
     const debounceTimer = useRef(null);
-    const searchRef = useRef(null);
 
     useEffect(() => {
         const handleScroll = () => {
@@ -37,64 +41,29 @@ const CommunityInner = () => {
         return () => window.removeEventListener('scroll', handleScroll);
     }, []);
 
-    useEffect(() => {
-        const handleClickOutside = (e) => {
-            if (searchRef.current && !searchRef.current.contains(e.target)) {
-                setShowSearchSuggestions(false);
-            }
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
+    const handleLogoClick = useCallback(() => {
+        // Logo no longer redirects to home/dashboard per request
     }, []);
 
-    const handleSearchChange = useCallback((e) => {
-        const value = e.target.value;
-        setSearch(value);
-        setShowSearchSuggestions(value.length > 0);
-
-        clearTimeout(debounceTimer.current);
-        debounceTimer.current = setTimeout(() => {
-            fetchPosts(null, value);
-        }, 300);
-    }, [fetchPosts]);
-
-    const handleSearchFocus = useCallback(() => {
-        if (search.length > 0) {
-            setShowSearchSuggestions(true);
-        }
-    }, [search]);
-
-    const handleLogoClick = useCallback(() => {
-        navigate('/dashboard');
-    }, [navigate]);
-
     const handleCreateClick = useCallback(() => {
-        navigate('/community/create');
-    }, [navigate]);
+        console.log('✅ handleCreateClick called - opening modal');
+        setIsCreateModalOpen(true);
+    }, []);
 
     const closeSidebarLeft = useCallback(() => setSidebarLeftOpen(false), []);
     const closeSidebarRight = useCallback(() => setSidebarRightOpen(false), []);
 
+    const query = new URLSearchParams(location.search);
+    const activeCommunityId = query.get('community');
+    const activeCommunity = communities.find(c => c._id === activeCommunityId || c.slug === activeCommunityId);
+
     useEffect(() => {
         fetchCommunities();
-        fetchPosts();
+        fetchPosts(null, '', activeCommunity?._id);
         return () => clearTimeout(debounceTimer.current);
-    }, [fetchCommunities, fetchPosts]);
+    }, [fetchCommunities, fetchPosts, activeCommunity?._id]);
 
-    const searchSuggestions = [
-        { type: 'tag', text: 'react', count: 234 },
-        { type: 'tag', text: 'javascript', count: 567 },
-        { type: 'tag', text: 'python', count: 189 },
-        { type: 'challenge', text: 'How to optimize React performance?', author: 'john_doe' },
-        { type: 'challenge', text: 'Building a scalable API with Node.js', author: 'jane_smith' },
-    ];
-
-    const navItems = [
-        { path: '/community', label: 'Home', icon: Home },
-        { path: '/community/trending', label: 'Trending', icon: TrendingUpIcon, badge: 24 },
-        { path: '/community/latest', label: 'Latest', icon: Clock },
-        { path: '/community/experts', label: 'Experts', icon: Users },
-    ];
+    const navItems = [];
 
     // Get user initials for avatar
     const getUserInitials = () => {
@@ -152,68 +121,23 @@ const CommunityInner = () => {
                         </nav>
                     </div>
 
-                    {/* Center section with search - positioned to the right of logo */}
-                    <div className="header-center" ref={searchRef}>
-                        <div className="search-wrapper">
-                            <div className="search-input-wrapper">
-                                <Search className="search-icon" />
-                                <input
-                                    type="search"
-                                    placeholder="Search challenges, tags, or experts..."
-                                    value={search}
-                                    onChange={handleSearchChange}
-                                    onFocus={handleSearchFocus}
-                                />
-                                {search && (
-                                    <button className="search-clear" onClick={() => setSearch('')}>
-                                        <X size={14} />
-                                    </button>
-                                )}
-                            </div>
-
-                            {showSearchSuggestions && (
-                                <div className="search-suggestions">
-                                    <div className="suggestions-header">
-                                        <span>Suggestions</span>
-                                        <Sparkles size={10} />
-                                    </div>
-                                    {searchSuggestions.map((suggestion, idx) => (
-                                        <div key={idx} className="suggestion-item">
-                                            {suggestion.type === 'tag' ? (
-                                                <>
-                                                    <span className="suggestion-tag">#{suggestion.text}</span>
-                                                    <span className="suggestion-count">{suggestion.count} posts</span>
-                                                </>
-                                            ) : (
-                                                <div className="suggestion-challenge">
-                                                    <span className="challenge-title">{suggestion.text}</span>
-                                                    <span className="challenge-author">by @{suggestion.author}</span>
-                                                </div>
-                                            )}
-                                        </div>
-                                    ))}
-                                    <div className="suggestions-footer">
-                                        Press Enter to search all
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
                     {/* Right section - User menu and actions - top-aligned */}
                     <div className="header-right">
-                        {/* Create Challenge Button - Prominent */}
                         <button
-                            className="create-challenge-btn"
+                            className="icon-button create-challenge-btn"
                             onClick={handleCreateClick}
+                            title="Create new challenge"
+                            style={{
+                                background: 'linear-gradient(135deg, #339933, #40c0ff)',
+                                color: 'white',
+                                marginRight: '8px'
+                            }}
                         >
                             <PlusCircle size={18} />
-                            <span>Create</span>
                         </button>
 
                         <button className="icon-button notification-btn">
                             <Bell size={18} />
-                            <span className="notification-badge">3</span>
                         </button>
 
                         <button className="icon-button">
@@ -242,31 +166,6 @@ const CommunityInner = () => {
                 </div>
             </header>
 
-            {/* Global Challenges Banner - Optimized */}
-            <div className="global-challenges-banner">
-                <div className="banner-container">
-                    <div className="banner-content">
-                        <div className="banner-icon">
-                            <Globe size={24} />
-                        </div>
-                        <div className="banner-text">
-                            <h2>Global Challenges</h2>
-                            <p>Discover solutions from developers worldwide</p>
-                        </div>
-                        <div className="banner-stats">
-                            <div className="stat-item">
-                                <Zap size={16} />
-                                <span>1,234 active</span>
-                            </div>
-                            <div className="stat-item">
-                                <Users size={16} />
-                                <span>5.6k experts</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
             <div
                 className={`sidebar-overlay ${sidebarLeftOpen ? 'is-open' : ''}`}
                 onClick={closeSidebarLeft}
@@ -281,14 +180,20 @@ const CommunityInner = () => {
                     <CommunityLeftSidebar
                         onClose={closeSidebarLeft}
                         user={user}
+                        community={activeCommunity}
                     />
                 </aside>
 
                 <div className="community-content">
                     <Routes>
-                        <Route path="/" element={<Feed onToast={toast} />} />
+                        <Route path="/" element={
+                            <Feed
+                                onToast={toast}
+                                activeCommunityId={activeCommunity?._id}
+                                onOpenCreateModal={handleCreateClick}
+                            />
+                        } />
                         <Route path="/post/:postId" element={<PostDetail onToast={toast} />} />
-                        <Route path="/create" element={<CreatePost onToast={toast} />} />
                     </Routes>
                 </div>
 
@@ -297,13 +202,24 @@ const CommunityInner = () => {
                         onToast={toast}
                         onClose={closeSidebarRight}
                         user={user}
+                        activeCommunityId={activeCommunity?._id}
+                        onOpenCreateModal={handleCreateClick}
                     />
                 </aside>
             </main>
 
-            <button className="mobile-fab" onClick={handleCreateClick}>
+            {/* Floating Action Button for creating new challenge */}
+            <button className="mobile-fab" onClick={handleCreateClick} aria-label="Create new challenge">
                 <PlusCircle size={24} />
             </button>
+
+            {/* Professional Challenge Creation Modal */}
+            <CreatePostModal
+                isOpen={isCreateModalOpen}
+                onClose={() => setIsCreateModalOpen(false)}
+                onToast={toast}
+                activeCommunityId={activeCommunity?._id}
+            />
         </div>
     );
 };

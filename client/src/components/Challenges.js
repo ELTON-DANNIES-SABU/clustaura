@@ -10,13 +10,14 @@ import CommunityLeftSidebar from './Community/CommunityLeftSidebar';
 import CommunityRightSidebar from './Community/CommunityRightSidebar';
 import StarBadge from './StarBadge';
 import useCommunityStore from '../store/communityStore';
+import './Community/Community.css'; // explicitly apply community header CSS to this page.
 
 const Challenges = () => {
     const { selectedProfessionTags } = useCommunityStore();
     const [challenges, setChallenges] = useState([]);
     const [filteredChallenges, setFilteredChallenges] = useState([]);
     const [searchQuery, setSearchQuery] = useState('');
-    const [sortBy, setSortBy] = useState('trending');
+    const [sortBy, setSortBy] = useState('recent');
     const [expandedComments, setExpandedComments] = useState({});
     const [commentInputs, setCommentInputs] = useState({});
     const [commentAllowContact, setCommentAllowContact] = useState({});
@@ -67,6 +68,27 @@ const Challenges = () => {
         });
 
         return () => newSocket.close();
+    }, []);
+
+    // HTTP Fallback to guarantee initial challenges load 
+    useEffect(() => {
+        const fetchExistingChallenges = async () => {
+            try {
+                const userStr = localStorage.getItem('user');
+                const token = userStr ? JSON.parse(userStr).token : null;
+                const response = await axios.get('/api/challenges', {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                // Only set if we got actual data to prevent overwriting active socket state with empty array
+                if (response.data && response.data.length > 0) {
+                    setChallenges(prev => prev.length === 0 ? response.data : prev);
+                }
+            } catch (err) {
+                console.error('Failed to fetch initial challenges:', err);
+            }
+        };
+
+        fetchExistingChallenges();
     }, []);
 
     useEffect(() => {
@@ -137,39 +159,39 @@ const Challenges = () => {
     return (
         <div className="community-container min-h-screen">
             <header className="community-header">
-                <div className="flex items-center gap-6">
-                    <div className="brand-logo" onClick={() => navigate('/dashboard')} style={{ cursor: 'pointer', transform: 'scale(0.8)', transformOrigin: 'left center' }}>
-                        <div className="brand-logo-container">
-                            <div className="brand-logo-icon">
-                                <div className="brand-logo-icon-inner">C</div>
-                                <div className="brand-logo-icon-ring"></div>
+                <div className="header-container">
+                    {/* Left: Logo and Dashboard Button */}
+                    <div className="header-left">
+                        <div className="brand-logo" onClick={handleBackToDashboard} role="button" tabIndex={0} style={{ transform: 'scale(0.8)', transformOrigin: 'left center' }}>
+                            <div className="brand-logo-container">
+                                <div className="brand-logo-icon">
+                                    <span className="brand-logo-icon-inner">C</span>
+                                </div>
+                                <span className="brand-logo-text">CLUSTAURA</span>
                             </div>
-                            <div className="brand-logo-text">CLUSTAURA</div>
                         </div>
                     </div>
 
-                    <button
-                        onClick={handleBackToDashboard}
-                        className="flex items-center gap-2 text-xs font-bold text-gray-500 hover:text-white transition-colors uppercase tracking-widest"
-                        style={{ background: 'none', border: 'none', cursor: 'pointer' }}
-                    >
-                        <ArrowLeft size={14} />
-                        Dashboard
-                    </button>
-                </div>
+                    {/* Center: Search */}
+                    <div className="header-center">
+                        <div className="search-wrapper">
+                            <div className="search-input-wrapper">
+                                <Search className="search-icon" />
+                                <input
+                                    type="text"
+                                    placeholder="Search global challenges..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="focus:outline-none"
+                                />
+                            </div>
+                        </div>
+                    </div>
 
-                <div className="search-wrapper">
-                    <Search size={18} style={{ color: 'var(--node-green)' }} />
-                    <input
-                        type="text"
-                        placeholder="Search global challenges..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                    />
-                </div>
-
-                <div className="flex items-center gap-4">
-                    <NotificationBell />
+                    {/* Right: Notifications */}
+                    <div className="header-right">
+                        <NotificationBell />
+                    </div>
                 </div>
             </header>
 
@@ -184,23 +206,7 @@ const Challenges = () => {
                 {/* Center Content */}
                 <div className="community-content">
                     <div className="mb-8">
-                        <div className="flex items-center justify-between mb-6">
-                            <div>
-                                <h1 className="text-2xl font-bold text-white mb-2">Global Challenges</h1>
-                                <p className="text-sm text-gray-500">Discover and solve real-world problems with the community.</p>
-                            </div>
-                            <div className="flex gap-3">
-                                <select
-                                    className="bg-surface-bg border border-subtle text-xs text-gray-400 px-3 py-2 rounded-md outline-none focus:border-node-green transition-all"
-                                    value={sortBy}
-                                    onChange={(e) => setSortBy(e.target.value)}
-                                    style={{ width: 'auto' }}
-                                >
-                                    <option value="trending">Trending</option>
-                                    <option value="recent">Recent</option>
-                                </select>
-                            </div>
-                        </div>
+
 
                         <ChallengeComposer />
                     </div>
@@ -303,8 +309,8 @@ const Challenges = () => {
                         <CommunityRightSidebar />
                     </div>
                 </aside>
-            </main>
-        </div>
+            </main >
+        </div >
     );
 };
 

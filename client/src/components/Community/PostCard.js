@@ -461,18 +461,6 @@ const PostCard = memo(({ post, onToast, viewMode = 'grid' }) => {
                                 }}
                                 onClick={stopProp}
                             >
-                                <Lightbulb size={14} />
-                                Suggest
-                            </button>
-                            <button
-                                className="btn-secondary"
-                                style={{
-                                    flex: 1,
-                                    padding: '10px',
-                                    fontSize: 12,
-                                }}
-                                onClick={stopProp}
-                            >
                                 <Share2 size={14} />
                                 Share
                             </button>
@@ -501,18 +489,6 @@ const PostCard = memo(({ post, onToast, viewMode = 'grid' }) => {
                     flexWrap: 'wrap',
                     marginTop: 'var(--sp-4)',
                 }}>
-                    <button
-                        className="post-action-btn"
-                        aria-label="Suggest a solution"
-                        onClick={stopProp}
-                        style={{
-                            background: isHovered ? 'rgba(51,153,51,0.1)' : 'none',
-                            padding: '8px 16px',
-                        }}
-                    >
-                        <Lightbulb size={15} />
-                        <span>Suggest</span>
-                    </button>
 
                     <button
                         className="post-action-btn"
@@ -576,20 +552,6 @@ const PostCard = memo(({ post, onToast, viewMode = 'grid' }) => {
                         </div>
                     )}
 
-                    {!isAuthor && (
-                        <button
-                            className="btn-primary"
-                            style={{
-                                marginLeft: 'auto',
-                                padding: '6px 16px',
-                                fontSize: 12,
-                            }}
-                            onClick={stopProp}
-                        >
-                            <Zap size={12} />
-                            Follow
-                        </button>
-                    )}
                 </div>
             )}
 

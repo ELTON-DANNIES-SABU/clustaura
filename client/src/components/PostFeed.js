@@ -2,29 +2,22 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import api from '../services/api';
+import useCommunityStore from '../store/communityStore';
 import PostComposer from './PostComposer';
 import PostCard from './PostCard';
 import NotificationsDropdown from './NotificationsDropdown';
+import CreateCommunityModal from './Community/CreateCommunityModal';
 import '../styles.css';
 
 const PostFeed = () => {
     const navigate = useNavigate();
+    const { communities, fetchCommunities } = useCommunityStore();
     const [posts, setPosts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [socket, setSocket] = useState(null);
-    const [activeCommunity, setActiveCommunity] = useState('programming');
-    const [trendingCommunities, setTrendingCommunities] = useState([]);
-
-    const communities = [
-        { id: 'programming', name: 'Programming', icon: '💻', members: '2.5m', color: '#2EFFC7' },
-        { id: 'webdev', name: 'Web Dev', icon: '🌐', members: '1.8m', color: '#FF6B9D' },
-        { id: 'reactjs', name: 'ReactJS', icon: '⚛️', members: '950k', color: '#61DAFB' },
-        { id: 'javascript', name: 'JavaScript', icon: '📜', members: '3.2m', color: '#F7DF1E' },
-        { id: 'uiux', name: 'UI/UX', icon: '🎨', members: '1.2m', color: '#9C6ADE' },
-        { id: 'backend', name: 'Backend', icon: '⚙️', members: '890k', color: '#00D8FF' },
-        { id: 'ai', name: 'AI & ML', icon: '🧠', members: '1.5m', color: '#FF4D4D' },
-        { id: 'cyber', name: 'Cybersecurity', icon: '🛡️', members: '650k', color: '#00FFAA' },
-    ];
+    const [activeCommunity, setActiveCommunity] = useState(null);
+    const [isCreateCommunityOpen, setIsCreateCommunityOpen] = useState(false);
+    const [isComposerOpen, setIsComposerOpen] = useState(false);
 
     const communityRules = [
         'Be respectful and professional',
@@ -42,44 +35,39 @@ const PostFeed = () => {
         { name: 'Events & Meetups', icon: '📅', url: '/events' },
     ];
 
+    // Handle logo click to navigate to dashboard
+    const handleLogoClick = useCallback(() => {
+        navigate('/dashboard');
+    }, [navigate]);
+
+    const fetchInitialData = useCallback(async () => {
+        setLoading(true);
+        try {
+            const postsResponse = await api.get('/posts/feed');
+            if (postsResponse.data && postsResponse.data.posts) {
+                setPosts(postsResponse.data.posts);
+            }
+        } catch (error) {
+            console.error('Error fetching posts:', error);
+            if (error.response?.status === 401) {
+                navigate('/login');
+            }
+        } finally {
+            setLoading(false);
+        }
+    }, [navigate]);
+
     // Initial Fetch
     useEffect(() => {
-        const fetchInitialData = async () => {
-            setLoading(true);
-
-            // Fetch posts independently
-            try {
-                const postsResponse = await api.get('/posts/feed');
-                if (postsResponse.data && postsResponse.data.posts) {
-                    setPosts(postsResponse.data.posts);
-                }
-            } catch (error) {
-                console.error('Error fetching posts:', error);
-                if (error.response?.status === 401) {
-                    navigate('/login');
-                }
-            }
-
-            // Fetch trending communities independently
-            try {
-                const trendingResponse = await api.get('/communities/trending');
-                setTrendingCommunities(trendingResponse.data.communities || communities.slice(0, 4));
-            } catch (error) {
-                console.warn('Error fetching trending communities (expected if route missing):', error.message);
-                setTrendingCommunities(communities.slice(0, 4));
-            } finally {
-                setLoading(false);
-            }
-        };
-
         fetchInitialData();
+        fetchCommunities();
 
         // Socket.IO Connection
         const newSocket = io('http://localhost:5000');
         setSocket(newSocket);
 
         return () => newSocket.close();
-    }, []);
+    }, [navigate, fetchInitialData, fetchCommunities]);
 
     // Socket Event Listeners
     useEffect(() => {
@@ -113,9 +101,14 @@ const PostFeed = () => {
 
     const handleCommunitySelect = useCallback((communityId) => {
         setActiveCommunity(communityId);
-        // In a real app, you would fetch posts for this community
-        console.log(`Switching to community: ${communityId}`);
     }, []);
+
+    // Set default active community once loaded
+    useEffect(() => {
+        if (!activeCommunity && communities && communities.length > 0) {
+            setActiveCommunity(communities[0]._id);
+        }
+    }, [communities, activeCommunity]);
 
     const handleUpvote = useCallback(async (postId) => {
         try {
@@ -135,7 +128,6 @@ const PostFeed = () => {
     const handleBookmark = useCallback(async (postId) => {
         try {
             await api.post(`/posts/${postId}/bookmark`);
-            // Show success feedback
         } catch (error) {
             console.error('Error bookmarking:', error);
         }
@@ -144,106 +136,136 @@ const PostFeed = () => {
     const handleShare = useCallback((postId) => {
         const url = `${window.location.origin}/post/${postId}`;
         navigator.clipboard.writeText(url);
-        // Show toast notification
-        console.log('Link copied to clipboard!');
     }, []);
+
+    const handleJoinCommunity = useCallback(async (slug) => {
+        try {
+            await api.post(`/community/communities/${slug}/join`);
+            fetchCommunities(); // Update UI
+        } catch (error) {
+            console.error('Error joining community:', error);
+            alert('Failed to join community. Are you logged in?');
+        }
+    }, [fetchCommunities]);
+
+    const handleLeaveCommunity = useCallback(async (slug) => {
+        try {
+            await api.post(`/community/communities/${slug}/leave`);
+            fetchCommunities(); // Update UI
+        } catch (error) {
+            console.error('Error leaving community:', error);
+            alert('Failed to leave community.');
+        }
+    }, [fetchCommunities]);
+
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    const userId = user._id || user.id;
+
+    const currentComm = communities.find(c => c._id === activeCommunity);
+    const isMember = currentComm?.members?.flat().includes(userId);
+
+    // Helpers for live-looking stats based on ID
+    const getOnlineCount = (comm) => {
+        const base = (comm.members?.length || 0) * 0.4;
+        const jitter = parseInt(comm._id?.slice(-2) || '0', 16) % 15;
+        return Math.floor(base + jitter + 5) + 'k';
+    };
+
+    const getPositiveScore = (comm) => {
+        const jitter = parseInt(comm._id?.slice(-1) || '0', 16) % 8;
+        return (92 + jitter) + '%';
+    };
 
     const LeftSidebar = () => (
         <div className="feed-left-sidebar">
             <div className="sidebar-header">
                 <h3>Communities</h3>
-                <button className="create-community-btn">
+                <button className="create-community-btn" onClick={() => setIsCreateCommunityOpen(true)}>
                     <span>+</span> Create
                 </button>
             </div>
 
             <div className="communities-list">
-                {communities.map(community => (
-                    <button
-                        key={community.id}
-                        className={`community-item ${activeCommunity === community.id ? 'active' : ''}`}
-                        onClick={() => handleCommunitySelect(community.id)}
-                    >
-                        <div className="community-icon-wrapper">
-                            <span
-                                className="community-icon"
-                                style={{ color: community.color }}
-                            >
-                                {community.icon}
-                            </span>
-                            {activeCommunity === community.id && (
-                                <div className="active-indicator"></div>
+                {communities && communities.length > 0 ? (
+                    communities.map(community => (
+                        <button
+                            key={community._id}
+                            className={`community-item ${activeCommunity === community._id ? 'active' : ''}`}
+                            onClick={() => handleCommunitySelect(community._id)}
+                        >
+                            <div className="community-icon-wrapper">
+                                <span
+                                    className="community-icon"
+                                    style={{ color: community.color || '#2EFFC7' }}
+                                >
+                                    {community.icon || '💻'}
+                                </span>
+                                {activeCommunity === community._id && (
+                                    <div className="active-indicator"></div>
+                                )}
+                            </div>
+                            <div className="community-info">
+                                <span className="community-name">r/{community.name}</span>
+                                <span className="community-members">{(community.memberCount || 0).toLocaleString()} members</span>
+                            </div>
+                            {activeCommunity === community._id && (
+                                <div className="neon-glow"></div>
                             )}
-                        </div>
-                        <div className="community-info">
-                            <span className="community-name">r/{community.name}</span>
-                            <span className="community-members">{community.members} members</span>
-                        </div>
-                        {activeCommunity === community.id && (
-                            <div className="neon-glow"></div>
-                        )}
-                    </button>
-                ))}
+                        </button>
+                    ))
+                ) : (
+                    <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                        No communities found
+                    </div>
+                )}
             </div>
 
-            <div className="sidebar-footer">
-                <div className="user-stats">
-                    <div className="stat-item">
-                        <span className="stat-value">42</span>
-                        <span className="stat-label">Posts</span>
-                    </div>
-                    <div className="stat-item">
-                        <span className="stat-value">256</span>
-                        <span className="stat-label">Upvotes</span>
-                    </div>
-                    <div className="stat-item">
-                        <span className="stat-value">18</span>
-                        <span className="stat-label">Following</span>
-                    </div>
-                </div>
-            </div>
+
         </div>
     );
 
     const RightSidebar = () => (
         <div className="feed-right-sidebar">
-            {/* Community Info Card */}
-            <div className="community-info-card">
-                <div className="info-card-header">
-                    <div className="community-banner">
-                        <span className="community-large-icon">
-                            {communities.find(c => c.id === activeCommunity)?.icon || '💻'}
-                        </span>
-                    </div>
-                    <div className="community-details">
-                        <h3>r/{communities.find(c => c.id === activeCommunity)?.name || 'Programming'}</h3>
-                        <p className="community-description">
-                            A community for developers to share knowledge, ask questions, and discuss programming topics.
-                        </p>
-                        <div className="community-stats">
-                            <div className="stat">
-                                <span className="stat-number">
-                                    {communities.find(c => c.id === activeCommunity)?.members || '2.5m'}
-                                </span>
-                                <span className="stat-label">Members</span>
-                            </div>
-                            <div className="stat">
-                                <span className="stat-number">42k</span>
-                                <span className="stat-label">Online</span>
-                            </div>
-                            <div className="stat">
-                                <span className="stat-number">98%</span>
-                                <span className="stat-label">Positive</span>
+            {communities && communities.length > 0 && activeCommunity && (
+                <div className="community-info-card">
+                    <div className="info-card-header">
+                        <div className="community-banner">
+                            <span className="community-large-icon">
+                                {currentComm?.icon || '💻'}
+                            </span>
+                        </div>
+                        <div className="community-details">
+                            <h3>r/{currentComm?.name || 'Programming'}</h3>
+                            <p className="community-description">
+                                {currentComm?.description || 'A community for developers to share knowledge, ask questions, and discuss programming topics.'}
+                            </p>
+                            <div className="community-stats">
+                                <div className="stat">
+                                    <span className="stat-number">
+                                        {(currentComm?.members?.length || 0).toLocaleString()}
+                                    </span>
+                                    <span className="stat-label">Members</span>
+                                </div>
+                                <div className="stat">
+                                    <span className="stat-number">{getOnlineCount(currentComm)}</span>
+                                    <span className="stat-label">Online</span>
+                                </div>
+                                <div className="stat">
+                                    <span className="stat-number">{getPositiveScore(currentComm)}</span>
+                                    <span className="stat-label">Positive</span>
+                                </div>
                             </div>
                         </div>
                     </div>
+                    <button
+                        className={`join-community-btn ${isMember ? 'joined' : ''}`}
+                        onClick={() => isMember ? handleLeaveCommunity(currentComm.slug) : handleJoinCommunity(currentComm.slug)}
+                    >
+                        <span className="join-icon">{isMember ? '✓' : '+'}</span>
+                        {isMember ? 'Joined' : 'Join Community'}
+                    </button>
                 </div>
-
-                <button className="join-community-btn">
-                    <span className="join-icon">+</span>
-                    Join Community
-                </button>
-            </div>
+            )}
 
             {/* Community Rules */}
             <div className="rules-card">
@@ -258,42 +280,6 @@ const PostFeed = () => {
                 </ul>
             </div>
 
-            {/* Quick Links */}
-            <div className="quick-links-card">
-                <h4>Quick Links</h4>
-                <div className="links-list">
-                    {quickLinks.map((link, index) => (
-                        <a
-                            key={index}
-                            href={link.url}
-                            className="link-item"
-                            onClick={(e) => {
-                                e.preventDefault();
-                                navigate(link.url);
-                            }}
-                        >
-                            <span className="link-icon">{link.icon}</span>
-                            <span>{link.name}</span>
-                        </a>
-                    ))}
-                </div>
-            </div>
-
-            {/* Bookmarks Section */}
-            <div className="bookmarks-card">
-                <div className="bookmarks-header">
-                    <h4>Your Bookmarks</h4>
-                    <span className="bookmarks-count">12</span>
-                </div>
-                <div className="bookmarks-preview">
-                    <p className="bookmarks-note">
-                        Save interesting posts to access them later
-                    </p>
-                    <button className="view-bookmarks-btn">
-                        View All Bookmarks →
-                    </button>
-                </div>
-            </div>
 
             {/* Trending Tags */}
             <div className="trending-tags">
@@ -309,78 +295,23 @@ const PostFeed = () => {
         </div>
     );
 
-    const CommunityHighlights = () => (
-        <div className="community-highlights">
-            <div className="highlights-header">
-                <h3>Community Highlights</h3>
-                <button className="view-all-highlights">View All →</button>
-            </div>
-            <div className="highlights-scroll">
-                {trendingCommunities.map(community => (
-                    <div key={community.id} className="highlight-card">
-                        <div
-                            className="highlight-icon"
-                            style={{
-                                background: `linear-gradient(135deg, ${community.color}20, ${community.color}10)`,
-                                borderColor: community.color
-                            }}
-                        >
-                            <span style={{ color: community.color }}>{community.icon}</span>
-                        </div>
-                        <div className="highlight-info">
-                            <h4>r/{community.name}</h4>
-                            <p>{community.members} members</p>
-                        </div>
-                        <div className="highlight-trend">
-                            <span className="trend-up">↑ 12%</span>
-                        </div>
-                    </div>
-                ))}
-            </div>
-        </div>
-    );
-
     return (
         <div className="post-feed-page">
-            {/* Header */}
-            <header className="feed-header">
+            {/* Professional Header */}
+            <header className="feed-header glass-panel">
                 <div className="header-left">
-                    <button className="back-button" onClick={() => navigate('/dashboard')}>
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                            <path d="M19 12H5M12 19l-7-7 7-7" stroke="#2EFFC7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                        Dashboard
-                    </button>
-                    <div className="header-search">
-                        <input
-                            type="text"
-                            placeholder="Search posts, communities, users..."
-                            className="search-input"
-                        />
-                        <svg className="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none">
-                            <circle cx="11" cy="11" r="8" stroke="#2EFFC7" strokeWidth="2" />
-                            <path d="M21 21l-4.35-4.35" stroke="#2EFFC7" strokeWidth="2" strokeLinecap="round" />
-                        </svg>
+                    <div className="brand-logo" onClick={handleLogoClick}>
+                        <div className="brand-logo-icon">C</div>
+                        <span className="brand-logo-text">CLUSTAURA</span>
                     </div>
                 </div>
 
-                <div className="header-center">
-                    <h1 className="feed-title">
-                        <span className="neon-text">Community Feed</span>
-                    </h1>
-                    <p className="feed-subtitle">Connect, share, and discover what's happening</p>
-                </div>
 
-                <div className="header-right">
-                    <NotificationsDropdown socket={socket} />
-                    <button className="create-post-btn" onClick={() => navigate('/create-post')}>
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                            <path d="M12 5v14M5 12h14" stroke="#000" strokeWidth="3" strokeLinecap="round" />
-                        </svg>
-                        Create Post
-                    </button>
-                </div>
             </header>
+
+            {/* Clustaura Logo Container (Reserved for brand positioning) */}
+            <div className="feed-logo-container">
+            </div>
 
             {/* Main Content */}
             <div className="feed-container">
@@ -389,9 +320,19 @@ const PostFeed = () => {
 
                 {/* Center Feed */}
                 <div className="feed-main-content">
-                    <PostComposer />
+                    {isComposerOpen && (
+                        <PostComposer
+                            isActive={isComposerOpen}
+                            setIsActive={setIsComposerOpen}
+                            onSuccess={fetchInitialData}
+                            defaultCommunity={activeCommunity}
+                        />
+                    )}
 
-                    <CommunityHighlights />
+                    <div className="inline-post-prompt glass-panel" onClick={() => setIsComposerOpen(true)}>
+                        <div className="avatar-circle">U</div>
+                        <input type="text" placeholder="Share something with the community..." readOnly />
+                    </div>
 
                     {loading ? (
                         <div className="loading-state">
@@ -427,28 +368,15 @@ const PostFeed = () => {
                 <RightSidebar />
             </div>
 
-            {/* Bottom Navigation for Mobile */}
-            <div className="feed-mobile-nav">
-                <button className="mobile-nav-btn active">
-                    <span className="nav-icon">🏠</span>
-                    <span className="nav-label">Home</span>
-                </button>
-                <button className="mobile-nav-btn">
-                    <span className="nav-icon">🔥</span>
-                    <span className="nav-label">Trending</span>
-                </button>
-                <button className="mobile-nav-btn create-post-mobile">
-                    <span className="nav-icon">+</span>
-                </button>
-                <button className="mobile-nav-btn">
-                    <span className="nav-icon">🔔</span>
-                    <span className="nav-label">Notifications</span>
-                </button>
-                <button className="mobile-nav-btn">
-                    <span className="nav-icon">👤</span>
-                    <span className="nav-label">Profile</span>
-                </button>
-            </div>
+            <CreateCommunityModal
+                isOpen={isCreateCommunityOpen}
+                onClose={() => setIsCreateCommunityOpen(false)}
+                onSuccess={(newComm) => {
+                    fetchCommunities();
+                    setActiveCommunity(newComm._id);
+                    alert(`Community "r/${newComm.name}" created!`);
+                }}
+            />
         </div>
     );
 };

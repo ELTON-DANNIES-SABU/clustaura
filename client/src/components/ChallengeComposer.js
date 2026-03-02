@@ -2,9 +2,10 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import { X, Plus, AlertCircle } from 'lucide-react';
 import './Community/Community.css';
+import useCommunityStore from '../store/communityStore';
 
 const ChallengeComposer = () => {
-    const [isOpen, setIsOpen] = useState(false);
+    const { isChallengeModalOpen, setChallengeModalOpen } = useCommunityStore();
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
     const [difficulty, setDifficulty] = useState('Intermediate');
@@ -39,7 +40,7 @@ const ChallengeComposer = () => {
             setTags('');
             setDifficulty('Intermediate');
             setContactEnabled(true);
-            setIsOpen(false);
+            setChallengeModalOpen(false);
             setLoading(false);
         } catch (error) {
             console.error('Error creating challenge:', error);
@@ -50,28 +51,7 @@ const ChallengeComposer = () => {
 
     return (
         <>
-            <div
-                className="surface-panel p-8 border border-subtle hover:border-node-green transition-all cursor-pointer group mb-10"
-                onClick={() => setIsOpen(true)}
-                style={{ background: 'var(--surface-bg)', borderColor: 'var(--border-subtle)' }}
-            >
-                <div className="flex items-center justify-between gap-6">
-                    <div className="flex items-center gap-6">
-                        <div className="w-14 h-14 rounded-full bg-node-green/10 flex items-center justify-center text-node-green group-hover:bg-node-green group-hover:text-white transition-all shrink-0">
-                            <Plus size={28} />
-                        </div>
-                        <div className="flex flex-col gap-1">
-                            <span className="text-gray-100 font-bold text-lg block">Post a Global Challenge</span>
-                            <span className="text-sm text-gray-500 max-w-md">Share a problem and collaborate with expert solvers to find a solution.</span>
-                        </div>
-                    </div>
-                    <button className="btn-primary py-3 px-8 text-xs transition-all transform active:scale-95 shrink-0">
-                        CREATE CHALLENGE
-                    </button>
-                </div>
-            </div>
-
-            {isOpen && (
+            {isChallengeModalOpen && (
                 <div className="post-composer-overlay">
                     <div className="post-composer-modal max-w-2xl w-full mx-4" style={{ animation: 'slideUp 0.3s ease-out' }}>
                         <div className="surface-panel shadow-2xl overflow-hidden" style={{ background: 'var(--surface-bg)', border: '1px solid var(--border-subtle)' }}>
@@ -82,7 +62,7 @@ const ChallengeComposer = () => {
                                 </div>
                                 <button
                                     className="p-2 text-gray-500 hover:text-white hover:bg-surface-hover rounded-full transition-all"
-                                    onClick={() => setIsOpen(false)}
+                                    onClick={() => setChallengeModalOpen(false)}
                                     style={{ background: 'none', border: 'none', cursor: 'pointer' }}
                                 >
                                     <X size={24} />
@@ -165,7 +145,7 @@ const ChallengeComposer = () => {
                                     <button
                                         type="button"
                                         className="px-6 py-2 text-xs font-bold text-gray-500 hover:text-white transition-colors uppercase tracking-widest"
-                                        onClick={() => setIsOpen(false)}
+                                        onClick={() => setChallengeModalOpen(false)}
                                         style={{ background: 'none', border: 'none', cursor: 'pointer' }}
                                     >
                                         Discard

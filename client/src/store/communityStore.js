@@ -43,7 +43,7 @@ const useCommunityStore = create((set, get) => ({
         }
     },
 
-    fetchPosts: async (tag = null, search = '') => {
+    fetchPosts: async (tag = null, search = '', communityId = null) => {
         set({ loading: true });
         try {
             let url = '/posts';
@@ -56,6 +56,7 @@ const useCommunityStore = create((set, get) => ({
                 }
             }
             if (search) params.append('search', search);
+            if (communityId) params.append('communityId', communityId);
             if (params.toString()) url += `?${params.toString()}`;
 
             const { data } = await api.get(url, { headers: getAuthHeader() });

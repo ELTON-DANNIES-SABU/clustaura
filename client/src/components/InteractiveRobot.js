@@ -107,11 +107,11 @@ const InteractiveRobot = ({ onActivate }) => {
 
     return (
         <div
-            className={`cyber-robot-container ${isHovered ? 'hovered' : ''} ${isActive ? 'active' : ''}`}
+            className={`cute-robot-container ${isHovered ? 'hovered' : ''} ${isActive ? 'active' : ''}`}
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
             onClick={handleClick}
-            title="AI Assistant - Ready to Serve"
+            title="Clusty - Your AI Buddy"
         >
             {/* Hologram Effect Overlay */}
             <canvas
@@ -121,175 +121,56 @@ const InteractiveRobot = ({ onActivate }) => {
                 height="80"
             />
 
-            {/* Robot Core */}
-            <div className="cyber-robot-core">
-
-                {/* Main Body - Metallic Hexagonal Design */}
-                <div className="cyber-body">
-                    <div className="body-hexagon">
-                        <div className="hexagon-face front"></div>
-                        <div className="hexagon-face top"></div>
-                        <div className="hexagon-face bottom"></div>
-                        <div className="hexagon-face left"></div>
-                        <div className="hexagon-face right"></div>
-
-                        {/* Panel Lines */}
-                        <div className="panel-line horizontal"></div>
-                        <div className="panel-line vertical"></div>
-                        <div className="panel-diagonal diag1"></div>
-                        <div className="panel-diagonal diag2"></div>
-
-                        {/* Status Lights */}
-                        <div className="status-light power" style={{ animationDelay: '0s' }}></div>
-                        <div className="status-light network" style={{ animationDelay: '0.3s' }}></div>
-                        <div className="status-light ai" style={{ animationDelay: '0.6s' }}></div>
-
-                        {/* Glowing Circuit Pattern */}
-                        <div className="circuit-pattern">
-                            <div className="circuit-line line1"></div>
-                            <div className="circuit-line line2"></div>
-                            <div className="circuit-node node1"></div>
-                            <div className="circuit-node node2"></div>
-                            <div className="circuit-node node3"></div>
-                        </div>
-                    </div>
+            <div className="cute-robot-body">
+                {/* Antenna */}
+                <div className="cute-antenna">
+                    <div className="antenna-line"></div>
+                    <div className="antenna-bulb"></div>
                 </div>
 
-                {/* Head with HUD Display */}
-                <div className="cyber-head">
-                    <div className="hud-display">
-                        <div className="hud-grid">
-                            <div className="grid-line h-line1"></div>
-                            <div className="grid-line h-line2"></div>
-                            <div className="grid-line v-line1"></div>
-                            <div className="grid-line v-line2"></div>
-                        </div>
-
-                        {/* Eyes with scanning effect */}
-                        <div className="cyber-eyes">
+                {/* Head */}
+                <div className="cute-head">
+                    <div className="cute-face">
+                        <div className="cute-eyes">
                             <div
-                                className="cyber-eye left"
+                                className="cute-eye left"
                                 style={{
-                                    boxShadow: `0 0 ${15 + eyeGlow * 10}px rgba(0, 255, 163, ${0.7 + eyeGlow * 0.3})`,
-                                    backgroundColor: `rgba(0, 255, 163, ${0.3 + eyeGlow * 0.7})`
+                                    boxShadow: `0 0 ${8 + eyeGlow * 10}px #00ffa3`,
+                                    transform: `scale(${1 + eyeGlow * 0.1})`
                                 }}
                             >
-                                <div className="eye-inner">
-                                    <div className="eye-pupil"></div>
-                                    <div className="eye-lens-flare"></div>
-                                </div>
-                                {isScanning && <div className="scan-beam"></div>}
+                                <div className="eye-sparkle"></div>
                             </div>
-
                             <div
-                                className="cyber-eye right"
+                                className="cute-eye right"
                                 style={{
-                                    boxShadow: `0 0 ${15 + eyeGlow * 10}px rgba(0, 255, 163, ${0.7 + eyeGlow * 0.3})`,
-                                    backgroundColor: `rgba(0, 255, 163, ${0.3 + eyeGlow * 0.7})`
+                                    boxShadow: `0 0 ${8 + eyeGlow * 10}px #00ffa3`,
+                                    transform: `scale(${1 + eyeGlow * 0.1})`
                                 }}
                             >
-                                <div className="eye-inner">
-                                    <div className="eye-pupil"></div>
-                                    <div className="eye-lens-flare"></div>
-                                </div>
-                                {isScanning && <div className="scan-beam"></div>}
+                                <div className="eye-sparkle"></div>
                             </div>
                         </div>
-
-                        {/* HUD Text */}
-                        <div className="hud-text">
-                            <div className="hud-line line-1">AI ASSISTANT</div>
-                            <div className="hud-line line-2">ONLINE</div>
-                            <div className="hud-line line-3">READY</div>
-                        </div>
+                        <div className="cute-mouth"></div>
                     </div>
                 </div>
 
-                {/* Antenna with Data Stream */}
-                <div className="cyber-antenna">
-                    <div className="antenna-base"></div>
-                    <div className="antenna-rod">
-                        <div className="data-stream">
-                            {[1, 2, 3, 4, 5].map(i => (
-                                <div
-                                    key={i}
-                                    className="data-bit"
-                                    style={{ animationDelay: `${i * 0.1}s` }}
-                                ></div>
-                            ))}
-                        </div>
-                    </div>
-                    <div className="antenna-tip"></div>
+                {/* Body */}
+                <div className="cute-torso">
+                    <div className="heart-core"></div>
                 </div>
 
-                {/* Arms/Floating Orbs */}
-                <div className="cyber-arms">
-                    <div className="cyber-arm left">
-                        <div className="arm-joint"></div>
-                        <div className="arm-segment"></div>
-                        <div className="arm-hand">
-                            <div className="hand-finger f1"></div>
-                            <div className="hand-finger f2"></div>
-                            <div className="hand-finger f3"></div>
-                        </div>
-                    </div>
-
-                    <div className="cyber-arm right">
-                        <div className="arm-joint"></div>
-                        <div className="arm-segment"></div>
-                        <div className="arm-hand">
-                            <div className="hand-finger f1"></div>
-                            <div className="hand-finger f2"></div>
-                            <div className="hand-finger f3"></div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Base/Thrusters */}
-                <div className="cyber-base">
-                    <div className="thruster left">
-                        <div className="thruster-glow"></div>
-                    </div>
-                    <div className="thruster center">
-                        <div className="thruster-glow"></div>
-                    </div>
-                    <div className="thruster right">
-                        <div className="thruster-glow"></div>
-                    </div>
+                {/* Floating Hands */}
+                <div className="cute-hands">
+                    <div className="cute-hand left"></div>
+                    <div className="cute-hand right"></div>
                 </div>
             </div>
 
-            {/* Floating Interface Panels */}
+            {/* Floating Interface Panel */}
             {isHovered && (
-                <>
-                    <div className="interface-panel left-panel">
-                        <div className="panel-content">
-                            <div className="panel-title">SYSTEMS</div>
-                            <div className="panel-item">AI: ONLINE</div>
-                            <div className="panel-item">NETWORK: STABLE</div>
-                            <div className="panel-item">POWER: 100%</div>
-                        </div>
-                    </div>
-
-                    <div className="interface-panel right-panel">
-                        <div className="panel-content">
-                            <div className="panel-title">FUNCTIONS</div>
-                            <div className="panel-item">CHAT: ENABLED</div>
-                            <div className="panel-item">ANALYSIS: READY</div>
-                            <div className="panel-item">ASSIST: ACTIVE</div>
-                        </div>
-                    </div>
-                </>
-            )}
-
-            {/* Activation Ring */}
-            <div className="activation-ring"></div>
-
-            {/* Holographic Text */}
-            {isHovered && (
-                <div className="hologram-text">
-                    <span className="char">▶</span>
-                    <span className="text">INITIATE CHAT PROTOCOL</span>
+                <div className="mini-status-bubble">
+                    <span>HELLO!</span>
                 </div>
             )}
         </div>

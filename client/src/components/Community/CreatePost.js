@@ -7,13 +7,14 @@ import {
 } from 'lucide-react';
 import useCommunityStore from '../../store/communityStore';
 import TagList from './shared/TagList';
+import axios from 'axios';
 
 const MAX_TITLE = 300;
 const MAX_CONTENT = 10000;
 
-const CreatePost = ({ onToast }) => {
+const CreatePost = ({ onToast, activeCommunityId }) => {
     const navigate = useNavigate();
-    const { addPost, communities, getLoggedInUser } = useCommunityStore();
+    const { communities, getLoggedInUser, addPost } = useCommunityStore();
     const user = getLoggedInUser();
     const formRef = useRef(null);
     const titleInputRef = useRef(null);
@@ -21,7 +22,7 @@ const CreatePost = ({ onToast }) => {
     const [formData, setFormData] = useState({
         title: '',
         content: '',
-        community: communities[0]?._id || '',
+        community: activeCommunityId || communities[0]?._id || '',
         tags: []
     });
 
@@ -79,30 +80,39 @@ const CreatePost = ({ onToast }) => {
         }, 100);
     }, [onToast]);
 
+    // Ensure a community is selected once communities are loaded
+    useEffect(() => {
+        if (!formData.community && communities.length > 0) {
+            setFormData(prev => ({ ...prev, community: activeCommunityId || communities[0]._id }));
+        }
+    }, [communities, activeCommunityId, formData.community]);
+
     const handleSubmit = useCallback(async (e) => {
         e.preventDefault();
         if (!isValid || submitting) return;
 
         setSubmitting(true);
         try {
-            const result = await addPost({
-                communityId: formData.community,
+            // Using the community store's addPost which correctly targets /api/community/posts
+            await addPost({
                 title: formData.title.trim(),
-                content: formData.content.trim(),
-                tags: parsedTags,
+                content: formData.content.trim(), // Backend expects 'content'
+                communityId: formData.community, // Backend expects 'communityId'
+                tags: parsedTags
             });
 
-            if (result) {
-                onToast?.('🚀 Challenge published successfully!', 'success');
-                localStorage.removeItem('postDraft');
-                navigate('/community');
-            }
+            onToast?.('🚀 Challenge published successfully!', 'success');
+            localStorage.removeItem('postDraft');
+
+            // Redirect back to the community where it was posted
+            navigate(`/community${formData.community ? `?community=${formData.community}` : ''}`);
         } catch (error) {
+            console.error('Error creating challenge:', error);
             onToast?.('Failed to publish challenge. Please try again.', 'error');
         } finally {
             setSubmitting(false);
         }
-    }, [isValid, submitting, formData, parsedTags, onToast, navigate]);
+    }, [isValid, submitting, formData, parsedTags, onToast, navigate, addPost]);
 
     const handleFormatClick = (format) => {
         setSelectedFormat(format);

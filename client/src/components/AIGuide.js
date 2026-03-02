@@ -280,9 +280,9 @@ const AIGuide = () => {
         }
     };
 
-    // Hide bot on login and register pages
-    const isAuthPage = location.pathname === '/login' || location.pathname === '/register' || location.pathname === '/';
-    if (isAuthPage) return null;
+    const isAuthPage = ['/login', '/register', '/'].includes(location.pathname);
+    const isCommunityPage = location.pathname.startsWith('/community');
+    if (isAuthPage || isCommunityPage) return null;
 
     return (
         <div className="ai-guide-container">
