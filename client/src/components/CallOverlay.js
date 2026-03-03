@@ -236,6 +236,10 @@ const CallOverlay = () => {
                 setIsStreamReady(true);
             } catch (err) {
                 console.warn("[Media] Camera failed, trying audio only:", err);
+                if (!window.isSecureContext && window.location.hostname !== 'localhost') {
+                    console.error("[Media] SECURITY BLOCK: getUserMedia requires HTTPS or localhost.");
+                    alert("⚠️ Call Error: Browsers block camera/mic access over non-secure (HTTP) network connections. Please use HTTPS or access via localhost.");
+                }
                 try {
                     const audioStream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
                     localStreamRef.current = audioStream;
@@ -244,7 +248,7 @@ const CallOverlay = () => {
                 } catch (audioErr) {
                     console.error("[Media] All media access failed:", audioErr);
                     setIsVideoOn(false);
-                    setIsStreamReady(true);
+                    setIsStreamReady(true); // Still "ready" to show UI, just no stream
                 }
             }
         };

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { API_BASE_URL } from '../config';
 import PostCard from './PostCard';
 import '../styles.css';
 
@@ -313,7 +314,7 @@ const UserProfile = () => {
                                         try {
                                             const userStr = localStorage.getItem('user');
                                             const userData = JSON.parse(userStr);
-                                            await axios.post('http://localhost:5000/api/credits/endorse', {
+                                            await axios.post(`${API_BASE_URL}/credits/endorse`, {
                                                 collaboratorId: profile.user._id,
                                                 projectId: 'profile_endorsement', // General endorsement
                                                 amount: 10

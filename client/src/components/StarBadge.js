@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
+import { API_BASE_URL } from '../config';
 
 const StarBadge = ({ userId, stars: initialStars, tier: initialTier, size = 'sm' }) => {
     const [stars, setStars] = useState(initialStars || 0);
@@ -14,7 +15,7 @@ const StarBadge = ({ userId, stars: initialStars, tier: initialTier, size = 'sm'
 
         const fetchStars = async () => {
             try {
-                const { data } = await axios.get(`http://localhost:5000/api/credits/${userId}/stars`);
+                const { data } = await axios.get(`${API_BASE_URL}/credits/${userId}/stars`);
                 setStars(data.stars);
                 setTier(data.tier);
             } catch (error) {

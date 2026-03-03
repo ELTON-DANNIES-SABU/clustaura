@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { io } from 'socket.io-client';
 import api from '../services/api';
+import { SOCKET_URL } from '../config';
 import useCommunityStore from '../store/communityStore';
 import PostComposer from './PostComposer';
 import PostCard from './PostCard';
@@ -68,7 +68,7 @@ const PostFeed = () => {
         fetchCommunities();
 
         // Socket.IO Connection
-        const newSocket = io('http://localhost:5000');
+        const newSocket = io(SOCKET_URL);
         setSocket(newSocket);
 
         return () => newSocket.close();

@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import api from '../services/api';
 import { io } from 'socket.io-client';
+import { BASE_URL } from '../config';
 import '../styles.css';
 
 const PostComposer = ({ isActive, setIsActive, onSuccess, defaultCommunity }) => {
@@ -56,7 +57,7 @@ const PostComposer = ({ isActive, setIsActive, onSuccess, defaultCommunity }) =>
                 });
                 newMedia.push({
                     type: file.type.startsWith('image') ? 'image' : 'video',
-                    url: `http://localhost:5000${res.data.filePath}`,
+                    url: `${BASE_URL}${res.data.filePath}`,
                     preview: URL.createObjectURL(file)
                 });
             } catch (error) {

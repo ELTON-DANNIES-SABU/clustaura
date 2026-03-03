@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { io } from 'socket.io-client';
+import { API_BASE_URL, SOCKET_URL } from '../config';
 import { Search, Filter, Trophy, Users, MessageSquare, ArrowLeft, Trash2 } from 'lucide-react';
 import NotificationBell from './NotificationBell';
 import ChallengeComposer from './ChallengeComposer';
@@ -35,7 +36,7 @@ const Challenges = () => {
         const token = userData ? userData.token : null;
         if (userData && userData._id) setCurrentUserId(userData._id);
 
-        const newSocket = io('http://localhost:5000', {
+        const newSocket = io(SOCKET_URL, {
             auth: { token }
         });
         setSocket(newSocket);

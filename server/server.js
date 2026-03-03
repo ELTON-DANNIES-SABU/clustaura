@@ -479,20 +479,25 @@ io.on('connection', async (socket) => {
                     }
                     session.channelId = channel._id;
                     await session.save();
+                } else {
+                    // Fallback: If not a channel, assume it's a Direct Message (roomId is recipient userId)
+                    usersToNotify = [roomId, initiatorId];
+                    console.log(`[CALL] No channel found for ${roomId}, treating as DM to user`);
                 }
             }
 
-            console.log(`Starting call in room ${roomId}, notifying ${usersToNotify.length} users. Initiator: ${socket.user.firstName}`);
+            console.log(`[CALL] Starting ${type} call in room ${roomId}. Initiator: ${socket.user.firstName}. Notifying ${usersToNotify.length} potential users.`);
 
             // 1. Broadcast Call Signal to each user's personal room
             usersToNotify.forEach(uid => {
                 if (uid !== initiatorId) {
+                    console.log(`[CALL] Emitting incoming_call to user room: ${uid}`);
                     io.to(uid).emit('incoming_call', {
                         roomId,
                         type,
                         initiatorId,
                         initiatorName: `${socket.user.firstName} ${socket.user.lastName}`,
-                        participants
+                        participants: participants || [roomId, initiatorId]
                     });
                 }
             });
@@ -510,11 +515,11 @@ io.on('connection', async (socket) => {
                 }
             };
 
-            if (participants && participants.length > 0) {
-                const recipient = participants.find(p => p !== initiatorId);
-                if (recipient) systemMsgData.recipient = recipient;
-            } else {
+            const isChannel = await CommChannel.exists({ _id: roomId });
+            if (isChannel) {
                 systemMsgData.channelId = roomId;
+            } else {
+                systemMsgData.recipient = roomId;
             }
 
             const systemMsg = await CommMessage.create(systemMsgData);
@@ -528,7 +533,7 @@ io.on('connection', async (socket) => {
             }
 
         } catch (error) {
-            console.error('Error starting call:', error);
+            console.error('[CALL] Error starting call:', error);
         }
     });
 

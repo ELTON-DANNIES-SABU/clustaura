@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import { API_BASE_URL } from '../config';
 import '../styles.css';
 
 const ProfessionalComposer = () => {
@@ -38,7 +39,7 @@ const ProfessionalComposer = () => {
                 tags
             };
 
-            await axios.post('http://localhost:5000/api/professional', payload, {
+            await axios.post(`${API_BASE_URL}/professional`, payload, {
                 headers: { Authorization: `Bearer ${token}` }
             });
 

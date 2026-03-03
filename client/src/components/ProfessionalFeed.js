@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import io from 'socket.io-client';
+import { API_BASE_URL, SOCKET_URL } from '../config';
 import ProfessionalComposer from './ProfessionalComposer';
 import PostCard from './PostCard'; // We can reuse PostCard for displaying proper posts
 import '../styles.css';
@@ -12,7 +12,7 @@ const ProfessionalFeed = () => {
 
     useEffect(() => {
         // Connect Socket
-        const newSocket = io('http://localhost:5000');
+        const newSocket = io(SOCKET_URL);
         setSocket(newSocket);
 
         // Fetch Initial Feed
@@ -22,7 +22,7 @@ const ProfessionalFeed = () => {
                 if (userStr) {
                     const { token } = JSON.parse(userStr);
                     const config = { headers: { Authorization: `Bearer ${token}` } };
-                    const { data } = await axios.get('http://localhost:5000/api/professional', config);
+                    const { data } = await axios.get(`${API_BASE_URL}/professional`, config);
                     setPosts(data);
                 }
                 setLoading(false);
