@@ -24,19 +24,21 @@ const peerServer = ExpressPeerServer(server, {
 
 app.use('/peerjs', peerServer);
 
-// Enhanced CORS configuration
+// Enhanced CORS configuration - More permissive in development for cross-system testing
 const corsOptions = {
-    origin: ['http://localhost:3000', 'http://localhost:3001', 'http://127.0.0.1:3000', 'http://127.0.0.1:3001'],
+    origin: process.env.NODE_ENV === 'development'
+        ? true // Reflect request origin in development
+        : ['http://localhost:3000', 'http://localhost:3001', 'http://127.0.0.1:3000', 'http://127.0.0.1:3001'],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
     credentials: true,
     optionsSuccessStatus: 200
 };
 
-// Initialize Socket.io
+// Initialize Socket.io - Allow all origins in development
 const io = new Server(server, {
     cors: {
-        origin: ['http://localhost:3000', 'http://localhost:3001', 'http://127.0.0.1:3000', 'http://127.0.0.1:3001'],
+        origin: process.env.NODE_ENV === 'development' ? "*" : ['http://localhost:3000', 'http://localhost:3001', 'http://127.0.0.1:3000', 'http://127.0.0.1:3001'],
         methods: ["GET", "POST"]
     }
 });

@@ -273,7 +273,20 @@ const useCommunicationStore = create((set, get) => ({
         });
 
         newSocket.on('connect', () => {
-            console.log("Socket connected with Auth");
+            console.log("Socket connected with Auth:", newSocket.id);
+        });
+
+        newSocket.on('connect_error', (error) => {
+            console.error("Socket Connection Error:", error.message);
+            console.log("Make sure the server is accessible at:", window.location.hostname);
+        });
+
+        newSocket.on('reconnect_attempt', (attempt) => {
+            console.log("Socket Reconnecting... attempt:", attempt);
+        });
+
+        newSocket.on('reconnect_error', (error) => {
+            console.error("Socket Reconnection Error:", error.message);
         });
 
         newSocket.on('presence_sync', (presenceList) => {
