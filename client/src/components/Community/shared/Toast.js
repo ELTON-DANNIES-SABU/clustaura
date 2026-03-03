@@ -32,12 +32,15 @@ export const ToastProvider = ({ children }) => {
         return id;
     }, [dismiss]);
 
-    const toast = {
-        success: (msg, dur) => addToast(msg, 'success', dur),
-        error: (msg, dur) => addToast(msg, 'error', dur ?? 5000),
-        info: (msg, dur) => addToast(msg, 'info', dur),
-        warning: (msg, dur) => addToast(msg, 'warning', dur),
-    };
+    const toast = Object.assign(
+        (message, type = 'info', duration) => addToast(message, type, duration),
+        {
+            success: (msg, dur) => addToast(msg, 'success', dur),
+            error: (msg, dur) => addToast(msg, 'error', dur ?? 5000),
+            info: (msg, dur) => addToast(msg, 'info', dur),
+            warning: (msg, dur) => addToast(msg, 'warning', dur),
+        }
+    );
 
     return (
         <ToastContext.Provider value={toast}>

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
     X, Hash, Type, AlignLeft, Send, Save, Globe, HelpCircle,
     Plus, Sparkles, Zap, ChevronRight, Code, Bold, Italic, List,
-    Link as LinkIcon, AlertCircle, CheckCircle
+    Link as LinkIcon, AlertCircle, CheckCircle, Terminal, Cpu, Layout
 } from 'lucide-react';
 import useCommunityStore from '../../store/communityStore';
 import './Community.css';
@@ -152,39 +152,19 @@ const CreatePostModal = ({ isOpen, onClose, onToast, activeCommunityId }) => {
     const handleSubmit = async (e) => {
         e.preventDefault();
 
-        console.log('Submit button clicked');
-        console.log('Form data:', formData);
-        console.log('Parsed tags:', parsedTags);
-
-        if (!validateForm()) {
-            console.log('Validation failed:', errors);
-            return;
-        }
-
-        if (submitting) {
-            console.log('Already submitting');
-            return;
-        }
+        if (!validateForm()) return;
+        if (submitting) return;
 
         setSubmitting(true);
         setErrors({});
 
         try {
-            console.log('Calling addPost with:', {
+            await addPost({
                 title: formData.title.trim(),
                 content: formData.content.trim(),
                 communityId: formData.community,
                 tags: parsedTags
             });
-
-            const result = await addPost({
-                title: formData.title.trim(),
-                content: formData.content.trim(),
-                communityId: formData.community,
-                tags: parsedTags
-            });
-
-            console.log('Post created successfully:', result);
 
             setSubmitSuccess(true);
             onToast?.('✨ Challenge published successfully!', 'success');
@@ -223,7 +203,7 @@ const CreatePostModal = ({ isOpen, onClose, onToast, activeCommunityId }) => {
 
     const handleClose = () => {
         if (formData.title || formData.content || parsedTags.length > 0) {
-            if (window.confirm('You have unsaved changes. Do you want to save them as draft?')) {
+            if (!submitSuccess && window.confirm('You have unsaved changes. Do you want to save them as draft?')) {
                 localStorage.setItem('challengeDraft', JSON.stringify({
                     ...formData,
                     tags: parsedTags
@@ -275,30 +255,27 @@ const CreatePostModal = ({ isOpen, onClose, onToast, activeCommunityId }) => {
             if (e.target === e.currentTarget) handleClose();
         }}>
             <div className="modal-container" ref={modalRef}>
+                {/* Visual Accent */}
+                <div className="modal-accent-line" />
+
                 {/* Header */}
                 <div className="modal-header">
                     <div className="modal-header-left">
                         <div className="modal-icon">
-                            <Zap size={24} />
+                            <Zap size={24} strokeWidth={2.5} />
                         </div>
-                        <div>
-                            <h2 className="modal-title">Create New Challenge</h2>
-                            <p className="modal-subtitle">Share your technical problem with the community</p>
+                        <div className="modal-header-text">
+                            <h2 className="modal-title">Create Challenge</h2>
+                            <p className="modal-subtitle">Share your technical problem with the world</p>
                         </div>
                     </div>
                     <div className="modal-header-right">
                         {isDraftSaved && (
-                            <span className="draft-indicator">
+                            <div className="draft-indicator">
                                 <Save size={14} />
-                                Draft saved
+                                <span>Draft saved</span>
                                 <span className="draft-dot" />
-                            </span>
-                        )}
-                        {submitSuccess && (
-                            <span className="draft-indicator" style={{ background: 'rgba(51,153,51,0.2)', color: '#339933' }}>
-                                <CheckCircle size={14} />
-                                Published!
-                            </span>
+                            </div>
                         )}
                         <button className="modal-close" onClick={handleClose} aria-label="Close">
                             <X size={20} />
@@ -306,7 +283,7 @@ const CreatePostModal = ({ isOpen, onClose, onToast, activeCommunityId }) => {
                     </div>
                 </div>
 
-                {/* Author Info */}
+                {/* Author Information */}
                 <div className="author-info">
                     <div className="author-avatar">
                         {user?.name?.charAt(0) || 'U'}
@@ -315,36 +292,38 @@ const CreatePostModal = ({ isOpen, onClose, onToast, activeCommunityId }) => {
                         <span className="author-name">{user?.name || 'User'}</span>
                         <span className="author-badge">
                             <Globe size={12} />
-                            Posting publicly
+                            Posting to r/{communities.find(c => c._id === formData.community)?.name || 'Community'}
                         </span>
                     </div>
                 </div>
 
-                {/* Tabs */}
-                <div className="modal-tabs">
+                {/* Navigation Tabs */}
+                <nav className="modal-tabs">
                     <button
                         className={`tab-btn ${activeTab === 'write' ? 'active' : ''}`}
                         onClick={() => setActiveTab('write')}
                         type="button"
                     >
-                        <span className="tab-indicator" />
+                        <AlignLeft size={16} />
                         Write
+                        <span className="tab-indicator" />
                     </button>
                     <button
                         className={`tab-btn ${activeTab === 'preview' ? 'active' : ''}`}
                         onClick={() => setActiveTab('preview')}
                         type="button"
                     >
-                        <span className="tab-indicator" />
+                        <Layout size={16} />
                         Preview
+                        <span className="tab-indicator" />
                     </button>
-                </div>
+                </nav>
 
-                {/* Content */}
+                {/* Modal Main Content */}
                 <div className="modal-content">
                     {activeTab === 'write' ? (
                         <form onSubmit={handleSubmit} id="create-post-form">
-                            {/* Community Selection */}
+                            {/* Community Selector */}
                             <div className={`form-group ${errors.community ? 'has-error' : ''}`}>
                                 <label className="form-label">
                                     <Globe size={16} />
@@ -356,12 +335,10 @@ const CreatePostModal = ({ isOpen, onClose, onToast, activeCommunityId }) => {
                                         setFormData(prev => ({ ...prev, community: e.target.value }));
                                         setErrors(prev => ({ ...prev, community: null }));
                                     }}
-                                    onFocus={() => setIsFocused(prev => ({ ...prev, community: true }))}
-                                    onBlur={() => setIsFocused(prev => ({ ...prev, community: false }))}
-                                    className={`form-select ${isFocused.community ? 'focused' : ''}`}
+                                    className="form-select"
                                     required
                                 >
-                                    <option value="" disabled>Select a community</option>
+                                    <option value="" disabled>Select a target community</option>
                                     {communities.map(comm => (
                                         <option key={comm._id} value={comm._id}>
                                             r/{comm.name || comm.slug}
@@ -376,12 +353,12 @@ const CreatePostModal = ({ isOpen, onClose, onToast, activeCommunityId }) => {
                                 )}
                             </div>
 
-                            {/* Title */}
+                            {/* Challenge Title */}
                             <div className={`form-group ${errors.title ? 'has-error' : ''}`}>
                                 <div className="form-label-row">
                                     <label className="form-label">
                                         <Type size={16} />
-                                        Title <span className="required">*</span>
+                                        Challenge Title <span className="required">*</span>
                                     </label>
                                     <span className="character-count">
                                         {formData.title.length}/{MAX_TITLE}
@@ -395,10 +372,8 @@ const CreatePostModal = ({ isOpen, onClose, onToast, activeCommunityId }) => {
                                         setFormData(prev => ({ ...prev, title: e.target.value }));
                                         setErrors(prev => ({ ...prev, title: null }));
                                     }}
-                                    onFocus={() => setIsFocused(prev => ({ ...prev, title: true }))}
-                                    onBlur={() => setIsFocused(prev => ({ ...prev, title: false }))}
-                                    placeholder="e.g., How to implement real-time notifications with WebSocket?"
-                                    className={`form-input ${isFocused.title ? 'focused' : ''}`}
+                                    placeholder="e.g., Optimizing React performance for 10k items"
+                                    className="form-input"
                                     maxLength={MAX_TITLE}
                                     required
                                 />
@@ -410,61 +385,36 @@ const CreatePostModal = ({ isOpen, onClose, onToast, activeCommunityId }) => {
                                 )}
                             </div>
 
-                            {/* Content */}
+                            {/* Editor Area */}
                             <div className={`form-group ${errors.content ? 'has-error' : ''}`}>
                                 <div className="form-label-row">
                                     <label className="form-label">
-                                        <AlignLeft size={16} />
-                                        Content <span className="required">*</span>
+                                        <Terminal size={16} />
+                                        Description <span className="required">*</span>
                                     </label>
                                     <span className="character-count">
                                         {formData.content.length}/{MAX_CONTENT}
                                     </span>
                                 </div>
 
-                                {/* Formatting Toolbar */}
                                 <div className="formatting-toolbar">
-                                    <button
-                                        type="button"
-                                        className={`toolbar-btn ${selectedFormat === 'bold' ? 'active' : ''}`}
-                                        onClick={() => handleFormatClick('bold')}
-                                        title="Bold"
-                                    >
-                                        <Bold size={14} />
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className={`toolbar-btn ${selectedFormat === 'italic' ? 'active' : ''}`}
-                                        onClick={() => handleFormatClick('italic')}
-                                        title="Italic"
-                                    >
-                                        <Italic size={14} />
-                                    </button>
-                                    <div className="toolbar-divider" />
-                                    <button
-                                        type="button"
-                                        className={`toolbar-btn ${selectedFormat === 'code' ? 'active' : ''}`}
-                                        onClick={() => handleFormatClick('code')}
-                                        title="Code"
-                                    >
-                                        <Code size={14} />
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className={`toolbar-btn ${selectedFormat === 'link' ? 'active' : ''}`}
-                                        onClick={() => handleFormatClick('link')}
-                                        title="Link"
-                                    >
-                                        <LinkIcon size={14} />
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className={`toolbar-btn ${selectedFormat === 'list' ? 'active' : ''}`}
-                                        onClick={() => handleFormatClick('list')}
-                                        title="List"
-                                    >
-                                        <List size={14} />
-                                    </button>
+                                    {[
+                                        { id: 'bold', icon: <Bold size={14} />, title: 'Bold' },
+                                        { id: 'italic', icon: <Italic size={14} />, title: 'Italic' },
+                                        { id: 'code', icon: <Code size={14} />, title: 'Code' },
+                                        { id: 'link', icon: <LinkIcon size={14} />, title: 'Link' },
+                                        { id: 'list', icon: <List size={14} />, title: 'List' },
+                                    ].map(tool => (
+                                        <button
+                                            key={tool.id}
+                                            type="button"
+                                            className={`toolbar-btn ${selectedFormat === tool.id ? 'active' : ''}`}
+                                            onClick={() => handleFormatClick(tool.id)}
+                                            title={tool.title}
+                                        >
+                                            {tool.icon}
+                                        </button>
+                                    ))}
                                 </div>
 
                                 <textarea
@@ -473,11 +423,9 @@ const CreatePostModal = ({ isOpen, onClose, onToast, activeCommunityId }) => {
                                         setFormData(prev => ({ ...prev, content: e.target.value }));
                                         setErrors(prev => ({ ...prev, content: null }));
                                     }}
-                                    onFocus={() => setIsFocused(prev => ({ ...prev, content: true }))}
-                                    onBlur={() => setIsFocused(prev => ({ ...prev, content: false }))}
-                                    placeholder="Describe your challenge in detail. What have you tried? What specific help do you need?"
-                                    className={`form-textarea ${isFocused.content ? 'focused' : ''}`}
-                                    rows={8}
+                                    placeholder="Provide a detailed description of your challenge..."
+                                    className="form-textarea"
+                                    rows={10}
                                     maxLength={MAX_CONTENT}
                                     required
                                 />
@@ -489,20 +437,18 @@ const CreatePostModal = ({ isOpen, onClose, onToast, activeCommunityId }) => {
                                 )}
                             </div>
 
-                            {/* Tags */}
+                            {/* Topics/Tags */}
                             <div className="form-group">
                                 <label className="form-label">
                                     <Hash size={16} />
-                                    Topics <span className="optional">(optional, max 5)</span>
+                                    Topics <span className="optional">(comma separated, max 5)</span>
                                 </label>
                                 <input
                                     type="text"
                                     value={tagInput}
                                     onChange={(e) => setTagInput(e.target.value)}
-                                    onFocus={() => setIsFocused(prev => ({ ...prev, tags: true }))}
-                                    onBlur={() => setIsFocused(prev => ({ ...prev, tags: false }))}
-                                    placeholder="e.g., react, javascript, api (comma separated)"
-                                    className={`form-input ${isFocused.tags ? 'focused' : ''}`}
+                                    placeholder="e.g., react, backend, architecture"
+                                    className="form-input"
                                 />
 
                                 {parsedTags.length > 0 && (
@@ -517,67 +463,63 @@ const CreatePostModal = ({ isOpen, onClose, onToast, activeCommunityId }) => {
                                 )}
                             </div>
 
-                            {/* Tips Section */}
+                            {/* Pro-Tips */}
                             <div className="tips-section">
                                 <div className="tips-header">
-                                    <HelpCircle size={16} color="#ffaa33" />
-                                    <span>Tips for a great challenge</span>
+                                    <Sparkles size={16} />
+                                    <span>EXPERT POSTING TIPS</span>
                                 </div>
                                 <div className="tips-grid">
                                     {[
-                                        'Be specific about your technical problem',
-                                        'Include code examples if relevant',
-                                        'Describe what you\'ve already tried',
-                                        'Add relevant topics to reach experts',
+                                        'Be specific about your technical constraints',
+                                        'Provide minimal reproducible examples',
+                                        'Clearly state the expected behavior',
+                                        'Use topics to target specific experts',
                                     ].map((tip, index) => (
                                         <div key={index} className="tip-item">
-                                            <Zap size={12} color="#ffaa33" />
+                                            <div className="tip-marker" />
                                             <span>{tip}</span>
                                         </div>
                                     ))}
                                 </div>
                             </div>
-
-                            {errors.submit && (
-                                <div className="error-message" style={{ marginTop: '16px', padding: '12px', background: 'rgba(255,77,77,0.1)', borderRadius: '8px' }}>
-                                    <AlertCircle size={16} />
-                                    {errors.submit}
-                                </div>
-                            )}
                         </form>
                     ) : (
-                        /* Preview Tab */
                         <div className="preview-content">
-                            {formData.title ? (
-                                <h3 className="preview-title">{formData.title}</h3>
-                            ) : (
-                                <p className="preview-placeholder">No title yet</p>
-                            )}
+                            <div className="preview-header">
+                                {formData.title ? (
+                                    <h3 className="preview-title">{formData.title}</h3>
+                                ) : (
+                                    <p className="preview-placeholder">Enter a title to see preview</p>
+                                )}
 
-                            {parsedTags.length > 0 && (
-                                <div className="preview-tags">
-                                    {parsedTags.map(tag => (
-                                        <span key={tag} className="preview-tag">
-                                            #{tag}
-                                        </span>
-                                    ))}
-                                </div>
-                            )}
+                                {parsedTags.length > 0 && (
+                                    <div className="preview-tags">
+                                        {parsedTags.map(tag => (
+                                            <span key={tag} className="preview-tag">
+                                                #{tag}
+                                            </span>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
 
-                            <hr className="preview-divider" />
+                            <div className="preview-divider" />
 
-                            {formData.content ? (
-                                <div className="preview-content-text" style={{ whiteSpace: 'pre-wrap' }}>
-                                    {formData.content}
-                                </div>
-                            ) : (
-                                <p className="preview-placeholder">No content yet</p>
-                            )}
+                            <div className="preview-body">
+                                {formData.content ? (
+                                    <div className="preview-content-text">
+                                        {formData.content}
+                                    </div>
+                                ) : (
+                                    <p className="preview-placeholder">Write some content to see preview</p>
+                                )}
+                            </div>
                         </div>
                     )}
                 </div>
 
-                {/* Footer */}
+                {/* Footer Actions */}
                 <div className="modal-footer">
                     <button
                         type="button"
@@ -585,17 +527,13 @@ const CreatePostModal = ({ isOpen, onClose, onToast, activeCommunityId }) => {
                         onClick={handleClose}
                         disabled={submitting}
                     >
-                        Cancel
+                        Discard
                     </button>
                     <button
                         type="submit"
                         form="create-post-form"
-                        className="btn-primary"
+                        className={`btn-primary ${submitting ? 'is-loading' : ''} ${submitSuccess ? 'is-success' : ''}`}
                         disabled={submitting || !formData.title || !formData.content || !formData.community}
-                        style={{
-                            opacity: (submitting || !formData.title || !formData.content || !formData.community) ? 0.6 : 1,
-                            cursor: (submitting || !formData.title || !formData.content || !formData.community) ? 'not-allowed' : 'pointer'
-                        }}
                     >
                         {submitting ? (
                             <>
@@ -604,14 +542,14 @@ const CreatePostModal = ({ isOpen, onClose, onToast, activeCommunityId }) => {
                             </>
                         ) : submitSuccess ? (
                             <>
-                                <CheckCircle size={16} />
+                                <CheckCircle size={18} />
                                 Published!
                             </>
                         ) : (
                             <>
-                                <Send size={16} />
+                                <Send size={18} />
                                 Publish Challenge
-                                <ChevronRight size={16} />
+                                <ChevronRight size={18} />
                             </>
                         )}
                     </button>

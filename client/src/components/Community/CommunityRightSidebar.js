@@ -65,7 +65,7 @@ const CommunityRightSidebar = ({ onClose, user, activeCommunityId, onOpenCreateM
                 <Rocket className="cta-icon" />
                 <h3>Post a Challenge</h3>
                 <p>Share your technical problem and get help from experts worldwide.</p>
-                <button
+                {/* <button
                     className="btn-primary"
                     onClick={handleNewChallengeClick}
                     style={{
@@ -97,7 +97,7 @@ const CommunityRightSidebar = ({ onClose, user, activeCommunityId, onOpenCreateM
                 >
                     <PlusCircle size={16} />
                     New Challenge
-                </button>
+                </button> */}
             </div>
 
             {/* Top Communities */}
