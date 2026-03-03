@@ -40,10 +40,11 @@ const PostFeed = () => {
         navigate('/dashboard');
     }, [navigate]);
 
-    const fetchInitialData = useCallback(async () => {
+    const fetchInitialData = useCallback(async (communityId = null) => {
         setLoading(true);
         try {
-            const postsResponse = await api.get('/posts/feed');
+            const url = communityId ? `/posts/feed?communityId=${communityId}` : '/posts/feed';
+            const postsResponse = await api.get(url);
             if (postsResponse.data && postsResponse.data.posts) {
                 setPosts(postsResponse.data.posts);
             }
@@ -57,9 +58,13 @@ const PostFeed = () => {
         }
     }, [navigate]);
 
-    // Initial Fetch
+    // Fetch posts when active community changes
     useEffect(() => {
-        fetchInitialData();
+        fetchInitialData(activeCommunity);
+    }, [activeCommunity, fetchInitialData]);
+
+    // Initial Fetch (Communities only)
+    useEffect(() => {
         fetchCommunities();
 
         // Socket.IO Connection
@@ -75,7 +80,11 @@ const PostFeed = () => {
 
         socket.on('new-post', (newPost) => {
             if (newPost.isHidden) return;
-            setPosts(prev => [newPost, ...prev]);
+
+            // Real-time filter: Only add to list if it matches active community (or we are on global feed)
+            if (!activeCommunity || (newPost.community && (newPost.community._id === activeCommunity || newPost.community === activeCommunity))) {
+                setPosts(prev => [newPost, ...prev]);
+            }
         });
 
         socket.on('post-updated', (updatedData) => {
@@ -103,12 +112,12 @@ const PostFeed = () => {
         setActiveCommunity(communityId);
     }, []);
 
-    // Set default active community once loaded
+    // Set default active community to null (Global Feed)
     useEffect(() => {
-        if (!activeCommunity && communities && communities.length > 0) {
-            setActiveCommunity(communities[0]._id);
+        if (activeCommunity === undefined) {
+            setActiveCommunity(null);
         }
-    }, [communities, activeCommunity]);
+    }, [activeCommunity]);
 
     const handleUpvote = useCallback(async (postId) => {
         try {
@@ -164,18 +173,6 @@ const PostFeed = () => {
     const currentComm = communities.find(c => c._id === activeCommunity);
     const isMember = currentComm?.members?.flat().includes(userId);
 
-    // Helpers for live-looking stats based on ID
-    const getOnlineCount = (comm) => {
-        const base = (comm.members?.length || 0) * 0.4;
-        const jitter = parseInt(comm._id?.slice(-2) || '0', 16) % 15;
-        return Math.floor(base + jitter + 5) + 'k';
-    };
-
-    const getPositiveScore = (comm) => {
-        const jitter = parseInt(comm._id?.slice(-1) || '0', 16) % 8;
-        return (92 + jitter) + '%';
-    };
-
     const LeftSidebar = () => (
         <div className="feed-left-sidebar">
             <div className="sidebar-header">
@@ -186,6 +183,21 @@ const PostFeed = () => {
             </div>
 
             <div className="communities-list">
+                <button
+                    className={`community-item ${activeCommunity === null ? 'active' : ''}`}
+                    onClick={() => handleCommunitySelect(null)}
+                >
+                    <div className="community-icon-wrapper">
+                        <span className="community-icon" style={{ color: 'var(--accent-neon)' }}>🌐</span>
+                        {activeCommunity === null && <div className="active-indicator"></div>}
+                    </div>
+                    <div className="community-info">
+                        <span className="community-name">Global Feed</span>
+                        <span className="community-members">All communities</span>
+                    </div>
+                    {activeCommunity === null && <div className="neon-glow"></div>}
+                </button>
+
                 {communities && communities.length > 0 ? (
                     communities.map(community => (
                         <button
@@ -247,11 +259,11 @@ const PostFeed = () => {
                                     <span className="stat-label">Members</span>
                                 </div>
                                 <div className="stat">
-                                    <span className="stat-number">{getOnlineCount(currentComm)}</span>
+                                    <span className="stat-number">{currentComm?.onlineCount || '0'}</span>
                                     <span className="stat-label">Online</span>
                                 </div>
                                 <div className="stat">
-                                    <span className="stat-number">{getPositiveScore(currentComm)}</span>
+                                    <span className="stat-number">{currentComm?.positiveScore || '100%'}</span>
                                     <span className="stat-label">Positive</span>
                                 </div>
                             </div>

@@ -1877,6 +1877,15 @@ body {
 ═══════════════════════════════════════════════════════ */
 .community-content {
     min-width: 0;
+    width: 100%;
+}
+
+.community-feed-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    width: 100%;
+    min-width: 0;
 }
 
 /* Glass Card */

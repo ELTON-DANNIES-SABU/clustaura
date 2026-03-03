@@ -6,9 +6,11 @@ const {
     getUserStars,
     endorseUser,
     calculatePayoffSimulator,
-    getProjectImpact
+    getProjectImpact,
+    getTopExpert
 } = require('../controllers/creditController');
 
+router.get('/top-expert', getTopExpert);
 router.get('/me', protect, getMyCredits);
 router.get('/:userId/stars', getUserStars);
 router.post('/calculate', protect, calculatePayoffSimulator);

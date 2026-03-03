@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { io } from 'socket.io-client';
-import { Search, Filter, Trophy, Users, MessageSquare, ArrowLeft } from 'lucide-react';
+import { Search, Filter, Trophy, Users, MessageSquare, ArrowLeft, Trash2 } from 'lucide-react';
 import NotificationBell from './NotificationBell';
 import ChallengeComposer from './ChallengeComposer';
 import CommunityLeftSidebar from './Community/CommunityLeftSidebar';
@@ -25,12 +25,15 @@ const Challenges = () => {
     const [socket, setSocket] = useState(null);
     const [newChallengeIds, setNewChallengeIds] = useState(new Set());
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [currentUserId, setCurrentUserId] = useState(null);
 
     const navigate = useNavigate();
 
     useEffect(() => {
         const userStr = localStorage.getItem('user');
-        const token = userStr ? JSON.parse(userStr).token : null;
+        const userData = userStr ? JSON.parse(userStr) : null;
+        const token = userData ? userData.token : null;
+        if (userData && userData._id) setCurrentUserId(userData._id);
 
         const newSocket = io('http://localhost:5000', {
             auth: { token }
@@ -147,6 +150,24 @@ const Challenges = () => {
         }
     };
 
+    const handleDeleteChallenge = async (e, challengeId) => {
+        e.stopPropagation();
+        if (!window.confirm('Are you sure you want to delete this challenge?')) return;
+
+        try {
+            const userStr = localStorage.getItem('user');
+            const token = userStr ? JSON.parse(userStr).token : null;
+            await axios.delete(`/api/challenges/${challengeId}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            // State will be updated by socket listener, but we can also do it here for immediate feedback
+            setChallenges(prev => prev.filter(c => c._id !== challengeId));
+        } catch (err) {
+            console.error('Failed to delete challenge:', err);
+            alert('Failed to delete challenge. Please try again.');
+        }
+    };
+
     const toggleComments = (challengeId) => {
         setExpandedComments(prev => ({
             ...prev,
@@ -236,12 +257,23 @@ const Challenges = () => {
                                                     </span>
                                                 </div>
                                             </div>
-                                            <div className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-widest border border-subtle ${challenge.difficulty === 'Expert' ? 'text-red-500 border-red-500/20' :
-                                                challenge.difficulty === 'Advanced' ? 'text-orange-500 border-orange-500/20' :
-                                                    challenge.difficulty === 'Intermediate' ? 'text-blue-500 border-blue-500/20' :
-                                                        'text-green-500 border-green-500/20'
-                                                }`}>
-                                                {challenge.difficulty}
+                                            <div className="flex items-center gap-3">
+                                                <div className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-widest border border-subtle ${challenge.difficulty === 'Expert' ? 'text-red-500 border-red-500/20' :
+                                                    challenge.difficulty === 'Advanced' ? 'text-orange-500 border-orange-500/20' :
+                                                        challenge.difficulty === 'Intermediate' ? 'text-blue-500 border-blue-500/20' :
+                                                            'text-green-500 border-green-500/20'
+                                                    }`}>
+                                                    {challenge.difficulty}
+                                                </div>
+                                                {currentUserId === (challenge.author?._id || challenge.author) && (
+                                                    <button
+                                                        onClick={(e) => handleDeleteChallenge(e, challenge._id)}
+                                                        className="p-1.5 rounded-lg text-gray-500 hover:text-red-500 hover:bg-red-500/10 transition-all border border-transparent hover:border-red-500/20"
+                                                        title="Delete Challenge"
+                                                    >
+                                                        <Trash2 size={14} />
+                                                    </button>
+                                                )}
                                             </div>
                                         </div>
 

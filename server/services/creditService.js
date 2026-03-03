@@ -1,5 +1,7 @@
 const User = require('../models/User');
 const CreditLedger = require('../models/CreditLedger');
+const Profile = require('../models/Profile');
+const Challenge = require('../models/Challenge');
 
 // Game Theory Coefficients
 const ALPHA_EFFORT = 10;   // Base multiplier for effort
@@ -16,10 +18,6 @@ const TIERS = {
 
 const CREDITS_PER_STAR = 100; // 100 Credits = 1 Star
 
-/**
- * Calculate and award credits for creating a post.
- * Payoff = α · EffortScore
- */
 /**
  * Calculate and award credits for creating a post.
  * Payoff = α · EffortScore + δ · LoyaltyScore
@@ -192,6 +190,71 @@ const getUserCreditStats = async (userId) => {
     return user;
 };
 
+/**
+ * Get the top user by credits (Expert Spotlight)
+ */
+const getTopExpert = async () => {
+    // Find user with highest credits
+    const topUser = await User.findOne()
+        .sort({ credits: -1 })
+        .select('firstName lastName role avatar credits');
+
+    if (!topUser) return null;
+
+    // Get their profile for bio/skills
+    const profile = await Profile.findOne({ user: topUser._id }).select('bio skills profileImageUrl');
+
+    // Calculate helped count (Solutions provided across all challenges)
+    // We count how many solution comments this user has made
+    const helpedCount = await Challenge.countDocuments({
+        'comments.user': topUser._id
+    });
+
+    // Calculate credits earned in the last 30 days
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const monthlyLedger = await CreditLedger.find({
+        user: topUser._id,
+        createdAt: { $gte: thirtyDaysAgo }
+    }).select('amount');
+
+    const monthlyCredits = monthlyLedger.reduce((sum, item) => sum + item.amount, 0);
+
+    return {
+        user: topUser,
+        profile: profile,
+        helpedCount: helpedCount,
+        monthlyCredits: monthlyCredits
+    };
+};
+
+/**
+ * Calculate project impact score
+ */
+const getProjectImpact = async (userId) => {
+    // Calculate total impact score from CreditLedger entries
+    const entries = await CreditLedger.find({
+        user: userId,
+        type: { $in: ['post_impact', 'collaboration'] }
+    }).select('amount');
+
+    const impactScore = entries.reduce((sum, item) => sum + item.amount, 0);
+
+    return {
+        impactScore: impactScore,
+        reputationLevel: impactScore > 500 ? 'Expert' : impactScore > 200 ? 'Intermediate' : 'Novice'
+    };
+};
+
+const applyPenalty = async (userId, amount, reason) => {
+    await addCredits(userId, -amount, 'penalty', 'system', reason);
+};
+
+const awardDailyLoginCredits = async (userId) => {
+    await addCredits(userId, 5, 'daily_login', 'system', 'Daily login bonus');
+};
+
 module.exports = {
     awardPostCreationCredits,
     awardImpactCredits,
@@ -199,5 +262,9 @@ module.exports = {
     endorseCollaborator,
     calculatePayoff,
     addCredits,
-    getUserCreditStats
+    getUserCreditStats,
+    getTopExpert,
+    getProjectImpact,
+    applyPenalty,
+    awardDailyLoginCredits
 };

@@ -11,8 +11,42 @@ exports.getAllCommunities = async (req, res) => {
     try {
         const communities = await Community.find()
             .select('name slug members icon color description rules')
-            .populate('members', 'firstName lastName');
-        res.json(communities);
+            .populate('members', 'firstName lastName')
+            .lean();
+
+        // Add dynamic stats to each community
+        const communitiesWithStats = await Promise.all(communities.map(async (community) => {
+            const memberCount = community.members?.length || 0;
+
+            // Simulated online count (20-30% of members)
+            const onlineBase = memberCount * 0.25;
+            const onlineJitter = (parseInt(community._id.toString().slice(-2), 16) % 10) / 100 * memberCount;
+            const onlineCount = Math.floor(onlineBase + onlineJitter + 2);
+
+            // Calculate positive rating based on post votes
+            const posts = await Post.find({ community: community._id }).select('votes downvotes');
+            let totalVotes = 0;
+            let totalDownvotes = 0;
+
+            posts.forEach(post => {
+                totalVotes += (post.votes?.length || 0);
+                totalDownvotes += (post.downvotes?.length || 0);
+            });
+
+            const totalInteractions = totalVotes + totalDownvotes;
+            const positiveScore = totalInteractions > 0
+                ? Math.round((totalVotes / totalInteractions) * 100)
+                : 100; // Default to 100% if no votes
+
+            return {
+                ...community,
+                memberCount,
+                onlineCount: onlineCount > 1000 ? (onlineCount / 1000).toFixed(1) + 'k' : onlineCount.toString(),
+                positiveScore: positiveScore + '%'
+            };
+        }));
+
+        res.json(communitiesWithStats);
     } catch (error) {
         console.error('Error fetching communities:', error);
         res.status(500).json({ message: 'Server error' });
@@ -42,8 +76,42 @@ exports.getCommunities = async (req, res) => {
     try {
         const communities = await Community.find()
             .populate('members', 'firstName lastName')
-            .populate('moderators', 'firstName lastName');
-        res.json(communities);
+            .populate('moderators', 'firstName lastName')
+            .lean();
+
+        // Add dynamic stats to each community
+        const communitiesWithStats = await Promise.all(communities.map(async (community) => {
+            const memberCount = community.members?.length || 0;
+
+            // Simulated online count (20-30% of members)
+            const onlineBase = memberCount * 0.25;
+            const onlineJitter = (parseInt(community._id.toString().slice(-2), 16) % 10) / 100 * memberCount;
+            const onlineCount = Math.floor(onlineBase + onlineJitter + 2);
+
+            // Calculate positive rating based on post votes
+            const posts = await Post.find({ community: community._id }).select('votes downvotes');
+            let totalVotes = 0;
+            let totalDownvotes = 0;
+
+            posts.forEach(post => {
+                totalVotes += (post.votes?.length || 0);
+                totalDownvotes += (post.downvotes?.length || 0);
+            });
+
+            const totalInteractions = totalVotes + totalDownvotes;
+            const positiveScore = totalInteractions > 0
+                ? Math.round((totalVotes / totalInteractions) * 100)
+                : 100; // Default to 100% if no votes
+
+            return {
+                ...community,
+                memberCount,
+                onlineCount: onlineCount > 1000 ? (onlineCount / 1000).toFixed(1) + 'k' : onlineCount.toString(),
+                positiveScore: positiveScore + '%'
+            };
+        }));
+
+        res.json(communitiesWithStats);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }

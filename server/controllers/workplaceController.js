@@ -106,7 +106,7 @@ const updateSprintStatus = async (req, res) => {
 // @access  Private
 const createProject = async (req, res) => {
     try {
-        const { name, key, description } = req.body;
+        const { name, key, description, communityId } = req.body;
 
         // Check if key exists
         const existingProject = await Project.findOne({ key: key.toUpperCase() });
@@ -119,7 +119,8 @@ const createProject = async (req, res) => {
             key: key.toUpperCase(),
             description,
             owner: req.user._id,
-            members: [req.user._id] // Owner is automatically a member
+            members: [req.user._id], // Owner is automatically a member
+            community: communityId || null
         });
 
         res.status(201).json(project);
@@ -265,15 +266,30 @@ const updateIssueStatus = async (req, res) => {
         // Auto-create post when moved to Done
         if (status === 'Done' && issue.status !== 'Done') {
             try {
-                await Post.create({
-                    author: issue.assignee,
+                // Fetch project to get community association
+                const project = await Project.findById(issue.project);
+
+                const newPost = await Post.create({
+                    author: issue.assignee || req.user._id,
                     title: `Completed Task: ${issue.summary}`,
                     content: issue.description || `I successfully completed the task: ${issue.summary}`,
                     type: 'Update',
                     tags: ['Workplace', 'Achievement'],
+                    community: project?.community || null,
                     isCreatorPost: false
                 });
-                console.log(`✅ Auto-created post for issue ${issue.issueKey}`);
+
+                // Populate and emit real-time event
+                const populatedPost = await Post.findById(newPost._id)
+                    .populate('author', 'firstName lastName avatar role')
+                    .populate('community', 'name slug')
+                    .lean();
+
+                const io = req.app.get('io');
+                if (io) {
+                    io.emit('new-post', populatedPost);
+                    console.log(`✅ Auto-created and EMITTED post for issue ${issue.issueKey}`);
+                }
             } catch (postError) {
                 console.error('❌ Error auto-creating post:', postError);
                 // Continue execution - don't block issue update

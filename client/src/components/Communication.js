@@ -143,7 +143,7 @@ const Communication = () => {
     return (
         <div className="comm-layout">
             {/* Left Icon Bar */}
-            <div className="comm-left-bar">
+            {/* <div className="comm-left-bar">
                 <div className="comm-logo-box" onClick={() => navigate('/dashboard')}><Zap size={24} color="black" /></div>
                 <div className="comm-icon-group">
                     <div className="comm-icon-btn active"><Bell size={24} /></div>
@@ -154,7 +154,7 @@ const Communication = () => {
                     <div className="comm-icon-btn"><Settings size={24} /></div>
                 </div>
                 <div className="comm-icon-logout" onClick={() => navigate('/login')}><LogOut size={24} /></div>
-            </div>
+            </div> */}
 
             {/* Side Navigation */}
             <div className="comm-side-nav">

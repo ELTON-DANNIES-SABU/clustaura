@@ -72,8 +72,12 @@ const PostSchema = new mongoose.Schema({
         }
     }],
     analysis: {
-        sentiment: String, // Changed to String to support labels like 'neutral'
+        sentiment: String,
         score: Number
+    },
+    views: {
+        type: Number,
+        default: 0
     },
     createdAt: {
         type: Date,

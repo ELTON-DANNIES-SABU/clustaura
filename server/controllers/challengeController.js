@@ -414,6 +414,51 @@ const ingestUserToAI = async (userId) => {
     }
 };
 
+// @desc    Increment challenge view
+// @route   PUT /api/challenges/:id/view
+// @access  Public
+const incrementView = async (req, res) => {
+    try {
+        const challenge = await Challenge.findByIdAndUpdate(
+            req.params.id,
+            { $inc: { views: 1 } },
+            { new: true }
+        );
+        if (!challenge) return res.status(404).json({ message: 'Challenge not found' });
+        res.json({ views: challenge.views });
+    } catch (error) {
+        console.error('Error incrementing challenge view:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+
+// @desc    Get trending tags from recent challenges
+// @route   GET /api/challenges/trending-tags
+// @access  Public
+const getTrendingTags = async (req, res) => {
+    try {
+        const challenges = await Challenge.find().select('tags').limit(100);
+        const tagCounts = {};
+        challenges.forEach(c => {
+            c.tags.forEach(tag => {
+                const normalized = tag.toLowerCase().trim();
+                tagCounts[normalized] = (tagCounts[normalized] || 0) + 1;
+            });
+        });
+
+        // Sort by count and take top 8
+        const trendingTags = Object.entries(tagCounts)
+            .sort(([, a], [, b]) => b - a)
+            .slice(0, 8)
+            .map(([tag]) => tag);
+
+        res.json(trendingTags);
+    } catch (error) {
+        console.error('Error fetching trending tags:', error);
+        res.status(500).json({ message: 'Server Error' });
+    }
+};
+
 module.exports = {
     getChallenges,
     getChallengeById,
@@ -424,5 +469,7 @@ module.exports = {
     updateChallenge,
     deleteChallenge,
     sendTeamInvite,
-    getRecommendations
+    getRecommendations,
+    incrementView,
+    getTrendingTags
 };

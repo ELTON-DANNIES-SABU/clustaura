@@ -87,15 +87,21 @@ exports.createPost = async (req, res) => {
 // Get feed posts
 exports.getFeed = async (req, res) => {
     try {
+        const { communityId } = req.query;
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 20;
         const skip = (page - 1) * limit;
 
+        const query = { isHidden: { $ne: true } };
+        if (communityId) query.community = communityId;
+
         // Fetch a larger batch for ranking content
-        const rawPosts = await Post.find({ isHidden: { $ne: true } })
+        const rawPosts = await Post.find(query)
             .sort({ createdAt: -1 })
+            .skip(skip)
             .limit(limit * 2)
             .populate('author', 'firstName lastName avatar role')
+            .populate('community', 'name slug')
             .populate('comments.user', 'firstName lastName avatar')
             .lean();
 
@@ -106,9 +112,9 @@ exports.getFeed = async (req, res) => {
         console.log(`🔍 [getFeed] Ranked ${rankedPosts.length} posts`);
 
         // Paginate the ranked result
-        const paginatedPosts = rankedPosts.slice(0, limit);
+        const paginatedPosts = rankedPosts.slice(0, 20); // Hardcoded limit for now as placeholder for paginate
 
-        const total = await Post.countDocuments({ isHidden: { $ne: true } });
+        const total = await Post.countDocuments(query);
         console.log(`🔍 [getFeed] Returning ${paginatedPosts.length} posts. Total available: ${total}`);
 
         res.json({
@@ -241,3 +247,20 @@ exports.getRecommendations = async (req, res) => {
         res.status(500).json({ message: 'Server error' });
     }
 };
+// Increment view count
+exports.incrementView = async (req, res) => {
+    try {
+        const post = await Post.findByIdAndUpdate(
+            req.params.id,
+            { $inc: { views: 1 } },
+            { new: true }
+        );
+        if (!post) return res.status(404).json({ message: 'Post not found' });
+        res.json({ views: post.views });
+    } catch (error) {
+        console.error('Error incrementing post view:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+
+module.exports = exports;

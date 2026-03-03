@@ -178,7 +178,11 @@ const Login = () => {
                                         <input type="checkbox" />
                                         Remember me
                                     </label>
-                                    <Link to="/forgot-password" className="form-link">
+                                    <Link
+                                        to="/forgot-password"
+                                        state={{ email }}
+                                        className="form-link"
+                                    >
                                         Forgot Password?
                                     </Link>
                                 </div>
@@ -192,21 +196,21 @@ const Login = () => {
                                         {loading ? 'SIGNING IN...' : 'SIGN IN'}
                                     </button>
 
-                                    <button
+                                    {/* <button
                                         type="button"
                                         className="btn btn-secondary btn-full"
                                         onClick={handleDemoLogin}
                                     >
                                         TRY DEMO ACCOUNT
-                                    </button>
+                                    </button> */}
                                 </div>
                             </form>
 
-                            <div className="divider">
+                            {/* <div className="divider">
                                 <span className="divider-text">OR CONTINUE WITH</span>
-                            </div>
+                            </div> */}
 
-                            <div className="social-buttons">
+                            {/* <div className="social-buttons">
                                 <button type="button" className="social-btn">
                                     <span className="social-icon">G</span>
                                     Google
@@ -219,7 +223,7 @@ const Login = () => {
                                     <span className="social-icon">LN</span>
                                     LinkedIn
                                 </button>
-                            </div>
+                            </div> */}
 
                             <div className="form-footer">
                                 Don't have an account?

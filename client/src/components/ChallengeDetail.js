@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { ArrowLeft, Trash2, Trophy, Users, MessageSquare } from 'lucide-react';
 import NotificationBell from './NotificationBell';
 import RecommendedExperts from './Community/RecommendedExperts';
 import '../styles.css';
@@ -149,6 +150,23 @@ const ChallengeDetail = () => {
         }
     };
 
+    const handleDeleteChallenge = async () => {
+        if (!window.confirm('Are you sure you want to delete this challenge?')) return;
+
+        try {
+            const userStr = localStorage.getItem('user');
+            const { token } = JSON.parse(userStr);
+            const config = { headers: { Authorization: `Bearer ${token}` } };
+
+            await axios.delete(`/api/challenges/${id}`, config);
+            alert('Challenge deleted successfully');
+            navigate('/challenges');
+        } catch (error) {
+            console.error('Error deleting challenge:', error);
+            alert('Failed to delete challenge');
+        }
+    };
+
     const handleSubmitComment = async (e) => {
         e.preventDefault();
         if (!commentInput.trim()) return;
@@ -257,9 +275,31 @@ const ChallengeDetail = () => {
                     {/* Challenge Header */}
                     <header className="challenge-detail-header">
                         <button className="back-button" onClick={() => navigate('/challenges')}>
-                            ← Back to Challenges
+                            <ArrowLeft size={16} /> Back to Challenges
                         </button>
 
+                        {currentUser?._id === (challenge.author?._id || challenge.author) && (
+                            <button
+                                className="delete-challenge-btn"
+                                onClick={handleDeleteChallenge}
+                                style={{
+                                    background: 'rgba(255, 68, 68, 0.1)',
+                                    color: '#FF4444',
+                                    border: '1px solid rgba(255, 68, 68, 0.2)',
+                                    padding: '8px 16px',
+                                    borderRadius: '8px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    fontSize: '0.8rem',
+                                    fontWeight: 'bold',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s'
+                                }}
+                            >
+                                <Trash2 size={16} /> DELETE CHALLENGE
+                            </button>
+                        )}
                     </header>
 
                     {/* Scrollable Content Wrapper */}

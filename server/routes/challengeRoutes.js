@@ -9,9 +9,14 @@ const {
     addComment,
     updateChallenge,
     deleteChallenge,
-    sendTeamInvite
+    sendTeamInvite,
+    incrementView,
+    getTrendingTags
 } = require('../controllers/challengeController');
 const { protect } = require('../middleware/authMiddleware');
+
+// Trending tags (Open but protected)
+router.get('/trending-tags', protect, getTrendingTags);
 
 // All routes are protected as requested ("visible to all users registered")
 router.route('/')
@@ -20,6 +25,7 @@ router.route('/')
 
 router.post('/:id/comments', protect, addComment);
 router.put('/:id/vote', protect, voteChallenge);
+router.put('/:id/view', protect, incrementView);
 router.put('/:id/join', protect, joinChallenge);
 router.post('/:id/invite', protect, sendTeamInvite);
 router.route('/:id')

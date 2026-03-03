@@ -70,8 +70,12 @@ const challengeSchema = new mongoose.Schema({
     },
     teamIds: [{
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'Team' // Assuming Team model exists or will exist
+        ref: 'Team'
     }],
+    views: {
+        type: Number,
+        default: 0
+    },
     createdAt: {
         type: Date,
         default: Date.now

@@ -356,7 +356,7 @@ const Register = () => {
                                 <span className="divider-text">OR SIGN UP WITH</span>
                             </div>
 
-                            <div className="social-buttons">
+                            {/* <div className="social-buttons">
                                 <button type="button" className="social-btn">
                                     <span className="social-icon">G</span>
                                     Google
@@ -369,7 +369,7 @@ const Register = () => {
                                     <span className="social-icon">LN</span>
                                     LinkedIn
                                 </button>
-                            </div>
+                            </div> */}
 
                             <div className="form-footer">
                                 Already have an account?

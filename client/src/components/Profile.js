@@ -343,7 +343,7 @@ const Profile = () => {
                             </button>
                         </nav>
 
-                        <div className="sidebar-stats">
+                        {/* <div className="sidebar-stats">
                             <div className="stat-item">
                                 <span className="stat-value">0</span>
                                 <span className="stat-label">Followers</span>
@@ -360,9 +360,9 @@ const Profile = () => {
                                 <span className="stat-value">0</span>
                                 <span className="stat-label">Active in</span>
                             </div>
-                        </div>
+                        </div> */}
 
-                        <div className="sidebar-achievements">
+                        {/* <div className="sidebar-achievements">
                             <h4>🏆 Achievements</h4>
                             <div className="achievements-grid">
                                 <div className="achievement">🏠 Hometown Hero</div>
@@ -374,9 +374,9 @@ const Profile = () => {
                                 <span>5 unlocked</span>
                                 <button className="view-all-btn">View All</button>
                             </div>
-                        </div>
+                        </div> */}
 
-                        <div className="sidebar-settings">
+                        {/* <div className="sidebar-settings">
                             <h4>⚙️ Settings</h4>
                             <select className="settings-select">
                                 <option>Profile Settings</option>
@@ -384,7 +384,7 @@ const Profile = () => {
                                 <option>Privacy & Security</option>
                                 <option>Notifications</option>
                             </select>
-                        </div>
+                        </div> */}
                     </div>
 
                     {/* Main Content Area */}

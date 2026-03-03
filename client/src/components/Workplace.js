@@ -7,12 +7,28 @@ import '../styles.css';
 const Workplace = () => {
     const navigate = useNavigate();
     const [projects, setProjects] = useState([]);
+    const [communities, setCommunities] = useState([]);
     const [showCreateModal, setShowCreateModal] = useState(false);
-    const [newProject, setNewProject] = useState({ name: '', key: '', description: '' });
+    const [newProject, setNewProject] = useState({ name: '', key: '', description: '', communityId: '' });
 
     useEffect(() => {
         fetchProjects();
+        fetchCommunities();
     }, []);
+
+    const fetchCommunities = async () => {
+        try {
+            const userStr = localStorage.getItem('user');
+            if (!userStr) return;
+            const { token } = JSON.parse(userStr);
+            const { data } = await axios.get('/api/community/communities', {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setCommunities(data);
+        } catch (error) {
+            console.error('Error fetching communities:', error);
+        }
+    };
 
     const fetchProjects = async () => {
         try {
@@ -37,7 +53,7 @@ const Workplace = () => {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setShowCreateModal(false);
-            setNewProject({ name: '', key: '', description: '' });
+            setNewProject({ name: '', key: '', description: '', communityId: '' });
             fetchProjects();
         } catch (error) {
             alert(error.response?.data?.message || 'Error creating project');
@@ -205,6 +221,22 @@ const Workplace = () => {
                                         maxLength="4"
                                         required
                                     />
+                                </label>
+                            </div>
+                            <div className="form-group">
+                                <label>
+                                    <span>Link to Community (Optional)</span>
+                                    <select
+                                        value={newProject.communityId}
+                                        onChange={e => setNewProject({ ...newProject, communityId: e.target.value })}
+                                    >
+                                        <option value="">No Community (Private)</option>
+                                        {communities.map(comm => (
+                                            <option key={comm._id} value={comm._id}>
+                                                r/{comm.name}
+                                            </option>
+                                        ))}
+                                    </select>
                                 </label>
                             </div>
                             <div className="form-group">

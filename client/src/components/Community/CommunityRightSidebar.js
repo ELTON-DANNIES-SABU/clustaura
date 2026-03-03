@@ -1,11 +1,37 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Rocket, PlusCircle, X, TrendingUp, Users, Award, ChevronRight } from 'lucide-react';
+import axios from 'axios';
 import useCommunityStore from '../../store/communityStore';
 
 const CommunityRightSidebar = ({ onClose, user, activeCommunityId, onOpenCreateModal }) => {
     const navigate = useNavigate();
     const { communities } = useCommunityStore();
+    const [topExpert, setTopExpert] = useState(null);
+    const [loadingExpert, setLoadingExpert] = useState(true);
+    const [trendingTags, setTrendingTags] = useState(['react', 'javascript', 'typescript', 'node', 'python', 'api', 'database', 'security']);
+
+    useEffect(() => {
+        const fetchSidebarData = async () => {
+            try {
+                // Fetch Expert
+                const expertRes = await axios.get('/api/credits/top-expert');
+                setTopExpert(expertRes.data);
+
+                // Fetch Trending Tags
+                const tagsRes = await axios.get('/api/challenges/trending-tags');
+                if (tagsRes.data && tagsRes.data.length > 0) {
+                    setTrendingTags(tagsRes.data);
+                }
+            } catch (err) {
+                console.error('Error fetching sidebar data:', err);
+            } finally {
+                setLoadingExpert(false);
+            }
+        };
+
+        fetchSidebarData();
+    }, []);
 
     // Get top communities by member count
     const topCommunities = communities
@@ -138,66 +164,99 @@ const CommunityRightSidebar = ({ onClose, user, activeCommunityId, onOpenCreateM
                     <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 600 }}>Expert Spotlight</h4>
                 </div>
 
-                <div style={{
-                    padding: '16px',
-                    background: 'rgba(255,170,51,0.05)',
-                    borderRadius: '12px',
-                    border: '1px solid rgba(255,170,51,0.2)',
-                }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-                        <div style={{
-                            width: '40px',
-                            height: '40px',
-                            borderRadius: '50%',
-                            background: 'linear-gradient(135deg, #ffaa33, #ff8c00)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontWeight: 'bold',
-                            fontSize: '16px',
-                            color: 'white'
-                        }}>
-                            JS
-                        </div>
-                        <div>
-                            <div style={{ fontWeight: 600, fontSize: '14px' }}>John Smith</div>
-                            <div style={{ fontSize: '11px', color: '#a0a0a0' }}>Senior React Developer</div>
-                        </div>
+                {loadingExpert ? (
+                    <div style={{ padding: '16px', textAlign: 'center', fontSize: '12px', color: '#666' }}>
+                        Loading expert...
                     </div>
-                    <p style={{ fontSize: '12px', color: '#a0a0a0', margin: '0 0 12px 0', lineHeight: '1.5' }}>
-                        Helped 234 developers this month. Available for mentorship.
-                    </p>
-                    <button
-                        onClick={() => {
-                            console.log('Navigating to expert profile');
-                            navigate('/expert/john-smith');
-                        }}
-                        style={{
-                            width: '100%',
-                            padding: '8px',
-                            background: 'transparent',
-                            border: '1px solid rgba(255,170,51,0.3)',
-                            borderRadius: '6px',
-                            color: '#ffaa33',
-                            fontSize: '12px',
-                            cursor: 'pointer',
-                        }}
-                    >
-                        Connect with Expert
-                    </button>
-                </div>
+                ) : topExpert ? (
+                    <div style={{
+                        padding: '16px',
+                        background: 'rgba(255,170,51,0.05)',
+                        borderRadius: '12px',
+                        border: '1px solid rgba(255,170,51,0.2)',
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+                            <div style={{
+                                width: '40px',
+                                height: '40px',
+                                borderRadius: '50%',
+                                background: 'linear-gradient(135deg, #ffaa33, #ff8c00)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontWeight: 'bold',
+                                fontSize: '16px',
+                                color: 'white',
+                                overflow: 'hidden'
+                            }}>
+                                {topExpert.user?.avatar ? (
+                                    <img src={topExpert.user.avatar} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                ) : (
+                                    (topExpert.user?.firstName?.charAt(0) || '') + (topExpert.user?.lastName?.charAt(0) || '')
+                                )}
+                            </div>
+                            <div>
+                                <div style={{ fontWeight: 600, fontSize: '14px' }}>
+                                    {topExpert.user?.firstName} {topExpert.user?.lastName}
+                                </div>
+                                <div style={{ fontSize: '11px', color: '#a0a0a0' }}>
+                                    {topExpert.user?.role || 'Expert Contributor'}
+                                </div>
+                            </div>
+                        </div>
+                        <p style={{ fontSize: '12px', color: '#a0a0a0', margin: '0 0 12px 0', lineHeight: '1.5' }}>
+                            {topExpert.profile?.bio || `Top expert with ${topExpert.monthlyCredits || 0} credits earned this month. Helped ${topExpert.helpedCount || 0} developers with technical solutions.`}
+                        </p>
+                        {topExpert.profile?.bio && (
+                            <div style={{ fontSize: '11px', color: '#339933', marginBottom: '12px', fontWeight: 600 }}>
+                                Helped {topExpert.helpedCount || 0} developers this month
+                            </div>
+                        )}
+                        <button
+                            onClick={() => {
+                                console.log('Navigating to expert profile');
+                                navigate(`/profile/${topExpert.user?._id}`);
+                            }}
+                            style={{
+                                width: '100%',
+                                padding: '8px',
+                                background: 'transparent',
+                                border: '1px solid rgba(255,170,51,0.3)',
+                                borderRadius: '6px',
+                                color: '#ffaa33',
+                                fontSize: '12px',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s ease'
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.background = 'rgba(255,170,51,0.1)';
+                                e.currentTarget.style.borderColor = 'rgba(255,170,51,0.5)';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.background = 'transparent';
+                                e.currentTarget.style.borderColor = 'rgba(255,170,51,0.3)';
+                            }}
+                        >
+                            Connect with Expert
+                        </button>
+                    </div>
+                ) : (
+                    <div style={{ padding: '16px', textAlign: 'center', fontSize: '11px', color: '#666' }}>
+                        Join the community to be featured!
+                    </div>
+                )}
             </div>
 
             {/* Trending Tags */}
             <div className="trending-tags-card" style={{ marginTop: '24px' }}>
                 <h4 style={{ margin: '0 0 12px 0', fontSize: '14px', fontWeight: 600 }}>Trending Tags</h4>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                    {['react', 'javascript', 'typescript', 'node', 'python', 'api', 'database', 'security'].map(tag => (
+                    {trendingTags.map(tag => (
                         <span
                             key={tag}
                             onClick={() => {
                                 console.log('Navigating to tag:', tag);
-                                navigate(`/community?tag=${tag}`);
+                                navigate(`/challenges?tag=${tag}`);
                             }}
                             style={{
                                 padding: '4px 12px',
@@ -207,6 +266,7 @@ const CommunityRightSidebar = ({ onClose, user, activeCommunityId, onOpenCreateM
                                 color: '#339933',
                                 cursor: 'pointer',
                                 transition: 'all 0.2s ease',
+                                textTransform: 'lowercase'
                             }}
                             onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(51,153,51,0.2)'}
                             onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(51,153,51,0.1)'}

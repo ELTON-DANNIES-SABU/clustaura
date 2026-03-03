@@ -65,6 +65,14 @@ const userSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User'
     }],
+    otpCode: {
+        type: String,
+        default: undefined
+    },
+    otpExpire: {
+        type: Date,
+        default: undefined
+    },
     createdAt: {
         type: Date,
         default: Date.now

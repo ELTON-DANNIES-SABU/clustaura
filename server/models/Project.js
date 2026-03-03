@@ -39,6 +39,10 @@ const ProjectSchema = new mongoose.Schema({
         type: [String],
         default: ['To Do', 'In Progress', 'Done']
     },
+    community: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Community'
+    },
     createdAt: {
         type: Date,
         default: Date.now

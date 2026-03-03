@@ -79,10 +79,25 @@ const getProjectImpact = async (req, res) => {
     }
 };
 
+// @desc    Get top expert for spotlight
+// @route   GET /api/credits/top-expert
+// @access  Public
+const getTopExpert = async (req, res) => {
+    try {
+        const expertData = await creditService.getTopExpert();
+        if (!expertData) return res.status(404).json({ message: 'No experts found' });
+        res.json(expertData);
+    } catch (error) {
+        console.error('Error fetching top expert:', error);
+        res.status(500).json({ message: 'Server Error' });
+    }
+};
+
 module.exports = {
     getMyCredits,
     getUserStars,
     endorseUser,
     calculatePayoffSimulator,
-    getProjectImpact
+    getProjectImpact,
+    getTopExpert
 };

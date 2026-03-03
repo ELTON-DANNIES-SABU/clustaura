@@ -12,6 +12,7 @@ router.post('/', protectDomainIntegrity, postController.createPost);
 router.get('/feed', postController.getFeed);
 router.post('/:id/like', postController.likePost);
 router.post('/:id/comment', postController.commentPost);
+router.put('/:id/view', postController.incrementView);
 // router.post('/:id/repost', postController.repostPost); // To be implemented
 
 module.exports = router;

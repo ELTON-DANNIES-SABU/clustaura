@@ -17,7 +17,7 @@ const Feed = ({ onToast, activeCommunityId, onOpenCreateModal }) => {
     };
 
     return (
-        <div className="feed-container">
+        <div className="community-feed-wrapper">
             {/* Create Post Button for Desktop */}
             <div className="feed-header" style={{
                 display: 'flex',

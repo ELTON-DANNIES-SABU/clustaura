@@ -1,4 +1,5 @@
-import React, { useState, useCallback, memo } from 'react';
+import React, { useState, useCallback, memo, useEffect } from 'react';
+import axios from 'axios';
 import {
     MessageSquare, Lightbulb, Pencil, Trash2, Sparkles,
     TrendingUp, Award, Flame, Clock, Eye, Share2, Bookmark,
@@ -20,6 +21,22 @@ const PostCard = memo(({ post, onToast, viewMode = 'grid' }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const [isSaved, setIsSaved] = useState(false);
     const [showActions, setShowActions] = useState(false);
+    const [viewCounted, setViewCounted] = useState(false);
+
+    useEffect(() => {
+        if (isHovered && !viewCounted && post.id) {
+            const incrementView = async () => {
+                try {
+                    // All items handled by PostCard are from the Post model
+                    await axios.put(`/api/posts/${post.id}/view`);
+                    setViewCounted(true);
+                } catch (err) {
+                    // Silently fail for views
+                }
+            };
+            incrementView();
+        }
+    }, [isHovered, viewCounted, post.id]);
 
     const handleVote = useCallback(async (direction) => {
         try {
@@ -434,7 +451,7 @@ const PostCard = memo(({ post, onToast, viewMode = 'grid' }) => {
                                 </div>
                                 <div style={{ textAlign: 'center' }}>
                                     <div style={{ fontSize: 20, fontWeight: 700, color: '#ffaa33' }}>
-                                        {Math.floor(Math.random() * 50) + 10}
+                                        {post.views || 0}
                                     </div>
                                     <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>Views</div>
                                 </div>
