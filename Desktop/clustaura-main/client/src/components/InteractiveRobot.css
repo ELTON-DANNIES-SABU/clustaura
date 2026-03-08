@@ -1,0 +1,277 @@
+/* InteractiveRobot.css - Cute Edition */
+
+.cute-robot-container {
+    position: relative;
+    width: 100px;
+    height: 100px;
+    cursor: pointer;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.cute-robot-container:hover {
+    transform: translateY(-10px) scale(1.1);
+}
+
+.cute-robot-container.active {
+    animation: jump 0.5s ease-out;
+}
+
+@keyframes jump {
+
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+
+    50% {
+        transform: translateY(-30px);
+    }
+}
+
+/* Hologram Background */
+.hologram-canvas {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 120%;
+    height: 120%;
+    opacity: 0.2;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.cute-robot-body {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    animation: floating 3s infinite ease-in-out;
+}
+
+@keyframes floating {
+
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+
+    50% {
+        transform: translateY(-8px);
+    }
+}
+
+/* Antenna */
+.cute-antenna {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: -5px;
+}
+
+.antenna-line {
+    width: 2px;
+    height: 12px;
+    background: #00ffa3;
+}
+
+.antenna-bulb {
+    width: 6px;
+    height: 6px;
+    background: #00ffa3;
+    border-radius: 50%;
+    box-shadow: 0 0 10px #00ffa3;
+    animation: glow 1.5s infinite alternate;
+}
+
+@keyframes glow {
+    from {
+        opacity: 0.5;
+        box-shadow: 0 0 5px #00ffa3;
+    }
+
+    to {
+        opacity: 1;
+        box-shadow: 0 0 15px #00ffa3;
+    }
+}
+
+/* Head */
+.cute-head {
+    width: 54px;
+    height: 44px;
+    background: linear-gradient(145deg, #1a1a1a, #0a0a0a);
+    border: 2px solid #00ffa3;
+    border-radius: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+}
+
+.cute-face {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.cute-eyes {
+    display: flex;
+    gap: 12px;
+}
+
+.cute-eye {
+    width: 10px;
+    height: 12px;
+    background: #00ffa3;
+    border-radius: 50%;
+    position: relative;
+    box-shadow: 0 0 8px #00ffa3;
+    animation: blink 4s infinite;
+}
+
+.eye-sparkle {
+    position: absolute;
+    width: 3px;
+    height: 3px;
+    background: white;
+    border-radius: 50%;
+    top: 2px;
+    left: 2px;
+}
+
+@keyframes blink {
+
+    0%,
+    96%,
+    100% {
+        transform: scaleY(1);
+    }
+
+    98% {
+        transform: scaleY(0.1);
+    }
+}
+
+.cute-mouth {
+    width: 12px;
+    height: 4px;
+    border-bottom: 2px solid #00ffa3;
+    border-radius: 0 0 10px 10px;
+    opacity: 0.8;
+}
+
+.cute-robot-container:hover .cute-mouth {
+    height: 6px;
+    border-radius: 50%;
+}
+
+/* Torso */
+.cute-torso {
+    width: 38px;
+    height: 28px;
+    background: linear-gradient(145deg, #1a1a1a, #0a0a0a);
+    border: 2px solid #00ffa3;
+    border-radius: 12px;
+    margin-top: -4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.heart-core {
+    width: 8px;
+    height: 8px;
+    background: #ff4d4d;
+    clip-path: polygon(50% 0%, 100% 35%, 82% 100%, 50% 80%, 18% 100%, 0% 35%);
+    animation: heartbeat 1.5s infinite;
+}
+
+@keyframes heartbeat {
+
+    0%,
+    100% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.2);
+    }
+}
+
+/* Hands */
+.cute-hands {
+    position: absolute;
+    width: 80px;
+    display: flex;
+    justify-content: space-between;
+    top: 50%;
+}
+
+.cute-hand {
+    width: 10px;
+    height: 10px;
+    background: #00ffa3;
+    border-radius: 50%;
+    box-shadow: 0 0 5px #00ffa3;
+    animation: wave 2s infinite ease-in-out;
+}
+
+.cute-hand.right {
+    animation-delay: 0.5s;
+}
+
+@keyframes wave {
+
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+
+    50% {
+        transform: translateY(-5px);
+    }
+}
+
+/* Status Bubble */
+.mini-status-bubble {
+    position: absolute;
+    top: -30px;
+    background: #00ffa3;
+    color: #000;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 10px;
+    font-weight: bold;
+    animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.mini-status-bubble::after {
+    content: '';
+    position: absolute;
+    bottom: -4px;
+    left: 50%;
+    transform: translateX(-50%);
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 5px solid #00ffa3;
+}
+
+@keyframes popIn {
+    from {
+        transform: scale(0);
+        opacity: 0;
+    }
+
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
