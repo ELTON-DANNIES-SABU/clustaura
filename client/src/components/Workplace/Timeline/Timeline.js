@@ -170,12 +170,12 @@ const Timeline = () => {
                     <button className="secondary-btn" onClick={() => navigate(`/workplace/project/${projectId}/board`)}>
                         Board View
                     </button>
-                    <button className="secondary-btn">
+                    {/* <button className="secondary-btn">
                         <Filter size={16} /> Filter
                     </button>
                     <button className="primary-btn" onClick={() => openCreateModal('epic')}>
                         <Plus size={16} /> Create Epic
-                    </button>
+                    </button> */}
                 </div>
             </header>
 

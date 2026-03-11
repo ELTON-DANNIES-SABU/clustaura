@@ -11,13 +11,12 @@ import Profile from './components/Profile';
 import UserProfile from './components/UserProfile';
 import Workplace from './components/Workplace';
 import WorkplaceBoard from './components/WorkplaceBoard';
-import Backlog from './components/Workplace/Backlog';
-import Timeline from './components/Workplace/Timeline';
 import Friends from './components/Friends';
 import Chat from './components/Chat';
 import Communication from './components/Communication';
 import Community from './components/Community/Community';
 import AIGuide from './components/AIGuide';
+import AIPlanner from './components/Workplace/AIPlanner';
 import GlobalCallManager from './components/GlobalCallManager';
 import './styles.css';
 
@@ -54,8 +53,7 @@ function App() {
                 <Route path="/profile/:id" element={<UserProfile />} />
                 <Route path="/workplace" element={<Workplace />} />
                 <Route path="/workplace/project/:projectId/board" element={<WorkplaceBoard />} />
-                <Route path="/workplace/project/:projectId/backlog" element={<Backlog />} />
-                <Route path="/workplace/project/:projectId/timeline" element={<Timeline />} />
+                <Route path="/workplace/project/:projectId/ai-planner" element={<AIPlanner />} />
                 <Route path="/friends" element={<Friends />} />
                 <Route path="/chat/:friendId" element={<Chat />} />
                 <Route path="/communication" element={<Communication />} />

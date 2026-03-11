@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { io } from 'socket.io-client';
 import { API_BASE_URL, SOCKET_URL } from '../config';
 import ProfessionalComposer from './ProfessionalComposer';
 import PostCard from './PostCard'; // We can reuse PostCard for displaying proper posts

@@ -107,6 +107,7 @@ app.use('/api/upload', require('./routes/uploadRoutes'));
 app.use('/api/ai-guide', require('./routes/aiGuideRoutes'));
 app.use('/api/ai', require('./routes/aiRoutes'));
 app.use('/api/assessment', require('./routes/assessmentRoutes'));
+app.use('/api/agents', require('./routes/agentRoutes'));
 
 // --- Socket.io Middleware & Presence ---
 const userSockets = new Map(); // userId -> Set of socketIds

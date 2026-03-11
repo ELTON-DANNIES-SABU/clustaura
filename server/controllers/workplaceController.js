@@ -9,22 +9,7 @@ const Notification = require('../models/Notification');
 // @route   POST /api/workplace/sprints
 // @access  Private
 const createSprint = async (req, res) => {
-    try {
-        const { name, goal, projectId, startDate, endDate } = req.body;
-
-        const sprint = await Sprint.create({
-            name,
-            goal,
-            project: projectId,
-            startDate,
-            endDate
-        });
-
-        res.status(201).json(sprint);
-    } catch (error) {
-        console.error('Error creating sprint:', error);
-        res.status(500).json({ message: 'Server Error' });
-    }
+    res.status(403).json({ message: 'Manual sprint creation is disabled. Please use the AI SDLC Assistant.' });
 };
 
 // @desc    Get sprints for a project
@@ -105,27 +90,23 @@ const updateSprintStatus = async (req, res) => {
 // @route   POST /api/workplace/projects
 // @access  Private
 const createProject = async (req, res) => {
+    // We allow project shell creation for the AI initiator
     try {
         const { name, key, description, communityId } = req.body;
-
-        // Check if key exists
         const existingProject = await Project.findOne({ key: key.toUpperCase() });
         if (existingProject) {
             return res.status(400).json({ message: 'Project key already exists' });
         }
-
         const project = await Project.create({
             name,
             key: key.toUpperCase(),
             description,
             owner: req.user._id,
-            members: [req.user._id], // Owner is automatically a member
+            members: [req.user._id],
             community: communityId || null
         });
-
         res.status(201).json(project);
     } catch (error) {
-        console.error('Error creating project:', error);
         res.status(500).json({ message: 'Server Error' });
     }
 };
@@ -175,53 +156,7 @@ const getProjectById = async (req, res) => {
 // @route   POST /api/workplace/issues
 // @access  Private
 const createIssue = async (req, res) => {
-    try {
-        const { projectId, summary, description, type, priority, assignee, sprintId, startDate, dueDate, parent } = req.body;
-
-        const project = await Project.findById(projectId);
-        if (!project) {
-            return res.status(404).json({ message: 'Project not found' });
-        }
-
-        // Generate Issue Key (e.g., WEB-1, WEB-2)
-        const lastIssue = await Issue.findOne({ project: projectId })
-            .sort({ createdAt: -1 })
-            .limit(1);
-
-        let nextNum = 1;
-        if (lastIssue) {
-            const parts = lastIssue.issueKey.split('-');
-            if (parts.length === 2) {
-                nextNum = parseInt(parts[1]) + 1;
-            }
-        }
-
-        const issueKey = `${project.key}-${nextNum}`;
-
-        const issue = await Issue.create({
-            project: projectId,
-            issueKey,
-            summary,
-            description,
-            type,
-            priority,
-            assignee: assignee || req.user._id,
-            sprint: sprintId || null,
-            startDate,
-            dueDate,
-            parent: parent || null,
-            reporter: req.user._id
-        });
-
-        const populatedIssue = await Issue.findById(issue._id)
-            .populate('assignee', 'firstName lastName profileImageUrl')
-            .populate('reporter', 'firstName lastName');
-
-        res.status(201).json(populatedIssue);
-    } catch (error) {
-        console.error('Error creating issue:', error);
-        res.status(500).json({ message: 'Server Error' });
-    }
+    res.status(403).json({ message: 'Manual issue creation is disabled. Please use the AI SDLC Assistant.' });
 };
 
 // @desc    Get issues for a project (optionally filtered by sprint)

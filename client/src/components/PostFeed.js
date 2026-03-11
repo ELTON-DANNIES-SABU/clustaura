@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
+import { io } from 'socket.io-client';
 import { SOCKET_URL } from '../config';
 import useCommunityStore from '../store/communityStore';
 import PostComposer from './PostComposer';

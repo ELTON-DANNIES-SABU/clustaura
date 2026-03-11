@@ -49,14 +49,32 @@ const Workplace = () => {
         try {
             const userStr = localStorage.getItem('user');
             const { token } = JSON.parse(userStr);
-            await axios.post('/api/workplace/projects', newProject, {
+
+            // Auto-generate a unique 6-character key from name + random
+            const baseKey = newProject.name.substring(0, 3).toUpperCase();
+            const randomSuffix = Math.random().toString(36).substring(2, 5).toUpperCase();
+            const key = `${baseKey}${randomSuffix}`;
+
+            const projectRes = await axios.post('/api/workplace/projects', { ...newProject, key }, {
                 headers: { Authorization: `Bearer ${token}` }
             });
+
+            const projectId = projectRes.data._id;
+
+            // Trigger AI Analysis immediately
+            await axios.post('/api/agents/analyze-project', {
+                projectId,
+                title: newProject.name,
+                description: newProject.description
+            }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
             setShowCreateModal(false);
             setNewProject({ name: '', key: '', description: '', communityId: '' });
-            fetchProjects();
+            navigate(`/workplace/project/${projectId}/ai-planner`);
         } catch (error) {
-            alert(error.response?.data?.message || 'Error creating project');
+            alert(error.response?.data?.message || 'Error initializing automated workspace');
         }
     };
 
@@ -200,53 +218,25 @@ const Workplace = () => {
                         <form onSubmit={handleCreateProject}>
                             <div className="form-group">
                                 <label>
-                                    <span>Project Name</span>
+                                    <span>What are we building today? (Project Title)</span>
                                     <input
                                         type="text"
                                         value={newProject.name}
                                         onChange={e => setNewProject({ ...newProject, name: e.target.value })}
-                                        placeholder="e.g., Website Redesign"
+                                        placeholder="e.g., AI-Powered CRM"
                                         required
                                     />
                                 </label>
                             </div>
                             <div className="form-group">
                                 <label>
-                                    <span>Project Key</span>
-                                    <input
-                                        type="text"
-                                        value={newProject.key}
-                                        onChange={e => setNewProject({ ...newProject, key: e.target.value.toUpperCase() })}
-                                        placeholder="e.g., WEB"
-                                        maxLength="4"
-                                        required
-                                    />
-                                </label>
-                            </div>
-                            <div className="form-group">
-                                <label>
-                                    <span>Link to Community (Optional)</span>
-                                    <select
-                                        value={newProject.communityId}
-                                        onChange={e => setNewProject({ ...newProject, communityId: e.target.value })}
-                                    >
-                                        <option value="">No Community (Private)</option>
-                                        {communities.map(comm => (
-                                            <option key={comm._id} value={comm._id}>
-                                                r/{comm.name}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </label>
-                            </div>
-                            <div className="form-group">
-                                <label>
-                                    <span>Description</span>
+                                    <span>Describe the system requirements & goals</span>
                                     <textarea
                                         value={newProject.description}
                                         onChange={e => setNewProject({ ...newProject, description: e.target.value })}
-                                        placeholder="Describe the project goals and scope..."
-                                        rows="3"
+                                        placeholder="Describe features, target users, and technical constraints..."
+                                        rows="6"
+                                        required
                                     />
                                 </label>
                             </div>
@@ -254,8 +244,8 @@ const Workplace = () => {
                                 <button type="button" className="cancel-btn" onClick={() => setShowCreateModal(false)}>
                                     Cancel
                                 </button>
-                                <button type="submit" className="create-btn">
-                                    Create Project
+                                <button type="submit" className="create-btn ai-sparkle">
+                                    🚀 Initialize Automated Workspace
                                 </button>
                             </div>
                         </form>

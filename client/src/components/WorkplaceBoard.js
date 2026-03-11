@@ -15,9 +15,6 @@ const WorkplaceBoard = () => {
     const [allSprints, setAllSprints] = useState([]);
     const [selectedSprintId, setSelectedSprintId] = useState('');
     const [activeSprint, setActiveSprint] = useState(null);
-    const [showCreateModal, setShowCreateModal] = useState(false);
-    const [showAddMemberModal, setShowAddMemberModal] = useState(false);
-    const [newMemberEmail, setNewMemberEmail] = useState('');
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedMember, setSelectedMember] = useState(null);
@@ -28,15 +25,6 @@ const WorkplaceBoard = () => {
 
     const today = new Date().toISOString().split('T')[0];
 
-    const [newIssue, setNewIssue] = useState({
-        summary: '',
-        description: '',
-        startDate: '',
-        dueDate: '',
-        type: 'story',
-        priority: 'medium',
-        assignee: ''
-    });
 
     useEffect(() => {
         const userStr = localStorage.getItem('user');
@@ -72,8 +60,18 @@ const WorkplaceBoard = () => {
             if (!selectedSprintId && active) setSelectedSprintId(active._id);
 
             if (sprintToLoad) {
-                const issuesRes = await axios.get(`/api/workplace/projects/${projectId}/issues?sprint=${sprintToLoad}`, config);
-                setIssues(issuesRes.data);
+                // Check if project has modules (indicates new AI SDLC structure)
+                let issuesRes;
+                if (projRes.data.modules && projRes.data.modules.length > 0) {
+                    issuesRes = await axios.get(`/api/agents/tickets/${projectId}?sprint=${sprintToLoad}`, config);
+                } else {
+                    issuesRes = await axios.get(`/api/workplace/projects/${projectId}/issues?sprint=${sprintToLoad}`, config);
+                }
+                setIssues(issuesRes.data.map(i => ({
+                    ...i,
+                    summary: i.summary || i.title, // Map Ticket title to existing board's summary field
+                    assignee: i.assignee || i.assignedUser
+                })));
             } else {
                 setIssues([]);
             }
@@ -91,55 +89,6 @@ const WorkplaceBoard = () => {
         }
     };
 
-    const handleCreateIssue = async (e) => {
-        e.preventDefault();
-        try {
-            const userStr = localStorage.getItem('user');
-            const { token } = JSON.parse(userStr);
-
-            const issueData = {
-                ...newIssue,
-                projectId,
-                sprintId: activeSprint ? activeSprint._id : null
-            };
-
-            await axios.post('/api/workplace/issues', issueData, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            setShowCreateModal(false);
-            setNewIssue({
-                summary: '',
-                description: '',
-                startDate: '',
-                dueDate: '',
-                type: 'story',
-                priority: 'medium',
-                assignee: ''
-            });
-            fetchProjectData();
-        } catch (error) {
-            console.error('Error creating issue:', error);
-        }
-    };
-
-    const handleAddMember = async (e) => {
-        e.preventDefault();
-        try {
-            const userStr = localStorage.getItem('user');
-            const { token } = JSON.parse(userStr);
-            const res = await axios.post(`/api/workplace/projects/${projectId}/members`,
-                { email: newMemberEmail },
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
-            setShowAddMemberModal(false);
-            setNewMemberEmail('');
-            alert('Member added successfully');
-            fetchProjectData();
-        } catch (error) {
-            console.error('Error adding member:', error);
-            alert(error.response?.data?.message || 'Error adding member');
-        }
-    };
 
 
     const handleLeaveProject = async () => {
@@ -341,12 +290,11 @@ const WorkplaceBoard = () => {
                             <Search size={16} /> Search
                         </button>
 
-                        <Link to={`/workplace/project/${projectId}/backlog`} className="nav-link">
-                            Backlog
-                        </Link>
-                        <Link to={`/workplace/project/${projectId}/timeline`} className="nav-link">
-                            Roadmap
-                        </Link>
+
+                        <button className="primary-nav-btn active" onClick={() => navigate(`/workplace/project/${projectId}/ai-planner`)}>
+                            <FlaskConical size={18} />
+                            <span>AI Command Center</span>
+                        </button>
                     </div>
                 </div>
 
@@ -417,11 +365,10 @@ const WorkplaceBoard = () => {
                     </div>
                 </div>
 
-                {activeSprint && (
-                    <button className="create-issue-btn" onClick={() => setShowCreateModal(true)}>
-                        <Plus size={16} /> Create Issue
-                    </button>
-                )}
+                <div className="agent-status-bar">
+                    <div className="agent-indicator pulse"></div>
+                    <span>AI Agent Monitoring Active</span>
+                </div>
             </div>
 
 
@@ -500,171 +447,11 @@ const WorkplaceBoard = () => {
                             )}
                         </div>
 
-                        <button className="add-card-btn" onClick={() => setShowCreateModal(true)}>
-                            <Plus size={16} /> Add card
-                        </button>
                     </div>
                 ))}
             </div>
 
-            {showCreateModal && (
-                <div className="modal-overlay">
-                    <div className="modal-content">
-                        <div className="modal-header">
-                            <h2>Create Issue</h2>
-                            <button className="modal-close" onClick={() => setShowCreateModal(false)}>×</button>
-                        </div>
-                        <form onSubmit={handleCreateIssue}>
-                            <div className="form-group">
-                                <label>
-                                    <span>Title</span>
-                                    <input
-                                        type="text"
-                                        value={newIssue.summary}
-                                        onChange={e => setNewIssue({ ...newIssue, summary: e.target.value })}
-                                        required
-                                        placeholder="e.g., Implement login flow"
-                                    />
-                                </label>
-                            </div>
 
-                            <div className="form-group">
-                                <label>
-                                    <span>Description</span>
-                                    <textarea
-                                        value={newIssue.description}
-                                        onChange={e => setNewIssue({ ...newIssue, description: e.target.value })}
-                                        placeholder="Describe the task in detail..."
-                                        rows="4"
-                                    />
-                                </label>
-                            </div>
-
-                            <div className="form-row">
-                                <div className="form-group">
-                                    <label>
-                                        <span>Type</span>
-                                        <select
-                                            value={newIssue.type}
-                                            onChange={e => setNewIssue({ ...newIssue, type: e.target.value })}
-                                        >
-                                            <option value="task">Task</option>
-                                            <option value="story">Story</option>
-                                            <option value="bug">Bug</option>
-                                        </select>
-                                    </label>
-                                </div>
-
-                                <div className="form-group">
-                                    <label>
-                                        <span>Priority</span>
-                                        <select
-                                            value={newIssue.priority}
-                                            onChange={e => setNewIssue({ ...newIssue, priority: e.target.value })}
-                                        >
-                                            <option value="lowest">Lowest</option>
-                                            <option value="low">Low</option>
-                                            <option value="medium">Medium</option>
-                                            <option value="high">High</option>
-                                            <option value="highest">Highest</option>
-                                        </select>
-                                    </label>
-                                </div>
-                            </div>
-
-                            <div className="form-row">
-                                <div className="form-group">
-                                    <label>
-                                        <span>Start Date</span>
-                                        <input
-                                            type="date"
-                                            value={newIssue.startDate}
-                                            onChange={e => setNewIssue({ ...newIssue, startDate: e.target.value })}
-                                            min={today}
-                                        />
-                                    </label>
-                                </div>
-
-                                <div className="form-group">
-                                    <label>
-                                        <span>Due Date</span>
-                                        <input
-                                            type="date"
-                                            value={newIssue.dueDate}
-                                            onChange={e => setNewIssue({ ...newIssue, dueDate: e.target.value })}
-                                            min={today}
-                                        />
-                                    </label>
-                                </div>
-                            </div>
-
-                            <div className="form-group">
-                                <label>
-                                    <span>Assignee</span>
-                                    <select
-                                        value={newIssue.assignee}
-                                        onChange={e => setNewIssue({ ...newIssue, assignee: e.target.value })}
-                                    >
-                                        <option value="">Unassigned</option>
-                                        <option value={project.owner._id}>
-                                            {project.owner.firstName} {project.owner.lastName} (Owner)
-                                        </option>
-                                        {project.members && project.members
-                                            .filter(m => m._id !== project.owner._id)
-                                            .map(member => (
-                                                <option key={member._id} value={member._id}>
-                                                    {member.firstName} {member.lastName}
-                                                </option>
-                                            ))}
-                                    </select>
-                                </label>
-                            </div>
-
-                            <div className="modal-actions">
-                                <button type="button" className="cancel-btn" onClick={() => setShowCreateModal(false)}>
-                                    Cancel
-                                </button>
-                                <button type="submit" className="create-btn">
-                                    Create Issue
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
-
-            {showAddMemberModal && (
-                <div className="modal-overlay">
-                    <div className="modal-content">
-                        <div className="modal-header">
-                            <h2>Add Team Member</h2>
-                            <button className="modal-close" onClick={() => setShowAddMemberModal(false)}>×</button>
-                        </div>
-                        <form onSubmit={handleAddMember}>
-                            <div className="form-group">
-                                <label>
-                                    <span>Email Address</span>
-                                    <input
-                                        type="email"
-                                        value={newMemberEmail}
-                                        onChange={e => setNewMemberEmail(e.target.value)}
-                                        required
-                                        placeholder="user@example.com"
-                                    />
-                                </label>
-                            </div>
-                            <div className="modal-actions">
-                                <button type="button" className="cancel-btn" onClick={() => setShowAddMemberModal(false)}>
-                                    Cancel
-                                </button>
-                                <button type="submit" className="create-btn">
-                                    Add Member
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
 
             {/* Search Sidebar */}
             <div className={`board-sidebar-overlay ${isSidebarOpen ? 'open' : ''}`} onClick={() => setIsSidebarOpen(false)} />
@@ -782,11 +569,6 @@ const WorkplaceBoard = () => {
                             </div>
                         </div>
                         <div className="member-detail-actions">
-                            {project.owner._id === currentUser?._id && selectedMember._id !== currentUser?._id && (
-                                <button className="remove-member-btn" onClick={() => handleRemoveMember(selectedMember._id)} style={{ background: '#ff4757', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
-                                    Remove from Project
-                                </button>
-                            )}
                             <button className="close-detail-btn" onClick={() => setSelectedMember(null)}>
                                 Close
                             </button>
@@ -796,11 +578,13 @@ const WorkplaceBoard = () => {
             )}
 
             {/* Ticket Detail Modal */}
-            <TicketDetailModal
-                issue={selectedIssueDetail}
-                onClose={() => setSelectedIssueDetail(null)}
-                getPriorityColor={getPriorityColor}
-            />
+            {selectedIssueDetail && (
+                <TicketDetailModal
+                    issue={selectedIssueDetail}
+                    onClose={() => setSelectedIssueDetail(null)}
+                    getPriorityColor={getPriorityColor}
+                />
+            )}
         </div>
     );
 };

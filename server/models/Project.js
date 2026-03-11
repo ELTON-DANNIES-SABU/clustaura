@@ -43,6 +43,17 @@ const ProjectSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Community'
     },
+    technologies: [{
+        type: String
+    }],
+    modules: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'ProjectModule'
+    }],
+    sprints: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Sprint'
+    }],
     createdAt: {
         type: Date,
         default: Date.now
