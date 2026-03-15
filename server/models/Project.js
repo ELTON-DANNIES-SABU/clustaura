@@ -34,6 +34,22 @@ const ProjectSchema = new mongoose.Schema({
             default: Date.now
         }
     }],
+    invitations: [{
+        user: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User'
+        },
+        role: String,
+        status: {
+            type: String,
+            enum: ['pending', 'accepted', 'rejected'],
+            default: 'pending'
+        },
+        sentAt: {
+            type: Date,
+            default: Date.now
+        }
+    }],
 
     columns: {
         type: [String],
@@ -57,7 +73,10 @@ const ProjectSchema = new mongoose.Schema({
     createdAt: {
         type: Date,
         default: Date.now
-    }
+    },
+    recommendedTechnologies: [{
+        type: String
+    }]
 });
 
 module.exports = mongoose.model('Project', ProjectSchema);

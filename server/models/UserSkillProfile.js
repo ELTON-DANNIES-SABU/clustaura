@@ -19,6 +19,15 @@ const UserSkillProfileSchema = new mongoose.Schema({
         type: Number,
         default: 0
     },
+    currentProjects: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Project'
+    }],
+    availabilityStatus: {
+        type: String,
+        enum: ['available', 'busy', 'unavailable'],
+        default: 'available'
+    },
     updatedAt: {
         type: Date,
         default: Date.now

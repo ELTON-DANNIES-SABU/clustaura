@@ -54,6 +54,39 @@ const TicketSchema = new mongoose.Schema({
     updatedAt: {
         type: Date,
         default: Date.now
+    },
+    startDate: {
+        type: Date
+    },
+    endDate: {
+        type: Date
+    }
+});
+
+TicketSchema.post('save', async function(doc) {
+    const Sprint = mongoose.model('Sprint');
+    const ProjectModule = mongoose.model('ProjectModule');
+
+    if (doc.sprint) {
+        await Sprint.findByIdAndUpdate(doc.sprint, { $addToSet: { tickets: doc._id } });
+    }
+    if (doc.module) {
+        await ProjectModule.findByIdAndUpdate(doc.module, { $addToSet: { tickets: doc._id } });
+    }
+});
+
+// For deletion, use post 'findOneAndDelete' as it's common for deleteMany or fineOneAndDelete
+TicketSchema.post('findOneAndDelete', async function(doc) {
+    if (doc) {
+        const Sprint = mongoose.model('Sprint');
+        const ProjectModule = mongoose.model('ProjectModule');
+
+        if (doc.sprint) {
+            await Sprint.findByIdAndUpdate(doc.sprint, { $pull: { tickets: doc._id } });
+        }
+        if (doc.module) {
+            await ProjectModule.findByIdAndUpdate(doc.module, { $pull: { tickets: doc._id } });
+        }
     }
 });
 

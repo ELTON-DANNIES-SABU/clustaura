@@ -27,7 +27,11 @@ const SprintSchema = new mongoose.Schema({
     createdAt: {
         type: Date,
         default: Date.now
-    }
+    },
+    tickets: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Ticket'
+    }]
 });
 
 module.exports = mongoose.model('Sprint', SprintSchema);

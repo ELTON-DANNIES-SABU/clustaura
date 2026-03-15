@@ -241,43 +241,158 @@ const updateIssueStatus = async (req, res) => {
     }
 };
 
-// @desc    Add member to project
+// @desc    Invite member to project
 // @route   POST /api/workplace/projects/:id/members
 // @access  Private
 const addProjectMember = async (req, res) => {
     try {
-        const { email } = req.body;
+        const { email, userId, role } = req.body;
+        const projectId = req.params.id;
+        console.log(`[DEBUG] Inviting member. Project: ${projectId}, User: ${userId || email}, Role: ${role}`);
+
+        const project = await Project.findById(projectId);
+        if (!project) {
+            console.log(`[DEBUG] Project not found: ${projectId}`);
+            return res.status(404).json({ message: 'Project not found' });
+        }
+
+        console.log(`[DEBUG] Project found: ${project.name}. Owner: ${project.owner}`);
+
+        // Check if user is owner
+        if (project.owner.toString() !== req.user._id.toString()) {
+            console.log(`[DEBUG] Authorization failed. Owner: ${project.owner}, Current User: ${req.user._id}`);
+            return res.status(401).json({ message: 'Not authorized to invite members' });
+        }
+
+        let userToAdd;
+        if (userId) {
+            userToAdd = await User.findById(userId);
+        } else if (email) {
+            userToAdd = await User.findOne({ email });
+        }
+
+        if (!userToAdd) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        // Check if already member
+        if (project.members.some(m => m.toString() === userToAdd._id.toString())) {
+            return res.status(400).json({ message: 'User is already a member' });
+        }
+
+        // Check if already invited
+        const existingInvite = project.invitations.find(inv => 
+            inv.user.toString() === userToAdd._id.toString() && inv.status === 'pending'
+        );
+        if (existingInvite) {
+            return res.status(400).json({ message: 'Invitation already sent and pending' });
+        }
+
+        // Add to invitations
+        project.invitations.push({
+            user: userToAdd._id,
+            role: role || 'Member',
+            status: 'pending'
+        });
+        await project.save();
+
+        // Create Invitation Notification
+        try {
+            const notification = await Notification.create({
+                recipient: userToAdd._id,
+                sender: req.user._id,
+                type: 'team_invite',
+                content: `${req.user.firstName} ${req.user.lastName} has invited you to join the project "${project.name}" as a ${role || 'Member'}`,
+                relatedId: project._id,
+                metadata: {
+                    role: role || 'Member'
+                }
+            });
+
+            const io = req.app.get('io');
+            if (io) {
+                io.to(userToAdd._id.toString()).emit('receive_notification', notification);
+            }
+        } catch (notifyErr) {
+            console.error('Error sending invitation notification:', notifyErr);
+        }
+
+        res.json({ success: true, message: 'Invitation sent successfully' });
+    } catch (error) {
+        console.error('[DEBUG] Error inviting member:', error);
+        res.status(500).json({ message: 'Server Error', details: error.message });
+    }
+};
+
+// @desc    Respond to project invitation (Accept/Reject)
+// @route   POST /api/workplace/projects/:id/invitations/respond
+// @access  Private
+const respondToInvitation = async (req, res) => {
+    try {
+        const { action } = req.body; // 'accept' or 'reject'
         const project = await Project.findById(req.params.id);
 
         if (!project) {
             return res.status(404).json({ message: 'Project not found' });
         }
 
-        // Check if user is owner
-        if (project.owner.toString() !== req.user._id.toString()) {
-            return res.status(401).json({ message: 'Not authorized to add members' });
+        const invitationIndex = project.invitations.findIndex(
+            inv => inv.user.toString() === req.user._id.toString() && inv.status === 'pending'
+        );
+
+        if (invitationIndex === -1) {
+            return res.status(404).json({ message: 'No pending invitation found for you' });
         }
 
-        const userToAdd = await User.findOne({ email });
-        if (!userToAdd) {
-            return res.status(404).json({ message: 'User not found' });
+        if (action === 'accept') {
+            project.invitations[invitationIndex].status = 'accepted';
+            // Add to members
+            const isAlreadyMember = project.members.some(
+                m => m.toString() === req.user._id.toString()
+            );
+            if (!isAlreadyMember) {
+                project.members.push(req.user._id);
+            }
+            
+            // Notify Lead
+            try {
+                await Notification.create({
+                    recipient: project.owner,
+                    sender: req.user._id,
+                    type: 'system_alert',
+                    content: `${req.user.firstName} ${req.user.lastName} has accepted your invitation to join "${project.name}"`,
+                    relatedId: project._id
+                });
+            } catch (notifyErr) {
+                console.error('Error notifying lead of acceptance:', notifyErr);
+            }
+        } else {
+            project.invitations[invitationIndex].status = 'rejected';
+            
+            // Notify Lead
+            try {
+                await Notification.create({
+                    recipient: project.owner,
+                    sender: req.user._id,
+                    type: 'system_alert', // Or a more specific type if desired
+                    content: `${req.user.firstName} ${req.user.lastName} has declined your invitation to join "${project.name}"`,
+                    relatedId: project._id
+                });
+            } catch (notifyErr) {
+                console.error('Error notifying lead of rejection:', notifyErr);
+            }
         }
 
-        // Check if already member
-        if (project.members.includes(userToAdd._id)) {
-            return res.status(400).json({ message: 'User is already a member' });
-        }
-
-        project.members.push(userToAdd._id);
+        // Clean up invitations (remove or keep for history - here we remove based on common practice or just mark)
+        // For simplicity and matching common flows, we'll remove it after handling or keep it marked.
+        // Let's remove it to keep the array small
+        project.invitations.splice(invitationIndex, 1);
+        
         await project.save();
 
-        const updatedProject = await Project.findById(project._id)
-            .populate('owner', 'firstName lastName email')
-            .populate('members', 'firstName lastName email profileImageUrl');
-
-        res.json(updatedProject);
+        res.json({ success: true, message: `Invitation ${action}ed successfully`, action });
     } catch (error) {
-        console.error('Error adding member:', error);
+        console.error('Error responding to invitation:', error);
         res.status(500).json({ message: 'Server Error' });
     }
 };
@@ -464,6 +579,44 @@ const removeProjectMember = async (req, res) => {
     }
 };
 
+// @desc    Get all pending project invitations for current user
+// @route   GET /api/workplace/invitations
+// @access  Private
+const getPendingInvitations = async (req, res) => {
+    try {
+        const userId = req.user._id;
+        
+        // Find projects where this user has a pending invitation
+        const projects = await Project.find({
+            'invitations.user': userId,
+            'invitations.status': 'pending'
+        }).populate('owner', 'firstName lastName email profileImageUrl');
+
+        // Extract invitation details for each project
+        const invitations = projects.map(project => {
+            const invite = project.invitations.find(inv => 
+                inv.user.toString() === userId.toString() && inv.status === 'pending'
+            );
+            return {
+                _id: invite._id,
+                project: {
+                    _id: project._id,
+                    name: project.name,
+                    description: project.description,
+                    owner: project.owner
+                },
+                role: invite.role,
+                createdAt: invite.createdAt
+            };
+        });
+
+        res.json(invitations);
+    } catch (error) {
+        console.error('Error getting pending invitations:', error);
+        res.status(500).json({ message: 'Server Error' });
+    }
+};
+
 module.exports = {
     createProject,
     getProjects,
@@ -476,8 +629,10 @@ module.exports = {
     moveIssue,
     updateSprintStatus,
     addProjectMember,
+    respondToInvitation,
     leaveProject,
     removeProjectMember,
     getProjectLeaveRequests,
-    respondToLeaveRequest
+    respondToLeaveRequest,
+    getPendingInvitations
 };

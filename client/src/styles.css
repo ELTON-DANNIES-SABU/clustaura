@@ -5045,7 +5045,7 @@ body {
 }
 
 /* Icon Badge */
-.pro-icon-badge {
+.pro-icon-badge, .notification-badge {
     position: absolute;
     top: -4px;
     right: -4px;
@@ -5061,6 +5061,61 @@ body {
     justify-content: center;
     border: 2px solid var(--dark-bg);
     box-shadow: 0 0 10px rgba(255, 71, 87, 0.5);
+    z-index: 10;
+}
+
+.notification-bell-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.notification-bell-btn {
+    position: relative;
+    width: 44px;
+    height: 44px;
+    background: transparent;
+    border: none;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    font-size: 1.25rem;
+    color: var(--neon-mint);
+}
+
+.notification-bell-btn:hover {
+    background: rgba(0, 255, 170, 0.1);
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0, 255, 170, 0.1);
+}
+
+.notification-dropdown {
+    position: absolute;
+    top: calc(100% + 15px);
+    right: 0;
+    width: 350px;
+    background: rgba(13, 17, 23, 0.95);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(0, 255, 170, 0.2);
+    border-radius: 15px;
+    box-shadow: 0 15px 50px rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    overflow: hidden;
+    animation: fadeInDown 0.3s ease-out;
+}
+
+@keyframes fadeInDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 /* User Profile */
@@ -13290,13 +13345,20 @@ select {
     color: white;
     position: absolute;
     border: 2px solid #1a1a1a;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.member-avatar:hover {
+    transform: translateY(-4px) scale(1.1);
+    z-index: 50 !important;
+    border-color: #00ffaa;
+    box-shadow: 0 5px 15px rgba(0, 255, 170, 0.4);
 }
 
 .member-avatar.more {
-    position: relative;
     background: #333;
     color: #888;
-    left: 60px !important;
 }
 
 .project-date {
@@ -13421,15 +13483,19 @@ select {
 .member-stack {
     display: flex;
     align-items: center;
+    position: relative;
+    height: 40px;
+    min-width: 140px;
+    margin-right: 1rem;
 }
 
 .user-icon-avatar {
     background: rgba(0, 255, 170, 0.1) !important;
     color: #00ffaa !important;
     border: 2px solid #00ffaa !important;
-    position: relative !important;
+    position: absolute !important;
     left: 0 !important;
-    margin-right: 30px;
+    z-index: 9;
 }
 
 .sprint-info {
@@ -17179,4 +17245,387 @@ select {
     to {
         transform: rotate(360deg);
     }
+}
+
+/* AI Planner Enhancements */
+.ai-planner-tabs {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 25px;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 10px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.tab-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    border-bottom: 2px solid transparent;
+}
+
+.tab-btn:hover {
+    color: #00FF9C;
+    background: rgba(0, 255, 156, 0.05);
+}
+
+.tab-btn.active {
+    color: #00FF9C;
+    border-bottom: 2px solid #00FF9C;
+}
+
+.team-requirement-panel, .sprint-timeline-view {
+    background: #0a0a0a;
+    border-radius: 16px;
+    padding: 25px;
+    border: 1px solid #1a1a1a;
+}
+
+.panel-header h3 {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 5px;
+    color: #fff;
+}
+
+.panel-header p {
+    color: #666;
+    font-size: 0.9rem;
+    margin-bottom: 20px;
+}
+
+.requirements-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
+}
+
+.requirement-card {
+    background: #111;
+    border: 1px solid #222;
+    border-radius: 12px;
+    padding: 20px;
+}
+
+.req-tech {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #00FF9C;
+    margin-bottom: 15px;
+}
+
+.req-stats {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.req-stats .stat {
+    display: flex;
+    flex-direction: column;
+}
+
+.req-stats .label {
+    font-size: 0.75rem;
+    color: #666;
+    text-transform: uppercase;
+}
+
+.req-stats .value {
+    font-size: 1.2rem;
+    font-weight: bold;
+}
+
+.req-stats .gap.alert .value {
+    color: #ff4757;
+}
+
+.gap-warning {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 15px;
+    background: rgba(255, 71, 87, 0.1);
+    color: #ff4757;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+}
+
+/* Timeline */
+.timeline-sprint-card {
+    background: #111;
+    border: 1px solid #222;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.sprint-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.sprint-dates {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.85rem;
+    color: #666;
+}
+
+.sprint-tickets-timeline {
+    margin-left: 10px;
+    border-left: 2px solid #222;
+    padding-left: 20px;
+}
+
+.timeline-ticket-item {
+    position: relative;
+    margin-bottom: 15px;
+}
+
+.ticket-bullet {
+    position: absolute;
+    left: -26px;
+    top: 5px;
+    width: 10px;
+    height: 10px;
+    background: #00FF9C;
+    border-radius: 50%;
+    box-shadow: 0 0 10px rgba(0, 255, 156, 0.3);
+}
+
+.ticket-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 5px;
+}
+
+.ticket-name {
+    font-weight: 500;
+    color: #fff;
+}
+
+.ticket-duration {
+    font-size: 0.8rem;
+    color: #666;
+}
+
+.ticket-assignee {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.avatar-xs {
+    width: 20px;
+    height: 20px;
+    background: #222;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+}
+
+.unassigned {
+    font-size: 0.8rem;
+    font-style: italic;
+    color: #555;
+}
+
+/* Team Suggestions Panel */
+.team-suggestions-panel {
+    background: #0a0a0a;
+    border-radius: 16px;
+    padding: 25px;
+    border: 1px solid #1a1a1a;
+}
+
+.suggestions-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+    margin-top: 25px;
+}
+
+.tech-stack-group h3 {
+    color: #00FF9C;
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.tech-stack-group .count-badge {
+    background: rgba(0, 255, 156, 0.1);
+    color: #00FF9C;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.candidate-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 20px;
+}
+
+.candidate-card {
+    background: #111;
+    border: 1px solid #222;
+    border-radius: 14px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    transition: all 0.3s ease;
+}
+
+.candidate-card:hover {
+    border-color: #00FF9C;
+    transform: translateY(-5px);
+    box-shadow: 0 10px 30px rgba(0, 255, 156, 0.05);
+}
+
+.candidate-card .user-info {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+}
+
+.candidate-card .user-info img {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    border: 2px solid #222;
+}
+
+.candidate-card .user-details h4 {
+    margin: 0;
+    color: #fff;
+}
+
+.candidate-card .user-details p {
+    margin: 0;
+    font-size: 0.85rem;
+    color: #666;
+}
+
+.match-metrics {
+    display: flex;
+    justify-content: center;
+}
+
+.score-ring {
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    border: 3px solid #1a1a1a;
+    border-top-color: #00FF9C;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 255, 156, 0.05);
+}
+
+.score-ring .score {
+    font-size: 1.1rem;
+    font-weight: bold;
+    color: #00FF9C;
+}
+
+.score-ring .label {
+    font-size: 0.6rem;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.candidate-card .actions {
+    margin-top: auto;
+}
+
+.candidate-card .add-btn {
+    width: 100%;
+    padding: 12px;
+    background: #00FF9C;
+    color: #000;
+    border: none;
+    border-radius: 10px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.candidate-card .add-btn:hover:not(:disabled) {
+    background: #00cc7d;
+    transform: scale(1.02);
+}
+
+.candidate-card .add-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.loading-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 80px;
+    color: #666;
+    gap: 20px;
+}
+
+.sprint-ticket-count {
+    background: rgba(0, 255, 156, 0.1);
+    color: #00FF9C;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    margin-left: 10px;
+}
+
+.sprint-info-main {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.sprint-meta-pills {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.sprint-dates-pill {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255, 255, 255, 0.05);
+    color: #666;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.8rem;
 }

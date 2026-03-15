@@ -1,16 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { useToast } from './Community/shared/Toast';
 import './Friends.css';
 
 const Friends = () => {
     const [friendRequests, setFriendRequests] = useState([]);
     const [friends, setFriends] = useState([]);
+    const [projectInvitations, setProjectInvitations] = useState([]);
     const [activeTab, setActiveTab] = useState('requests');
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState([]);
     const [isSearching, setIsSearching] = useState(false);
     const navigate = useNavigate();
+    const toast = useToast();
 
     const getToken = () => {
         const userStr = localStorage.getItem('user');
@@ -43,6 +46,17 @@ const Friends = () => {
         }
     };
 
+    const fetchProjectInvitations = async () => {
+        try {
+            const token = getToken();
+            const config = { headers: { Authorization: `Bearer ${token}` } };
+            const { data } = await axios.get('/api/workplace/invitations', config);
+            setProjectInvitations(data);
+        } catch (error) {
+            console.error('Error fetching project invitations:', error);
+        }
+    };
+
     useEffect(() => {
         const userStr = localStorage.getItem('user');
         if (!userStr) {
@@ -51,6 +65,7 @@ const Friends = () => {
         }
         fetchFriends();
         fetchFriendRequests();
+        fetchProjectInvitations();
     }, [navigate]);
 
     useEffect(() => {
@@ -116,6 +131,29 @@ const Friends = () => {
             fetchFriendRequests();
         } catch (error) {
             console.error('Error rejecting request:', error);
+        }
+    };
+
+    const handleProjectInvitationResponse = async (projectId, action) => {
+        console.log(`[DEBUG] Responding to project ${projectId} with action: ${action}`);
+        try {
+            const token = getToken();
+            const config = { headers: { Authorization: `Bearer ${token}` } };
+            const response = await axios.post(`/api/workplace/projects/${projectId}/invitations/respond`, { action }, config);
+            console.log('[DEBUG] Response success:', response.data);
+
+            toast.success(`Project invitation ${action}ed successfully!`);
+
+            fetchProjectInvitations();
+            if (action === 'accept') {
+                setTimeout(() => {
+                    navigate(`/workplace/project/${projectId}/board`);
+                }, 1000);
+            }
+        } catch (error) {
+            console.error('[DEBUG] Error responding to project invite:', error);
+            const errorMsg = error.response?.data?.message || 'Failed to respond to invitation';
+            toast.error(errorMsg);
         }
     };
 
@@ -215,6 +253,15 @@ const Friends = () => {
                         onClick={() => setActiveTab('friends')}
                     >
                         My Friends ({friends.length})
+                    </button>
+                    <button
+                        className={`tab-btn ${activeTab === 'project_invites' ? 'active' : ''}`}
+                        onClick={() => setActiveTab('project_invites')}
+                    >
+                        Project Invites
+                        {projectInvitations.length > 0 && (
+                            <span className="tab-badge">{projectInvitations.length}</span>
+                        )}
                     </button>
                     <button
                         className={`tab-btn ${activeTab === 'suggested' ? 'active' : ''}`}
@@ -319,6 +366,52 @@ const Friends = () => {
                                             >
                                                 Remove
                                             </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {activeTab === 'project_invites' && (
+                    <div className="requests-section">
+                        <h2>Project Invitations ({projectInvitations.length})</h2>
+
+                        {projectInvitations.length === 0 ? (
+                            <div className="empty-state">
+                                <p>🏗️ No pending project invitations</p>
+                            </div>
+                        ) : (
+                            <div className="requests-list">
+                                {projectInvitations.map(invite => (
+                                    <div key={invite._id} className="request-card project-invite-card">
+                                        <div className="request-header">
+                                            <div className="user-avatar project-avatar">
+                                                {invite.project.name.charAt(0)}
+                                            </div>
+                                            <div className="user-info">
+                                                <h3>{invite.project.name}</h3>
+                                                <p className="invite-role">Role: <strong>{invite.role}</strong></p>
+                                                <p className="invite-owner">Invited by: {invite.project.owner.firstName} {invite.project.owner.lastName}</p>
+                                            </div>
+                                        </div>
+
+                                        <div className="request-footer">
+                                            <div className="request-actions">
+                                                <button
+                                                    className="accept-btn"
+                                                    onClick={() => handleProjectInvitationResponse(invite.project._id, 'accept')}
+                                                >
+                                                    🚀 Join Project
+                                                </button>
+                                                <button
+                                                    className="reject-btn"
+                                                    onClick={() => handleProjectInvitationResponse(invite.project._id, 'reject')}
+                                                >
+                                                    Decline
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 ))}

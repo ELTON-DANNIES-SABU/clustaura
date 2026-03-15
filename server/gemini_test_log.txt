@@ -1,0 +1,10 @@
+Testing Gemini API with key: AIzaSyC9zE...
+Model: gemini-1.0-pro
+API Test Error Name: Error
+API Test Error Message: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.0-pro:generateContent: [404 Not Found] models/gemini-1.0-pro is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+Stack: Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.0-pro:generateContent: [404 Not Found] models/gemini-1.0-pro is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+    at handleResponseNotOk (C:\Users\risho\OneDrive\Desktop\clustaura_new\clustaura\server\node_modules\@google\generative-ai\dist\index.js:434:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async makeRequest (C:\Users\risho\OneDrive\Desktop\clustaura_new\clustaura\server\node_modules\@google\generative-ai\dist\index.js:403:9)
+    at async generateContent (C:\Users\risho\OneDrive\Desktop\clustaura_new\clustaura\server\node_modules\@google\generative-ai\dist\index.js:867:22)
+    at async test (C:\Users\risho\OneDrive\Desktop\clustaura_new\clustaura\server\test_gemini_verbose.js:21:24)

@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import '../styles.css';
-import { Search, X, Filter, User, CheckCircle, Clock, Layout, FlaskConical, ChevronRight, Plus, MoreVertical, Target, Flag, MessageSquare, BarChart3 } from 'lucide-react';
+import { Search, X, Filter, User, CheckCircle, Clock, Layout, FlaskConical, ChevronRight, Plus, MoreVertical, Target, Flag, MessageSquare, BarChart3, Zap } from 'lucide-react';
+import { useToast } from './Community/shared/Toast';
 import TicketDetailModal from './Workplace/components/TicketDetailModal';
 
 
@@ -22,6 +23,7 @@ const WorkplaceBoard = () => {
     const [dragOverColumn, setDragOverColumn] = useState(null);
     const [currentUser, setCurrentUser] = useState(null);
     const [leaveRequests, setLeaveRequests] = useState([]);
+    const { toast } = useToast();
 
     const today = new Date().toISOString().split('T')[0];
 
@@ -142,6 +144,22 @@ const WorkplaceBoard = () => {
         }
     };
 
+    const handleAutoAssign = async () => {
+        try {
+            const { token } = currentUser;
+            const res = await axios.post(`http://localhost:5000/api/agents/assign-tickets`, 
+                { projectId },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+
+            toast(res.data.message, 'success');
+            fetchProjectData();
+        } catch (error) {
+            console.error('Auto-assign error:', error);
+            toast(error.response?.data?.message || 'Failed to auto-assign tickets', 'error');
+        }
+    };
+
     const handleDragStart = (e, issueId) => {
         e.dataTransfer.setData('issueId', issueId);
     };
@@ -253,17 +271,30 @@ const WorkplaceBoard = () => {
                                     key={member._id}
                                     className="member-avatar"
                                     style={{
-                                        backgroundColor: `hsl(${idx * 40}, 60%, 40%)`,
-                                        zIndex: 5 - idx
+                                        backgroundColor: !member.profileImageUrl ? `hsl(${idx * 40}, 60%, 40%)` : 'transparent',
+                                        zIndex: 10 + idx,
+                                        left: `${(idx + 1) * 22}px`,
+                                        overflow: 'hidden'
                                     }}
                                     title={`${member.firstName} ${member.lastName}`}
                                     onClick={() => setSelectedMember(member)}
                                 >
-                                    {member.firstName?.charAt(0)}{member.lastName?.charAt(0)}
+                                    {member.profileImageUrl ? (
+                                        <img 
+                                            src={member.profileImageUrl} 
+                                            alt={member.firstName} 
+                                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                        />
+                                    ) : (
+                                        <>{member.firstName?.charAt(0)}{member.lastName?.charAt(0)}</>
+                                    )}
                                 </div>
                             ))}
                             {project.members?.length > 5 && (
-                                <div className="member-avatar more">
+                                <div 
+                                    className="member-avatar more"
+                                    style={{ left: `${6 * 22}px`, zIndex: 16 }}
+                                >
                                     +{project.members.length - 5}
                                 </div>
                             )}
@@ -290,6 +321,12 @@ const WorkplaceBoard = () => {
                             <Search size={16} /> Search
                         </button>
 
+                        {project.owner._id === currentUser?._id && (
+                            <button className="action-btn" onClick={handleAutoAssign} title="AI Auto-Assign Tickets">
+                                <Zap size={16} />
+                                <span>Auto-Assign</span>
+                            </button>
+                        )}
 
                         <button className="primary-nav-btn active" onClick={() => navigate(`/workplace/project/${projectId}/ai-planner`)}>
                             <FlaskConical size={18} />

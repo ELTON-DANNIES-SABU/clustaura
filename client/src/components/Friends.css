@@ -303,6 +303,7 @@
     mask-composite: exclude;
     opacity: 0;
     transition: opacity 0.5s ease;
+    pointer-events: none;
 }
 
 .request-card:hover::after,
@@ -583,4 +584,29 @@
     .friends-grid {
         grid-template-columns: 1fr;
     }
+}
+/* Project Invite Specific Styles */
+.project-invite-card .user-avatar {
+    background: linear-gradient(135deg, #00C9FF 0%, #92FE9D 100%) !important;
+    color: #000 !important;
+}
+
+.invite-role {
+    font-size: 0.95rem;
+    color: var(--cyan);
+    margin: 0.5rem 0;
+    font-weight: 600;
+}
+
+.invite-owner {
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.5);
+    margin-top: 0.2rem;
+}
+
+.project-invite-card:hover {
+    border-color: #00C9FF;
+    box-shadow: 
+        0 20px 40px rgba(0, 0, 0, 0.4),
+        0 0 20px rgba(0, 201, 255, 0.2);
 }

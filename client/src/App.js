@@ -18,6 +18,7 @@ import Community from './components/Community/Community';
 import AIGuide from './components/AIGuide';
 import AIPlanner from './components/Workplace/AIPlanner';
 import GlobalCallManager from './components/GlobalCallManager';
+import { ToastProvider } from './components/Community/shared/Toast';
 import './styles.css';
 
 // Create a navigation hook component
@@ -37,30 +38,32 @@ const NavigationHandler = () => {
 
 function App() {
     return (
-        <Router>
-            <NavigationHandler />
-            <GlobalCallManager />
-            <Routes>
-                <Route path="/" element={<Navigate to="/login" />} />
-                <Route path="/login" element={<Login />} />
-                <Route path="/register" element={<Register />} />
-                <Route path="/forgot-password" element={<ForgotPassword />} />
-                <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/posts" element={<PostFeed />} />
-                <Route path="/challenges" element={<Challenges />} />
-                <Route path="/challenge/:id" element={<ChallengeDetail />} />
-                <Route path="/profile" element={<Profile />} />
-                <Route path="/profile/:id" element={<UserProfile />} />
-                <Route path="/workplace" element={<Workplace />} />
-                <Route path="/workplace/project/:projectId/board" element={<WorkplaceBoard />} />
-                <Route path="/workplace/project/:projectId/ai-planner" element={<AIPlanner />} />
-                <Route path="/friends" element={<Friends />} />
-                <Route path="/chat/:friendId" element={<Chat />} />
-                <Route path="/communication" element={<Communication />} />
-                <Route path="/community/*" element={<Community />} />
-            </Routes>
-            <AIGuide />
-        </Router>
+        <ToastProvider>
+            <Router>
+                <NavigationHandler />
+                <GlobalCallManager />
+                <Routes>
+                    <Route path="/" element={<Navigate to="/login" />} />
+                    <Route path="/login" element={<Login />} />
+                    <Route path="/register" element={<Register />} />
+                    <Route path="/forgot-password" element={<ForgotPassword />} />
+                    <Route path="/dashboard" element={<Dashboard />} />
+                    <Route path="/posts" element={<PostFeed />} />
+                    <Route path="/challenges" element={<Challenges />} />
+                    <Route path="/challenge/:id" element={<ChallengeDetail />} />
+                    <Route path="/profile" element={<Profile />} />
+                    <Route path="/profile/:id" element={<UserProfile />} />
+                    <Route path="/workplace" element={<Workplace />} />
+                    <Route path="/workplace/project/:projectId/board" element={<WorkplaceBoard />} />
+                    <Route path="/workplace/project/:projectId/ai-planner" element={<AIPlanner />} />
+                    <Route path="/friends" element={<Friends />} />
+                    <Route path="/chat/:friendId" element={<Chat />} />
+                    <Route path="/communication" element={<Communication />} />
+                    <Route path="/community/*" element={<Community />} />
+                </Routes>
+                <AIGuide />
+            </Router>
+        </ToastProvider>
     );
 }
 

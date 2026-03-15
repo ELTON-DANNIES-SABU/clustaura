@@ -20,14 +20,22 @@ const ModuleView = ({ modules, tickets, technologies }) => {
                         <div className="module-header">
                             <h4>{module.moduleName}</h4>
                             <span className="ticket-count">
-                                {tickets.filter(t => t.moduleName === module.moduleName).length} Tickets
+                                {tickets.filter(t => 
+                                    (t.moduleName === module.moduleName) || 
+                                    (t.module === module._id) || 
+                                    (t.module?._id === module._id)
+                                ).length} Tickets
                             </span>
                         </div>
                         <p>{module.description}</p>
 
                         <div className="module-tickets">
                             {tickets
-                                .filter(t => t.moduleName === module.moduleName)
+                                .filter(t => 
+                                    (t.moduleName === module.moduleName) || 
+                                    (t.module === module._id) || 
+                                    (t.module?._id === module._id)
+                                )
                                 .map((ticket, j) => (
                                     <div key={j} className="ticket-item">
                                         <div className="ticket-main">

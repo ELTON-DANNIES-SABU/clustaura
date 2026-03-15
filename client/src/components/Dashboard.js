@@ -1099,6 +1099,7 @@ const Dashboard = () => {
                     </div>
 
                     <div className="pro-icons-container">
+                        <NotificationBell />
                         <div className="pro-user-profile">
                             <div className="pro-user-avatar">
                                 {user?.firstName?.charAt(0) || 'U'}

@@ -12,10 +12,12 @@ const {
     moveIssue,
     updateSprintStatus,
     addProjectMember,
+    respondToInvitation,
     leaveProject,
     removeProjectMember,
     getProjectLeaveRequests,
-    respondToLeaveRequest
+    respondToLeaveRequest,
+    getPendingInvitations
 } = require('../controllers/workplaceController');
 const { protect } = require('../middleware/authMiddleware');
 
@@ -25,6 +27,8 @@ router.get('/projects', protect, getProjects);
 router.get('/projects/:id', protect, getProjectById);
 router.get('/projects/:id/leave-requests', protect, getProjectLeaveRequests);
 router.post('/projects/:id/leave-requests/:userId/respond', protect, respondToLeaveRequest);
+router.post('/projects/:id/invitations/respond', protect, respondToInvitation);
+router.get('/invitations', protect, getPendingInvitations);
 
 // Issue Routes
 router.post('/issues', protect, createIssue);
