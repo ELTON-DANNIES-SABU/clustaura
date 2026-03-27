@@ -6,6 +6,7 @@ const TeamSuggestionsPanel = ({ projectId }) => {
     const [suggestions, setSuggestions] = useState([]);
     const [loading, setLoading] = useState(true);
     const [inviting, setInviting] = useState({});
+    const [imageError, setImageError] = useState({});
     const toast = useToast();
 
     useEffect(() => {
@@ -72,7 +73,17 @@ const TeamSuggestionsPanel = ({ projectId }) => {
                             {stack.suggestedUsers.map(({ user, matchScore }) => (
                                 <div key={user._id} className="candidate-card">
                                     <div className="user-info">
-                                        <img src={user.avatar || 'https://via.placeholder.com/40'} alt={user.firstName} />
+                                        {(user.avatar && !imageError[user._id]) ? (
+                                            <img 
+                                                src={user.avatar.startsWith('http') ? user.avatar : `/${user.avatar}`} 
+                                                alt={user.firstName} 
+                                                onError={() => setImageError(prev => ({...prev, [user._id]: true}))}
+                                            />
+                                        ) : (
+                                            <div className="avatar-fallback">
+                                                {user.firstName?.charAt(0) || 'U'}{user.lastName?.charAt(0) || ''}
+                                            </div>
+                                        )}
                                         <div className="user-details">
                                             <h4>{user.firstName} {user.lastName}</h4>
                                             <p>{user.email}</p>
@@ -80,9 +91,14 @@ const TeamSuggestionsPanel = ({ projectId }) => {
                                     </div>
                                     
                                     <div className="match-metrics">
-                                        <div className="score-ring">
-                                            <span className="score">{(matchScore * 100).toFixed(0)}%</span>
-                                            <span className="label">Match</span>
+                                        <div 
+                                            className="score-ring" 
+                                            style={{ background: `conic-gradient(#00FFA3 ${(matchScore * 100).toFixed(0)}%, rgba(255, 255, 255, 0.05) 0)` }}
+                                        >
+                                            <div className="score-inner">
+                                                <span className="score">{(matchScore * 100).toFixed(0)}%</span>
+                                                <span className="label">Match</span>
+                                            </div>
                                         </div>
                                     </div>
 

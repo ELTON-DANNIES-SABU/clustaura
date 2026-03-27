@@ -68,12 +68,15 @@ const acceptTeamInvite = async (req, res) => {
         }
 
         // Add user to project if not already a member (robust check)
-        const isAlreadyMember = project.members.some(m => m.toString() === req.user._id.toString());
+        const isAlreadyMember = project.members.some(m => m.user && m.user.toString() === req.user._id.toString());
 
         console.log(`[acceptTeamInvite] User ${req.user._id} joining project ${projectId}. Already member: ${isAlreadyMember}`);
 
         if (!isAlreadyMember) {
-            project.members.push(req.user._id);
+            project.members.push({
+                user: req.user._id,
+                role: notification.metadata.get('role') || 'Member'
+            });
             await project.save();
             console.log(`[acceptTeamInvite] User ${req.user._id} successfully added to members of project ${projectId}`);
         }

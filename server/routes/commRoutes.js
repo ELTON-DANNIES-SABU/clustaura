@@ -6,7 +6,8 @@ const CommMessage = require('../models/CommMessage');
 const Meeting = require('../models/Meeting');
 const CallSession = require('../models/CallSession');
 const User = require('../models/User');
-const { protect } = require('../middleware/authMiddleware'); // Assuming this exists based on common patterns
+const Project = require('../models/Project');
+const { protect } = require('../middleware/authMiddleware');
 
 // Middleware to verify if authMiddleware.protect exists, if not we'll need to check how they handle routes
 // I'll check authRoutes.js to see what they use.
@@ -110,6 +111,70 @@ router.post('/teams', protect, async (req, res) => {
         });
         res.status(201).json(team);
     } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// GET or Create a team for a project
+router.get('/teams/project/:projectId', protect, async (req, res) => {
+    try {
+        const { projectId } = req.params;
+        let team = await CommTeam.findOne({ projectId });
+
+        const project = await Project.findById(projectId);
+        if (!project) return res.status(404).json({ message: 'Project not found' });
+
+        const projectMembers = project.members.map(m => m.user);
+
+        if (!team) {
+            // Create new team for project
+            team = await CommTeam.create({
+                name: project.name,
+                description: `Official communication channel for ${project.name}`,
+                owner: project.owner,
+                members: projectMembers,
+                projectId: projectId,
+                icon: project.name.charAt(0)
+            });
+
+            // Create default general channel
+            await CommChannel.create({
+                teamId: team._id,
+                name: 'general',
+                type: 'public',
+                description: 'Main discussion for the project'
+            });
+        } else {
+            // Sync members if they have changed in the project
+            const teamMemberIds = team.members.map(m => m.toString());
+            const projectMemberIds = projectMembers.map(m => m.toString());
+            
+            const missingInTeam = projectMemberIds.filter(id => !teamMemberIds.includes(id));
+            if (missingInTeam.length > 0) {
+                team.members.push(...missingInTeam);
+                await team.save();
+            }
+        }
+
+        const populatedTeam = await CommTeam.findById(team._id)
+            .populate('owner', 'firstName lastName email')
+            .populate('members', 'firstName lastName email');
+        
+        let channels = await CommChannel.find({ teamId: team._id });
+
+        if (channels.length === 0) {
+            const generalChannel = await CommChannel.create({
+                teamId: team._id,
+                name: 'general',
+                type: 'public',
+                description: 'Main discussion for the project'
+            });
+            channels = [generalChannel];
+        }
+
+        res.json({ team: populatedTeam, channels });
+    } catch (error) {
+        console.error('Project Team Error:', error);
         res.status(500).json({ message: error.message });
     }
 });

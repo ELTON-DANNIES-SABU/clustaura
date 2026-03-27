@@ -282,7 +282,8 @@ const AIGuide = () => {
 
     const isAuthPage = ['/login', '/register', '/'].includes(location.pathname);
     const isCommunityPage = location.pathname.startsWith('/community');
-    if (isAuthPage || isCommunityPage) return null;
+    const isWorkspacePage = location.pathname.startsWith('/workplace');
+    if (isAuthPage || isCommunityPage || isWorkspacePage) return null;
 
     return (
         <div className="ai-guide-container">

@@ -55,156 +55,107 @@ const sanitizePlan = (plan) => {
     return plan;
 };
 
-const analyzeProject = async (title, description) => {
-    console.log("Analyzing project with Gemini...");
-    const key = process.env.GEMINI_API_KEY;
-    if (!key) {
-        console.error("CRITICAL: GEMINI_API_KEY is missing in process.env!");
-    } else {
-        console.log(`Using API Key starting with: ${key.substring(0, 8)}...`);
-    }
+const delay = (ms) => new Promise(res => setTimeout(res, ms));
+
+const MODELS = ["gemini-2.0-flash", "gemini-flash-latest", "gemini-pro-latest"];
+
+/**
+ * Generic helper to call Gemini with retries and model fallback
+ */
+const callGemini = async (prompt, modelIndex = 0, retries = 2) => {
+    const modelName = MODELS[modelIndex] || MODELS[0];
+    console.log(`Calling Gemini [${modelName}] (Retries: ${retries})...`);
 
     try {
-        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-
-        const prompt = `You are an expert SDLC Architect. Analyze the following project and generate a structured development plan.
-        
-        Project Title: ${title}
-        Project Description: ${description}
-        
-        Generate the following in STRICT JSON format:
-        1. modules: Array of { name, description }
-        2. tickets: Array of { title, description, moduleName, priority, type, effort, skillsRequired }
-        3. sprints: Array of { name, ticketTitles }
-        4. recommendedTechnologies: Array of Strings
-        
-        Constraints:
-        - effort should be story points (1, 2, 3, 5, 8).
-        - priority should be 'highest', 'high', 'medium', 'low', or 'lowest'.
-        - type should be 'task', 'story', or 'bug'.
-        - skillsRequired should be specific technical skills (e.g., 'React', 'Node.js', 'Socket.io').
-        - tickets should be linked to moduleName.
-        - Group tickets into logical sprints.
-        
-        Return ONLY the JSON object. No markdown, no explanation.`;
+        const model = genAI.getGenerativeModel({ 
+            model: modelName,
+            generationConfig: {
+                maxOutputTokens: 8192,
+                responseMimeType: "application/json"
+            }
+        });
 
         const result = await model.generateContent(prompt);
         const response = await result.response;
         const text = response.text();
-        console.log("RAW Gemini Response (length):", text.length);
         
-        // Find JSON block more reliably
-        let cleanedJson = "";
-        
-        // Strategy 1: Find largest block between { and }
+        // Find JSON block
         const jsonStartIndex = text.indexOf('{');
         const jsonEndIndex = text.lastIndexOf('}');
         
-        if (jsonStartIndex !== -1 && jsonEndIndex !== -1) {
-            cleanedJson = text.substring(jsonStartIndex, jsonEndIndex + 1);
-        } else {
-            cleanedJson = text;
+        if (jsonStartIndex === -1 || jsonEndIndex === -1) {
+            throw new Error("Invalid JSON structure returned by AI");
         }
 
-        try {
-            // First pass
-            let parsed = JSON.parse(cleanedJson);
-            
-            // Basic validation
-            if (!parsed.modules || !Array.isArray(parsed.modules)) parsed.modules = [];
-            if (!parsed.tickets || !Array.isArray(parsed.tickets)) parsed.tickets = [];
-            if (!parsed.sprints || !Array.isArray(parsed.sprints)) parsed.sprints = [];
-            
-            console.log("Successfully parsed and validated Gemini response JSON");
-            return sanitizePlan(parsed);
-        } catch (parseError) {
-            console.error("Primary JSON Parse Error. Attempting regex extraction...");
-            
-            // Strategy 2: Regex for markdown blocks
-            const markdownMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-            if (markdownMatch) {
-                try {
-                    return JSON.parse(markdownMatch[1]);
-                } catch (e) {}
-            }
+        const cleanedJson = text.substring(jsonStartIndex, jsonEndIndex + 1);
+        return JSON.parse(cleanedJson);
 
-            // Strategy 3: Regex for any {} structure
-            const anyJsonMatch = text.match(/\{[\s\S]*\}/);
-            if (anyJsonMatch) {
-                try {
-                    return JSON.parse(anyJsonMatch[0]);
-                } catch (e) {}
-            }
-            
-            throw new Error("Gemini returned invalid JSON structure: " + parseError.message);
-        }
     } catch (error) {
-        console.error("Requirement Agent Error:", error);
-        throw new Error("Failed to analyze project requirements: " + error.message);
+        // Handle Rate Limits (429)
+        if (error.status === 429) {
+            if (retries > 0) {
+                const waitTime = (3 - retries) * 2000;
+                console.warn(`Quota Exceeded (429) for ${modelName}. Retrying in ${waitTime}ms...`);
+                await delay(waitTime);
+                return callGemini(prompt, modelIndex, retries - 1);
+            } else if (modelIndex < MODELS.length - 1) {
+                console.log(`Switching from ${modelName} to fallback model: ${MODELS[modelIndex + 1]}`);
+                return callGemini(prompt, modelIndex + 1, 2);
+            }
+        }
+
+        console.error(`Gemini Error [${modelName}]:`, error.message);
+        throw error;
     }
 };
 
-/**
- * Improvises/Refines existing project plan based on new requirements.
- * @param {string} title - Project Title
- * @param {Object} existingPlan - The current SDLC plan (modules, tickets, etc.)
- * @param {string} improvisationQuery - New features/improvements requested
- * @returns {Object} Updated SDLC plan
- */
-const improviseProject = async (title, existingPlan, improvisationQuery) => {
-    console.log("Improvising project with Gemini. Query:", improvisationQuery);
-    console.log("Existing Plan Stats: Modules:", existingPlan.modules?.length, "Tickets:", existingPlan.tickets?.length);
+const analyzeProject = async (title, description) => {
+    const currentDate = new Date().toISOString().split('T')[0];
+    const prompt = `You are an expert SDLC Architect. Analyze the project "${title}".
+    Description: ${description}
+    Today: ${currentDate}
     
+    Return STRICT JSON:
+    1. projectTimeline: { startDate, endDate }
+    2. modules: Array of { name, description }
+    3. tickets: Array of { title, description, moduleName, priority, type, effort, skillsRequired, startDate, endDate }
+    4. sprints: Array of { name, ticketTitles, startDate, endDate }
+    5. recommendedTechnologies: Array of Strings
+    
+    Constraints:
+    - Start: ${currentDate}.
+    - Priority: highest|high|medium|low|lowest. Type: task|story|bug. 
+    - Effort: Story points (1,2,3,5,8).
+    - ensure realistic sequential dates based on dependencies (DB -> API -> UI).
+    
+    Return ONLY JSON.`;
+
     try {
-        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-
-        const prompt = `You are an expert SDLC Architect. You previously generated a development plan for the project: "${title}".
-        
-        EXISTING PLAN:
-        ${JSON.stringify(existingPlan, null, 2)}
-        
-        NEW REQUIREMENTS/IMPROVEMENTS:
-        "${improvisationQuery}"
-        
-        TASK:
-        Modify and expand the EXISTING PLAN to incorporate the NEW REQUIREMENTS.
-        - Add NEW modules if necessary.
-        - Add NEW tickets to both existing and new modules.
-        - Update existing modules/tickets if the new requirements fundamentally change them.
-        - Ensure logical sprint grouping for any new tickets.
-        - Update recommended technologies if new features require them.
-        
-        Generate the UPDATED plan in STRICT JSON format:
-        1. modules: Array of { name, description }
-        2. tickets: Array of { title, description, moduleName, priority, type, effort, skillsRequired }
-        3. sprints: Array of { name, ticketTitles }
-        4. recommendedTechnologies: Array of Strings
-        
-        Return ONLY the UPDATED JSON object. No markdown, no explanation.`;
-
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-        const text = response.text();
-        
-        // Find JSON block more reliably
-        let cleanedJson = text;
-        const jsonStartIndex = text.indexOf('{');
-        const jsonEndIndex = text.lastIndexOf('}');
-        
-        if (jsonStartIndex !== -1 && jsonEndIndex !== -1) {
-            cleanedJson = text.substring(jsonStartIndex, jsonEndIndex + 1);
-        }
-
-        try {
-            const sanitized = sanitizePlan(JSON.parse(cleanedJson));
-            return sanitized;
-        } catch (parseError) {
-            console.error("JSON Parse Error during improvisation:", text.substring(0, 100));
-            throw new Error("Gemini returned invalid JSON for improvisation");
-        }
+        const plan = await callGemini(prompt);
+        return sanitizePlan(plan);
     } catch (error) {
-        console.error("Improvisation Agent Error:", error);
-        throw new Error("Failed to improvise project: " + error.message);
+        throw new Error("AI Generation failed. All models are currently at capacity. Please try again in 1 minute.");
+    }
+};
+
+const improviseProject = async (title, existingPlan, improvisationQuery) => {
+    const currentDate = new Date().toISOString().split('T')[0];
+    const prompt = `You are an expert SDLC Architect. Refine project "${title}".
+    
+    EXISTING: ${JSON.stringify(existingPlan)}
+    NEW REQS: "${improvisationQuery}"
+    Today: ${currentDate}
+    
+    TASK: Expand plan. Add/update modules and tickets. Ensure realistic sequential dates.
+    
+    Return UPDATED plan in STRICT JSON (same schema as analyze).
+    Return ONLY JSON.`;
+
+    try {
+        const plan = await callGemini(prompt);
+        return sanitizePlan(plan);
+    } catch (error) {
+        throw new Error("AI Refinement failed. All models are currently at capacity. Please try again in 1 minute.");
     }
 };
 

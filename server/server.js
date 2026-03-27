@@ -11,6 +11,8 @@ const profileRoutes = require('./routes/profileRoutes');
 const Message = require('./models/Message');
 const Challenge = require('./models/Challenge');
 require('dotenv').config();
+const dns = require('node:dns');
+dns.setDefaultResultOrder('ipv4first');
 const syncService = require('./services/syncService');
 
 const app = express();
@@ -108,6 +110,10 @@ app.use('/api/ai-guide', require('./routes/aiGuideRoutes'));
 app.use('/api/ai', require('./routes/aiRoutes'));
 app.use('/api/assessment', require('./routes/assessmentRoutes'));
 app.use('/api/agents', require('./routes/agentRoutes'));
+app.use('/api/tickets', require('./routes/ticketRoutes'));
+app.use('/api/git', require('./routes/gitRoutes'));
+app.use('/api/approvals', require('./routes/approvalRoutes'));
+app.use('/api/analytics', require('./routes/analyticsRoutes'));
 
 // --- Socket.io Middleware & Presence ---
 const userSockets = new Map(); // userId -> Set of socketIds

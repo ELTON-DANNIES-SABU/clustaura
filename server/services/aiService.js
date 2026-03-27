@@ -10,7 +10,13 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "AIzaSy...");
  */
 exports.generateQuestionsAI = async (requirements) => {
     try {
-        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+        const model = genAI.getGenerativeModel({ 
+            model: "gemini-2.0-flash",
+            generationConfig: {
+                maxOutputTokens: 2048,
+                responseMimeType: "application/json"
+            }
+        });
 
         const prompt = `Generate assessment questions for a technical platform called Clustaura.
         Requirements: ${JSON.stringify(requirements)}

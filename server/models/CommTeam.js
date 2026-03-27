@@ -22,6 +22,11 @@ const commTeamSchema = new mongoose.Schema({
     icon: {
         type: String,
         default: 'T'
+    },
+    projectId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Project',
+        index: true
     }
 }, {
     timestamps: true

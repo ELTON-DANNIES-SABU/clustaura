@@ -1,9 +1,11 @@
 const generateTimeline = (sprints, tickets) => {
+    // If AI already generated dates, use them directly instead of algorithmic scheduling
+    if (sprints.length > 0 && sprints[0].startDate && tickets.length > 0 && tickets[0].startDate) {
+        return { updatedSprints: sprints, updatedTickets: tickets };
+    }
+
     const sprintDurationDays = 14; // Default 2 weeks
     let currentStartDate = new Date();
-    
-    // Normalize date to start of day
-    currentStartDate.setHours(0, 0, 0, 0);
 
     const updatedSprints = sprints.map((sprint) => {
         const sprintObj = sprint.toObject ? sprint.toObject() : sprint;
@@ -29,8 +31,8 @@ const generateTimeline = (sprints, tickets) => {
         const sprintId = ticketObj.sprint?._id || ticketObj.sprint;
         
         const sprint = updatedSprints.find(s => 
-            (s._id && sprintId && s._id.toString() === sprintId.toString()) ||
-            (s.name && ticketObj.sprintName && s.name.toLowerCase().trim() === ticketObj.sprintName.toLowerCase().trim())
+            (s._id && sprintId && String(s._id) === String(sprintId)) ||
+            (s.name && ticketObj.sprintName && String(s.name).toLowerCase().trim() === String(ticketObj.sprintName).toLowerCase().trim())
         );
         
         if (sprint) {
@@ -38,13 +40,13 @@ const generateTimeline = (sprints, tickets) => {
             const ticketsInThisSprint = tickets.filter(t => {
                 const tObj = t.toObject ? t.toObject() : t;
                 const tsId = tObj.sprint?._id || tObj.sprint;
-                return (s._id && tsId && s._id.toString() === tsId.toString()) ||
-                       (s.name && tObj.sprintName && s.name.toLowerCase().trim() === tObj.sprintName.toLowerCase().trim());
+                return (sprint._id && tsId && String(sprint._id) === String(tsId)) ||
+                       (sprint.name && tObj.sprintName && String(sprint.name).toLowerCase().trim() === String(tObj.sprintName).toLowerCase().trim());
             });
 
             const indexInSprint = ticketsInThisSprint.findIndex(t => {
                 const tObj = t.toObject ? t.toObject() : t;
-                return tObj._id.toString() === ticketObj._id.toString();
+                return String(tObj._id) === String(ticketObj._id);
             });
 
             // Calculate granular dates within the sprint

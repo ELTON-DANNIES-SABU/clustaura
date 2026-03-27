@@ -21,8 +21,15 @@ const ProjectSchema = new mongoose.Schema({
         required: true
     },
     members: [{
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User'
+        user: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User'
+        },
+        role: {
+            type: String,
+            enum: ['owner', 'lead', 'developer', 'Member'], // 'Member' retained for backward compatibility
+            default: 'developer'
+        }
     }],
     leaveRequests: [{
         user: {
@@ -58,6 +65,16 @@ const ProjectSchema = new mongoose.Schema({
     community: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Community'
+    },
+    repositoryUrl: {
+        type: String
+    },
+    repositoryProvider: {
+        type: String,
+        default: 'github'
+    },
+    webhookSecret: {
+        type: String
     },
     technologies: [{
         type: String

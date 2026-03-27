@@ -104,7 +104,7 @@ const CommunityRightSidebar = ({ onClose, user, activeCommunityId, onOpenCreateM
             {topCommunities.length > 0 && (
                 <div className="top-communities-card" style={{ marginTop: '24px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-                        <TrendingUp size={16} color="#339933" />
+                        <TrendingUp size={16} color="var(--node-green)" />
                         <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 600 }}>Top Communities</h4>
                     </div>
 
@@ -126,8 +126,8 @@ const CommunityRightSidebar = ({ onClose, user, activeCommunityId, onOpenCreateM
                                     transition: 'all 0.2s ease',
                                     background: 'rgba(255,255,255,0.02)',
                                 }}
-                                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(51,153,51,0.1)'}
-                                onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}
+                                onMouseEnter={(e) => e.currentTarget.style.background = 'var(--node-green-soft)'}
+                                onMouseLeave={(e) => e.currentTarget.style.background = 'var(--bg-hover)'}
                             >
                                 <span style={{
                                     width: '24px',
@@ -139,18 +139,18 @@ const CommunityRightSidebar = ({ onClose, user, activeCommunityId, onOpenCreateM
                                     justifyContent: 'center',
                                     fontSize: '12px',
                                     fontWeight: 'bold',
-                                    color: index === 0 ? '#ffd700' : index === 1 ? '#c0c0c0' : index === 2 ? '#cd7f32' : '#339933',
+                                    color: index === 0 ? '#ffd700' : index === 1 ? '#c0c0c0' : index === 2 ? '#cd7f32' : 'var(--node-green)',
                                 }}>
                                     #{index + 1}
                                 </span>
                                 <div style={{ flex: 1 }}>
                                     <div style={{ fontSize: '13px', fontWeight: 500 }}>r/{community.name}</div>
-                                    <div style={{ fontSize: '11px', color: '#a0a0a0', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
                                         <Users size={10} />
                                         {community.memberCount || 0} members
                                     </div>
                                 </div>
-                                <ChevronRight size={14} color="#a0a0a0" />
+                                <ChevronRight size={14} color="var(--text-secondary)" />
                             </div>
                         ))}
                     </div>
@@ -160,7 +160,7 @@ const CommunityRightSidebar = ({ onClose, user, activeCommunityId, onOpenCreateM
             {/* Expert Spotlight */}
             <div className="expert-spotlight-card" style={{ marginTop: '24px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-                    <Award size={16} color="#ffaa33" />
+                    <Award size={16} color="var(--warning)" />
                     <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 600 }}>Expert Spotlight</h4>
                 </div>
 
@@ -171,16 +171,16 @@ const CommunityRightSidebar = ({ onClose, user, activeCommunityId, onOpenCreateM
                 ) : topExpert ? (
                     <div style={{
                         padding: '16px',
-                        background: 'rgba(255,170,51,0.05)',
+                        background: 'var(--warning-bg)',
                         borderRadius: '12px',
-                        border: '1px solid rgba(255,170,51,0.2)',
+                        border: '1px solid var(--warning-bg)',
                     }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
                             <div style={{
                                 width: '40px',
                                 height: '40px',
                                 borderRadius: '50%',
-                                background: 'linear-gradient(135deg, #ffaa33, #ff8c00)',
+                                background: 'linear-gradient(135deg, var(--warning), #ff8c00)',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
@@ -199,16 +199,16 @@ const CommunityRightSidebar = ({ onClose, user, activeCommunityId, onOpenCreateM
                                 <div style={{ fontWeight: 600, fontSize: '14px' }}>
                                     {topExpert.user?.firstName} {topExpert.user?.lastName}
                                 </div>
-                                <div style={{ fontSize: '11px', color: '#a0a0a0' }}>
+                                <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
                                     {topExpert.user?.role || 'Expert Contributor'}
                                 </div>
                             </div>
                         </div>
-                        <p style={{ fontSize: '12px', color: '#a0a0a0', margin: '0 0 12px 0', lineHeight: '1.5' }}>
+                        <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: '0 0 12px 0', lineHeight: '1.5' }}>
                             {topExpert.profile?.bio || `Top expert with ${topExpert.monthlyCredits || 0} credits earned this month. Helped ${topExpert.helpedCount || 0} developers with technical solutions.`}
                         </p>
                         {topExpert.profile?.bio && (
-                            <div style={{ fontSize: '11px', color: '#339933', marginBottom: '12px', fontWeight: 600 }}>
+                            <div style={{ fontSize: '11px', color: 'var(--node-green)', marginBottom: '12px', fontWeight: 600 }}>
                                 Helped {topExpert.helpedCount || 0} developers this month
                             </div>
                         )}
@@ -223,7 +223,7 @@ const CommunityRightSidebar = ({ onClose, user, activeCommunityId, onOpenCreateM
                                 background: 'transparent',
                                 border: '1px solid rgba(255,170,51,0.3)',
                                 borderRadius: '6px',
-                                color: '#ffaa33',
+                                color: 'var(--warning)',
                                 fontSize: '12px',
                                 cursor: 'pointer',
                                 transition: 'all 0.2s ease'
@@ -260,10 +260,10 @@ const CommunityRightSidebar = ({ onClose, user, activeCommunityId, onOpenCreateM
                             }}
                             style={{
                                 padding: '4px 12px',
-                                background: 'rgba(51,153,51,0.1)',
+                                background: 'var(--node-green-soft)',
                                 borderRadius: '20px',
                                 fontSize: '11px',
-                                color: '#339933',
+                                color: 'var(--node-green)',
                                 cursor: 'pointer',
                                 transition: 'all 0.2s ease',
                                 textTransform: 'lowercase'

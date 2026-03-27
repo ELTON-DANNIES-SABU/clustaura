@@ -8,57 +8,57 @@
    DESIGN TOKENS - Complete Design System
 ═══════════════════════════════════════════════════════ */
 :root {
-    /* ── Brand Colors ── */
-    --node-green: #339933;
-    --node-green-light: #40c0ff;
-    --node-green-dark: #1e5f1e;
-    --node-green-soft: rgba(51, 153, 51, 0.1);
-    --node-green-glow: rgba(51, 153, 51, 0.3);
+    /* ── Brand Colors (Mapped to Cyberpunk Green SaaS) ── */
+    --node-green: var(--accent-primary);
+    --node-green-light: var(--accent-secondary);
+    --node-green-dark: #312e81; /* Indigo-900 */
+    --node-green-soft: rgba(0, 255, 163, 0.1);
+    --node-green-glow: rgba(0, 255, 163, 0.05);
 
     /* ── Gradients ── */
-    --gradient-primary: linear-gradient(135deg, #339933 0%, #40c0ff 100%);
-    --gradient-secondary: linear-gradient(135deg, #40c0ff 0%, #6f4fff 100%);
-    --gradient-accent: linear-gradient(135deg, #ff6b6b 0%, #ffb347 100%);
-    --gradient-dark: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
+    --gradient-primary: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+    --gradient-secondary: linear-gradient(135deg, var(--accent-secondary) 0%, #4f46e5 100%);
+    --gradient-accent: linear-gradient(135deg, var(--error) 0%, var(--warning) 100%);
+    --gradient-dark: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
 
     /* ── Backgrounds ── */
-    --bg-primary: #000000;
-    --bg-secondary: #0a0a0a;
-    --bg-tertiary: #111111;
-    --bg-hover: #1a1a1a;
-    --bg-active: #222222;
+    --bg-primary: var(--bg-primary);
+    --bg-secondary: var(--bg-secondary);
+    --bg-tertiary: var(--bg-surface);
+    --bg-hover: rgba(255, 255, 255, 0.05);
+    --bg-active: rgba(255, 255, 255, 0.1);
 
     /* ── Surface Colors ── */
-    --surface-1: rgba(17, 17, 17, 0.8);
-    --surface-2: rgba(26, 26, 26, 0.8);
-    --surface-3: rgba(34, 34, 34, 0.8);
+    --surface-1: var(--bg-surface);
+    --surface-2: var(--bg-secondary);
+    --surface-3: var(--bg-primary);
 
     /* ── Glass Effects ── */
-    --glass-bg: rgba(10, 10, 10, 0.7);
-    --glass-border: rgba(51, 153, 51, 0.15);
-    --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    --glass-bg: var(--bg-surface);
+    --glass-border: var(--border-color);
+    --glass-shadow: var(--shadow-lg);
 
     /* ── Text Colors ── */
-    --text-primary: #ffffff;
-    --text-secondary: #e0e0e0;
-    --text-tertiary: #a0a0a0;
-    --text-muted: #808080;
-    --text-subtle: #606060;
+    --text-primary: var(--text-primary);
+    --text-secondary: var(--text-secondary);
+    --text-tertiary: var(--text-secondary);
+    --text-muted: var(--text-secondary);
+    --text-subtle: var(--text-secondary);
 
     /* ── Semantic Colors ── */
-    --success: #339933;
-    --success-bg: rgba(51, 153, 51, 0.1);
-    --error: #ff4d4d;
-    --error-bg: rgba(255, 77, 77, 0.1);
-    --warning: #ffaa33;
-    --warning-bg: rgba(255, 170, 51, 0.1);
-    --info: #40c0ff;
-    --info-bg: rgba(64, 192, 255, 0.1);
+    --success: var(--success);
+    --success-bg: rgba(34, 197, 94, 0.1);
+    --error: var(--error);
+    --error-bg: rgba(239, 68, 68, 0.1);
+    --warning: var(--warning);
+    --warning-bg: rgba(245, 158, 11, 0.1);
+    --info: var(--accent-secondary);
+    --info-bg: rgba(59, 130, 246, 0.1);
 
     /* ── Borders ── */
-    --border-light: rgba(51, 153, 51, 0.1);
-    --border-medium: rgba(51, 153, 51, 0.2);
-    --border-strong: rgba(51, 153, 51, 0.3);
+    --border-light: var(--border-color);
+    --border-medium: var(--border-color);
+    --border-strong: var(--border-color);
 
     /* ── Typography Scale ── */
     --text-2xs: 0.625rem;
@@ -186,7 +186,7 @@ body {
     right: -100px;
     width: 400px;
     height: 400px;
-    background: radial-gradient(circle at center, var(--node-green), transparent);
+    background: radial-gradient(circle at center, var(--accent-primary), transparent);
 }
 
 .bg-orb-2 {
@@ -204,7 +204,7 @@ body {
     transform: translate(-50%, -50%);
     width: 600px;
     height: 600px;
-    background: radial-gradient(circle at center, #6f4fff, transparent);
+    background: radial-gradient(circle at center, #00FFA3, transparent);
     opacity: 0.1;
     animation-delay: -10s;
 }
@@ -4023,7 +4023,7 @@ body {
     width: 90%;
     max-width: 800px;
     max-height: 90vh;
-    background: linear-gradient(135deg, #0a0a0c 0%, #12121e 100%);
+    background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
     border-radius: 28px;
     border: 1px solid var(--border-strong);
     box-shadow:

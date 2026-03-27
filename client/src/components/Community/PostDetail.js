@@ -6,6 +6,7 @@ import CommentSection from './CommentSection';
 import VoteButtons from './shared/VoteButtons';
 import UserAvatar from './shared/UserAvatar';
 import TagList from './shared/TagList';
+import RecommendedContributors from './RecommendedContributors';
 
 const PostDetail = ({ onToast }) => {
     const { postId } = useParams();
@@ -178,6 +179,18 @@ const PostDetail = ({ onToast }) => {
 
                         {/* Comments */}
                         <CommentSection postId={post.id} onToast={onToast} />
+                    </div>
+
+                    {/* Recommended Contributors Sidebar */}
+                    <div style={{ 
+                        width: 280, 
+                        borderLeft: '1px solid var(--border-subtle)', 
+                        background: 'rgba(0,0,0,0.1)',
+                        flexShrink: 0
+                    }}>
+                        <div style={{ position: 'sticky', top: 'var(--sp-6)' }}>
+                            <RecommendedContributors postId={post.id} />
+                        </div>
                     </div>
                 </div>
             </div>

@@ -310,7 +310,7 @@ const AssessmentPortal = () => {
                     justify-content: space-between;
                     align-items: center;
                     margin-bottom: 2rem;
-                    border-bottom: 1px solid var(--border-primary);
+                    border-bottom: 1px solid var(--border-color);
                     padding-bottom: 1rem;
                 }
                 .assessment-nav {
@@ -328,7 +328,7 @@ const AssessmentPortal = () => {
                     transition: all 0.2s;
                 }
                 .nav-link.active {
-                    color: var(--primary-mint);
+                    color: var(--accent-primary);
                     background: rgba(0, 255, 163, 0.1);
                 }
                 .test-grid {
@@ -337,15 +337,15 @@ const AssessmentPortal = () => {
                     gap: 1.5rem;
                 }
                 .test-card {
-                    background: var(--bg-secondary);
-                    border: 1px solid var(--border-primary);
+                    background: var(--bg-surface);
+                    border: 1px solid var(--border-color);
                     border-radius: var(--radius-xl);
                     padding: 1.5rem;
-                    transition: transform 0.2s;
+                    transition: transform 0.2s, border-color 0.2s;
                 }
                 .test-card:hover {
                     transform: translateY(-5px);
-                    border-color: var(--primary-mint);
+                    border-color: var(--accent-primary);
                 }
                 .test-icon {
                     font-size: 2rem;
@@ -373,7 +373,7 @@ const AssessmentPortal = () => {
                 }
                 .manage-card {
                     background: var(--bg-surface);
-                    border: 1px solid var(--border-primary);
+                    border: 1px solid var(--border-color);
                     border-radius: var(--radius-lg);
                     padding: 1rem;
                 }
@@ -395,8 +395,8 @@ const AssessmentPortal = () => {
                     padding: 2rem;
                 }
                 .analytics-modal {
-                    background: var(--bg-secondary);
-                    border: 1px solid var(--border-primary);
+                    background: var(--bg-surface);
+                    border: 1px solid var(--border-color);
                     border-radius: var(--radius-xl);
                     width: 100%;
                     max-width: 900px;
@@ -422,30 +422,30 @@ const AssessmentPortal = () => {
                     margin-bottom: 3rem;
                 }
                 .stat-card {
-                    background: rgba(255, 255, 255, 0.03);
+                    background: var(--bg-secondary);
                     padding: 2rem 1.5rem;
                     border-radius: var(--radius-lg);
                     text-align: center;
-                    border: 1px solid var(--border-primary);
-                    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+                    border: 1px solid var(--border-color);
+                    box-shadow: var(--shadow-md);
                 }
                 .stat-card label { display: block; font-size: 0.85rem; color: var(--text-tertiary); margin-bottom: 0.8rem; text-transform: uppercase; letter-spacing: 1px; }
-                .stat-card span { font-size: 2.5rem; font-weight: 800; color: var(--primary-mint); }
+                .stat-card span { font-size: 2.5rem; font-weight: 800; color: var(--accent-primary); }
                 
                 .analytics-section {
                     margin-bottom: 3rem;
                 }
                 .section-title-row {
-                    border-left: 4px solid var(--primary-mint);
+                    border-left: 4px solid var(--accent-primary);
                     padding-left: 1rem;
                     margin-bottom: 1.5rem;
                 }
                 .section-title-row h3 { font-size: 1.25rem; }
 
                 .report-table-container { 
-                    background: rgba(255, 255, 255, 0.02);
+                    background: var(--bg-secondary);
                     border-radius: var(--radius-lg);
-                    border: 1px solid var(--border-primary);
+                    border: 1px solid var(--border-color);
                     overflow: hidden;
                 }
                 .report-table { width: 100%; border-collapse: collapse; }
@@ -464,7 +464,7 @@ const AssessmentPortal = () => {
                 .user-profile-item { display: flex; align-items: center; gap: 1rem; }
                 .avatar-small { 
                     width: 36px; height: 36px; border-radius: 50%; 
-                    background: var(--primary-mint); color: var(--black);
+                    background: var(--accent-primary); color: var(--white);
                     display: flex; align-items: center; justify-content: center;
                     font-weight: 700; font-size: 0.9rem;
                 }
@@ -485,11 +485,11 @@ const AssessmentPortal = () => {
                     padding: 0.3rem 0.8rem; border-radius: 50px; font-size: 0.7rem; font-weight: 700; 
                     text-transform: uppercase; letter-spacing: 0.5px;
                 }
-                .status-badge.submitted { background: rgba(0, 255, 163, 0.1); color: var(--primary-mint); }
+                .status-badge.submitted { background: rgba(0, 255, 163, 0.1); color: var(--accent-primary); }
                 .status-badge.in-progress { background: rgba(255, 171, 0, 0.1); color: #ffab00; }
                 .status-badge.evaluated { background: rgba(0, 150, 255, 0.1); color: #0096ff; }
                 
-                .violation-badge { background: rgba(255, 71, 87, 0.1); color: #ff4757; padding: 0.2rem 0.6rem; border-radius: 4px; font-size: 0.8rem; font-weight: 600; }
+                .violation-badge { background: rgba(239, 68, 68, 0.1); color: var(--error); padding: 0.2rem 0.6rem; border-radius: 4px; font-size: 0.8rem; font-weight: 600; }
                 .no-violations { color: var(--text-tertiary); font-size: 0.85rem; }
 
                 .non-attendees-grid {
@@ -498,8 +498,8 @@ const AssessmentPortal = () => {
                     gap: 1.5rem;
                 }
                 .user-profile-card {
-                    background: rgba(255, 255, 255, 0.03);
-                    border: 1px solid var(--border-primary);
+                    background: var(--bg-secondary);
+                    border: 1px solid var(--border-color);
                     padding: 1.5rem;
                     border-radius: var(--radius-lg);
                     display: flex;
@@ -510,9 +510,9 @@ const AssessmentPortal = () => {
                 }
                 .user-profile-card:hover { 
                     transform: translateY(-4px);
-                    background: rgba(255, 255, 255, 0.05);
+                    background: var(--bg-surface);
                 }
-                .all-attended { text-align: center; padding: 2rem; color: var(--primary-mint); font-weight: 600; font-size: 1.1rem; }
+                .all-attended { text-align: center; padding: 2rem; color: var(--success); font-weight: 600; font-size: 1.1rem; }
 
                 .manage-actions {
                     display: flex;
@@ -520,9 +520,9 @@ const AssessmentPortal = () => {
                 }
                 .btn-half { flex: 1; padding: 0.6rem; font-size: 0.85rem; }
                 .btn-danger {
-                    background: rgba(255, 71, 87, 0.1);
-                    color: #ff4757;
-                    border: 1px solid rgba(255, 71, 87, 0.2);
+                    background: rgba(239, 68, 68, 0.1);
+                    color: var(--error);
+                    border: 1px solid rgba(239, 68, 68, 0.2);
                     border-radius: var(--radius-md);
                     cursor: pointer;
                     transition: all 0.2s;

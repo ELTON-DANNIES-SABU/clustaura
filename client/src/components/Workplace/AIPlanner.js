@@ -97,23 +97,33 @@ const AIPlanner = () => {
 
     if (loading) return <div className="loading">Initializing AI Assistant...</div>;
 
+    const isLeadOrOwner = 
+        project?.owner?._id === JSON.parse(localStorage.getItem('user'))?._id || 
+        project?.owner === JSON.parse(localStorage.getItem('user'))?._id ||
+        project?.members?.find(m => m.user?._id === JSON.parse(localStorage.getItem('user'))?._id)?.role === 'Project Lead';
+
     return (
         <div className="ai-workspace-container" key={projectId}>
             <header className="ai-workspace-header">
-                <div className="header-info">
-                    <h1><Brain size={32} color="#00FF9C" /> {project ? project.name : ''} AI Command Center</h1>
-                    <p>Agentic AI SDLC Assistant isActive</p>
+                <div className="header-brand">
+                    <div className="brain-icon-wrapper">
+                        <Brain size={32} color="#00FFA3" className="glow-icon" />
+                    </div>
+                    <div className="header-title">
+                        <h1>{project ? project.name : ''} AI Command Center</h1>
+                        <p>Agentic AI SDLC Assistant <span className="status-active">isActive</span></p>
+                    </div>
                 </div>
                 <div className="planner-controls">
-                    <button className="secondary-btn" onClick={() => navigate(`/workplace/project/${projectId}/board`)}>
+                    <button className="primary-nav-btn" onClick={() => navigate(`/workplace/project/${projectId}/board`)}>
                         <Layout size={18} /> View Monitoring Board
                     </button>
-                    {planData && project?.owner === JSON.parse(localStorage.getItem('user'))?._id && (
-                        <button className="secondary-btn reset-btn" onClick={handleResetPlan} style={{ color: '#ff4757', border: '1px solid rgba(255, 71, 87, 0.3)' }}>
+                    {planData && isLeadOrOwner && (
+                        <button className="primary-nav-btn reset-btn" onClick={handleResetPlan}>
                             <AlertTriangle size={18} /> Reset Plan
                         </button>
                     )}
-                    <button className="back-btn" onClick={() => navigate('/workplace')}>
+                    <button className="primary-nav-btn back-btn" onClick={() => navigate('/workplace')}>
                         Exit to Projects
                     </button>
                 </div>
@@ -126,17 +136,21 @@ const AIPlanner = () => {
                 <button className={`tab-btn ${activeTab === 'timeline' ? 'active' : ''}`} onClick={() => setActiveTab('timeline')}>
                     <Calendar size={18} /> Sprint Timeline
                 </button>
-                <button className={`tab-btn ${activeTab === 'workforce' ? 'active' : ''}`} onClick={() => setActiveTab('workforce')}>
-                    <Users2 size={18} /> Team Requirements
-                </button>
-                <button className={`tab-btn ${activeTab === 'suggestions' ? 'active' : ''}`} onClick={() => setActiveTab('suggestions')}>
-                    <Users size={18} /> Team Suggestions
-                </button>
+                {isLeadOrOwner && (
+                    <>
+                        <button className={`tab-btn ${activeTab === 'workforce' ? 'active' : ''}`} onClick={() => setActiveTab('workforce')}>
+                            <Users2 size={18} /> Team Requirements
+                        </button>
+                        <button className={`tab-btn ${activeTab === 'suggestions' ? 'active' : ''}`} onClick={() => setActiveTab('suggestions')}>
+                            <Users size={18} /> Team Suggestions
+                        </button>
+                    </>
+                )}
             </div>
 
             <div className="ai-workspace-grid">
                 <div className="left-panel">
-                    {!planData && (
+                    {!planData && activeTab === 'modules' && (
                         <ProjectInitializationInput
                             projectId={projectId}
                             projectName={project ? project.name : ''}
@@ -150,8 +164,9 @@ const AIPlanner = () => {
                                 modules={planData.modules}
                                 tickets={planData.tickets}
                                 technologies={planData.technologies}
+                                canManage={isLeadOrOwner}
                             />
-                            {project?.owner === JSON.parse(localStorage.getItem('user'))?._id && (
+                            { isLeadOrOwner && (
                                 <ProjectImprovisationInput 
                                     projectId={projectId} 
                                     onPlanImprovised={handlePlanGenerated} 
@@ -160,25 +175,36 @@ const AIPlanner = () => {
                         </>
                     )}
 
-                    {planData && activeTab === 'timeline' && (
+                    {activeTab === 'timeline' && (
                         <SprintTimelineView
-                            sprints={planData.sprints}
-                            tickets={planData.tickets}
+                            sprints={planData?.sprints || []}
+                            tickets={planData?.tickets || []}
+                            projectId={projectId}
+                            project={project}
+                            canManage={isLeadOrOwner}
+                            onUpdate={fetchFullPlan}
+                            modules={planData?.modules || []}
                         />
                     )}
 
-                    {planData && activeTab === 'workforce' && (
+                    {activeTab === 'workforce' && (
                         <TeamRequirementPanel
-                            requirements={planData.requirements}
+                            requirements={planData?.requirements || []}
                         />
                     )}
-                    {planData && activeTab === 'suggestions' && (
+                    {activeTab === 'suggestions' && (
                         <TeamSuggestionsPanel projectId={projectId} />
                     )}
                 </div>
 
                 <div className="right-panel">
-                    <TeamSkillPanel members={project ? (project.members || []) : []} analysis={analysis} />
+                    <TeamSkillPanel 
+                        members={project ? (project.members || []) : []} 
+                        analysis={analysis}
+                        projectId={projectId}
+                        isOwner={project?.owner?._id === JSON.parse(localStorage.getItem('user'))?._id || project?.owner === JSON.parse(localStorage.getItem('user'))?._id}
+                        onMemberUpdate={(updatedProject) => setProject(updatedProject)}
+                    />
                     <AISuggestionsPanel analysis={analysis} />
                 </div>
             </div>

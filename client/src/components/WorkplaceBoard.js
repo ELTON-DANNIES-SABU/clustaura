@@ -2,15 +2,19 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import '../styles.css';
+import './WorkplaceBoard.css';
 import { Search, X, Filter, User, CheckCircle, Clock, Layout, FlaskConical, ChevronRight, Plus, MoreVertical, Target, Flag, MessageSquare, BarChart3, Zap } from 'lucide-react';
 import { useToast } from './Community/shared/Toast';
+import { io } from 'socket.io-client';
 import TicketDetailModal from './Workplace/components/TicketDetailModal';
+import ProjectCommunication from './Workplace/ProjectCommunication';
+import ProjectAnalytics from './Workplace/ProjectAnalytics';
 
 
 const WorkplaceBoard = () => {
     const { projectId } = useParams();
     const navigate = useNavigate();
-    const [columns, setColumns] = useState(['To Do', 'In Progress', 'Dev Testing', 'Done']);
+    const [columns, setColumns] = useState(['To Do', 'In Progress', 'Testing', 'Completed']);
     const [project, setProject] = useState(null);
     const [issues, setIssues] = useState([]);
     const [allSprints, setAllSprints] = useState([]);
@@ -22,11 +26,54 @@ const WorkplaceBoard = () => {
     const [selectedIssueDetail, setSelectedIssueDetail] = useState(null);
     const [dragOverColumn, setDragOverColumn] = useState(null);
     const [currentUser, setCurrentUser] = useState(null);
+    const [isLeadOrOwner, setIsLeadOrOwner] = useState(false);
     const [leaveRequests, setLeaveRequests] = useState([]);
-    const { toast } = useToast();
+    const [activeView, setActiveView] = useState('board'); // 'board', 'communication'
+    const [pendingApprovals, setPendingApprovals] = useState([]);
+    const [showApprovalPanel, setShowApprovalPanel] = useState(false);
+    const [refreshTrigger, setRefreshTrigger] = useState(0);
+    const toast = useToast();
 
     const today = new Date().toISOString().split('T')[0];
 
+    // Separate effect just for socket to prevent disconnects on sprint change
+    useEffect(() => {
+        const userStr = localStorage.getItem('user');
+        let newSocket;
+        if (userStr) {
+            const parsedUser = JSON.parse(userStr);
+            const socketUrl = process.env.NODE_ENV === 'production' ? '/' : 'http://localhost:5000';
+            
+            newSocket = io(socketUrl, {
+                auth: { token: parsedUser.token }
+            });
+
+            newSocket.on('ticketProgressUpdated', (data) => {
+                const { ticketId, progress, status, commits } = data;
+                setIssues(prevIssues => prevIssues.map(issue => {
+                    if (issue._id === ticketId) {
+                        return { ...issue, progressPercentage: progress, status: status, commits: commits || issue.commits };
+                    }
+                    return issue;
+                }));
+                
+                setSelectedIssueDetail(prevDetail => {
+                    if (prevDetail && prevDetail._id === ticketId) {
+                        return { ...prevDetail, progressPercentage: progress, status: status, commits: commits || prevDetail.commits };
+                    }
+                    return prevDetail;
+                });
+            });
+
+            newSocket.on('approvalRequested', () => setRefreshTrigger(prev => prev + 1));
+            newSocket.on('approvalProcessed', () => setRefreshTrigger(prev => prev + 1));
+            newSocket.on('approvalsCleared', () => setRefreshTrigger(prev => prev + 1));
+        }
+        
+        return () => {
+            if (newSocket) newSocket.disconnect();
+        };
+    }, []); // Run ONCE exactly on mount
 
     useEffect(() => {
         const userStr = localStorage.getItem('user');
@@ -34,7 +81,7 @@ const WorkplaceBoard = () => {
             setCurrentUser(JSON.parse(userStr));
         }
         fetchProjectData();
-    }, [projectId, selectedSprintId]);
+    }, [projectId, selectedSprintId, refreshTrigger]);
 
     const fetchProjectData = async () => {
         try {
@@ -47,13 +94,15 @@ const WorkplaceBoard = () => {
                 }
             };
 
-            const [projRes, sprintsRes] = await Promise.all([
+            const [projRes, sprintsRes, approvalsRes] = await Promise.all([
                 axios.get(`/api/workplace/projects/${projectId}`, config),
-                axios.get(`/api/workplace/projects/${projectId}/sprints`, config)
+                axios.get(`/api/workplace/projects/${projectId}/sprints`, config),
+                axios.get(`/api/approvals/${projectId}`, config).catch(() => ({ data: [] }))
             ]);
 
             setProject(projRes.data);
             setAllSprints(sprintsRes.data);
+            setPendingApprovals(approvalsRes.data);
 
             const active = sprintsRes.data.find(s => s.status === 'active');
             setActiveSprint(active);
@@ -82,6 +131,11 @@ const WorkplaceBoard = () => {
                 const leaveReqRes = await axios.get(`/api/workplace/projects/${projectId}/leave-requests`, config);
                 setLeaveRequests(leaveReqRes.data);
             }
+
+            // Calculate lead/owner permission
+            const isOwner = projRes.data.owner?._id === _id || projRes.data.owner === _id;
+            const isLead = projRes.data.members?.find(m => (m.user?._id === _id || m.user === _id) && m.role === 'Project Lead');
+            setIsLeadOrOwner(isOwner || !!isLead);
 
         } catch (error) {
             console.error('Error fetching board data:', error);
@@ -147,16 +201,30 @@ const WorkplaceBoard = () => {
     const handleAutoAssign = async () => {
         try {
             const { token } = currentUser;
-            const res = await axios.post(`http://localhost:5000/api/agents/assign-tickets`, 
-                { projectId },
+            const res = await axios.post(`/api/tickets/auto-assign/${projectId}`, 
+                {},
                 { headers: { Authorization: `Bearer ${token}` } }
             );
 
-            toast(res.data.message, 'success');
+            toast.success(res.data.message || 'Tickets assigned correctly', 3000);
             fetchProjectData();
         } catch (error) {
             console.error('Auto-assign error:', error);
-            toast(error.response?.data?.message || 'Failed to auto-assign tickets', 'error');
+            toast.error(error.response?.data?.message || 'Failed to auto-assign tickets', 5000);
+        }
+    };
+
+    const handleApprovalAction = async (requestId, action) => {
+        try {
+            const { token } = currentUser;
+            await axios.post(`/api/approvals/${action}/${requestId}`, {}, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            toast.success(`Request ${action}d successfully`, 3000);
+            setRefreshTrigger(prev => prev + 1);
+        } catch (error) {
+            console.error('Approval Error:', error);
+            toast.error(error.response?.data?.message || 'Error processing approval', 4000);
         }
     };
 
@@ -204,12 +272,12 @@ const WorkplaceBoard = () => {
 
     const getPriorityColor = (p) => {
         switch (p) {
-            case 'highest': return '#ff4757';
-            case 'high': return '#ffa502';
-            case 'medium': return '#eccc68';
-            case 'low': return '#7bed9f';
-            case 'lowest': return '#2ed573';
-            default: return '#ccc';
+            case 'highest': return 'var(--error)';
+            case 'high': return 'var(--warning)';
+            case 'medium': return 'var(--accent-primary)';
+            case 'low': return 'var(--success)';
+            case 'lowest': return 'var(--text-secondary)';
+            default: return 'var(--border-color)';
         }
     };
 
@@ -224,11 +292,11 @@ const WorkplaceBoard = () => {
 
     const getColumnColor = (column) => {
         switch (column) {
-            case 'To Do': return '#ff6b6b';
-            case 'In Progress': return '#ffa94d';
-            case 'Dev Testing': return '#4dabf7';
-            case 'Done': return '#51cf66';
-            default: return '#868e96';
+            case 'To Do': return 'var(--accent-secondary)';
+            case 'In Progress': return 'var(--accent-primary)';
+            case 'Testing': return 'var(--accent-secondary)';
+            case 'Completed': return 'var(--success)';
+            default: return 'var(--border-color)';
         }
     };
 
@@ -242,93 +310,107 @@ const WorkplaceBoard = () => {
     return (
         <div className="workplace-board-container">
             <header className="board-header">
-                <div className="board-breadcrumbs">
-                    <span onClick={() => navigate('/workplace')} style={{ cursor: 'pointer' }}>Projects</span>
-                    <ChevronRight size={16} />
-                    <span className="project-name">{project.name}</span>
-                    <ChevronRight size={16} />
-                    <span className="current-page">Board</span>
-                </div>
+                <div className="header-left">
+                    <div className="board-breadcrumbs">
+                        <span onClick={() => navigate('/workplace')} style={{ cursor: 'pointer' }}>Projects</span>
+                        <ChevronRight size={16} />
+                        <span className="project-name">{project.name}</span>
+                        <ChevronRight size={16} />
+                        <span className="current-page">Board</span>
+                    </div>
 
-                <div className="board-title-section">
                     <div className="project-info-header">
-                        <div className="project-avatar" style={{ background: 'linear-gradient(135deg, #00ffaa, #00cc88)' }}>
+                        <div className="project-avatar">
                             {project.key.substring(0, 2)}
                         </div>
-                        <div>
+                        <div className="project-title-content">
                             <h1>{project.name} Board</h1>
                             <p className="project-description">{project.description}</p>
                         </div>
                     </div>
+                </div>
 
-                    <div className="board-actions">
-                        <div className="member-stack">
-                            <div className="member-avatar user-icon-avatar" title="Member List">
-                                <User size={16} />
-                            </div>
-                            {project.members?.slice(0, 5).map((member, idx) => (
-                                <div
-                                    key={member._id}
-                                    className="member-avatar"
-                                    style={{
-                                        backgroundColor: !member.profileImageUrl ? `hsl(${idx * 40}, 60%, 40%)` : 'transparent',
-                                        zIndex: 10 + idx,
-                                        left: `${(idx + 1) * 22}px`,
-                                        overflow: 'hidden'
-                                    }}
-                                    title={`${member.firstName} ${member.lastName}`}
-                                    onClick={() => setSelectedMember(member)}
-                                >
-                                    {member.profileImageUrl ? (
-                                        <img 
-                                            src={member.profileImageUrl} 
-                                            alt={member.firstName} 
-                                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                        />
-                                    ) : (
-                                        <>{member.firstName?.charAt(0)}{member.lastName?.charAt(0)}</>
-                                    )}
-                                </div>
-                            ))}
+                <div className="board-actions">
+                    <div className="board-team">
+                        <div className="team-avatars">
+                            {project.members?.slice(0, 5).map((memberObj, idx) => {
+                                const member = memberObj.user;
+                                const isProjectOwner = member?._id === project.owner?._id || member?._id === project.owner;
+                                return (
+                                    <div
+                                        key={member?._id || idx}
+                                        className="member-avatar-wrapper"
+                                        title={`${member?.firstName || 'User'} ${member?.lastName || ''} (${memberObj.role})`}
+                                        onClick={() => setSelectedMember(memberObj)}
+                                        style={{ zIndex: 10 - idx }}
+                                    >
+                                        {member?.avatar ? (
+                                            <img
+                                                src={member.avatar}
+                                                alt={member.firstName}
+                                                className="member-avatar-img"
+                                            />
+                                        ) : (
+                                            <div className={`member-avatar-initials ${isProjectOwner ? 'owner' : ''}`}>
+                                                {member?.firstName?.charAt(0)}{member?.lastName?.charAt(0) || memberObj.role[0]}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
                             {project.members?.length > 5 && (
-                                <div 
-                                    className="member-avatar more"
-                                    style={{ left: `${6 * 22}px`, zIndex: 16 }}
-                                >
-                                    +{project.members.length - 5}
+                                <div className="member-avatar-wrapper more-indicator">
+                                    <div className="member-avatar-initials">+{project.members.length - 5}</div>
                                 </div>
                             )}
                         </div>
-
-                        {activeSprint && (
-                            <div className="sprint-info">
-                                <Target size={16} />
-                                <span>{activeSprint.name}</span>
-                            </div>
-                        )}
-
-                        {project.owner._id === currentUser?._id ? (
-                            <button className="action-btn" onClick={() => setShowAddMemberModal(true)}>
-                                <Plus size={16} /> Add Member
-                            </button>
-                        ) : (
-                            <button className="action-btn leave-btn" onClick={handleLeaveProject} style={{ color: '#ff4757', border: '1px solid rgba(255, 71, 87, 0.3)' }}>
-                                <X size={16} /> Leave Project
+                        {isLeadOrOwner && (
+                            <button className="add-member-btn" title="Add Team Member" onClick={() => navigate(`/workplace/project/${projectId}/ai-planner`)}>
+                                <Plus size={16} />
+                                <span>Add Member</span>
                             </button>
                         )}
+                    </div>
 
+                    {activeSprint && (
+                        <div className="sprint-info">
+                            <Target size={16} />
+                            <span>{activeSprint.name}</span>
+                        </div>
+                    )}
+
+                    <div className="action-buttons-group">
                         <button className="action-btn" onClick={() => setIsSidebarOpen(true)}>
-                            <Search size={16} /> Search
+                            <Search size={16} />
+                            <span>Search</span>
                         </button>
 
-                        {project.owner._id === currentUser?._id && (
+                        {isLeadOrOwner && (
                             <button className="action-btn" onClick={handleAutoAssign} title="AI Auto-Assign Tickets">
                                 <Zap size={16} />
                                 <span>Auto-Assign</span>
                             </button>
                         )}
+                        {isLeadOrOwner && pendingApprovals.length > 0 && (
+                            <button className="action-btn" style={{ position: 'relative' }} onClick={() => setShowApprovalPanel(true)} title="Pending Approvals">
+                                <Target size={16} />
+                                <span>Approvals ({pendingApprovals.length})</span>
+                            </button>
+                        )}
 
-                        <button className="primary-nav-btn active" onClick={() => navigate(`/workplace/project/${projectId}/ai-planner`)}>
+                        <button className={`action-btn ${activeView === 'communication' ? 'active' : ''}`} onClick={() => setActiveView(activeView === 'communication' ? 'board' : 'communication')}>
+                            <MessageSquare size={16} />
+                            <span>Communication</span>
+                        </button>
+
+                        {isLeadOrOwner && (
+                            <button className={`action-btn ${activeView === 'analytics' ? 'active' : ''}`} onClick={() => setActiveView(activeView === 'analytics' ? 'board' : 'analytics')}>
+                                <BarChart3 size={16} />
+                                <span>Analytics</span>
+                            </button>
+                        )}
+
+                        <button className="primary-nav-btn" onClick={() => navigate(`/workplace/project/${projectId}/ai-planner`)}>
                             <FlaskConical size={18} />
                             <span>AI Command Center</span>
                         </button>
@@ -336,29 +418,29 @@ const WorkplaceBoard = () => {
                 </div>
 
                 {project.owner._id === currentUser?._id && leaveRequests.length > 0 && (
-                    <div className="leave-requests-banner" style={{ background: 'rgba(255, 71, 87, 0.1)', border: '1px solid rgba(255, 71, 87, 0.3)', borderRadius: '8px', padding: '12px 20px', marginTop: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div className="leave-requests-banner" style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid var(--error)', borderRadius: '8px', padding: '12px 20px', marginTop: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                            <div style={{ background: '#ff4757', color: 'white', borderRadius: '50%', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 'bold' }}>
+                            <div style={{ background: 'var(--error)', color: 'white', borderRadius: '50%', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 'bold' }}>
                                 {leaveRequests.length}
                             </div>
                             <div>
-                                <h4 style={{ margin: 0, color: '#ff4757', fontSize: '0.9rem' }}>Pending Leave Requests</h4>
-                                <p style={{ margin: 0, fontSize: '0.8rem', opacity: 0.8 }}>Members are waiting for your approval to leave the project.</p>
+                                <h4 style={{ margin: 0, color: 'var(--error)', fontSize: '0.9rem' }}>Pending Leave Requests</h4>
+                                <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Members are waiting for your approval to leave the project.</p>
                             </div>
                         </div>
                         <div style={{ display: 'flex', gap: '10px' }}>
                             {leaveRequests.map(req => (
-                                <div key={req.user._id} className="leave-request-item" style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(255,255,255,0.05)', padding: '4px 8px', borderRadius: '4px' }}>
+                                <div key={req.user._id} className="leave-request-item" style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--bg-tertiary)', padding: '4px 8px', borderRadius: '4px' }}>
                                     <span style={{ fontSize: '0.85rem' }}>{req.user.firstName} {req.user.lastName}</span>
                                     <button
                                         onClick={() => handleRespondToLeaveRequest(req.user._id, 'approve')}
-                                        style={{ background: '#2ed573', border: 'none', color: 'white', padding: '2px 8px', borderRadius: '3px', cursor: 'pointer', fontSize: '0.75rem' }}
+                                        style={{ background: 'var(--success)', border: 'none', color: 'white', padding: '2px 8px', borderRadius: '3px', cursor: 'pointer', fontSize: '0.75rem' }}
                                     >
                                         Approve
                                     </button>
                                     <button
                                         onClick={() => handleRespondToLeaveRequest(req.user._id, 'reject')}
-                                        style={{ background: '#ff4757', border: 'none', color: 'white', padding: '2px 8px', borderRadius: '3px', cursor: 'pointer', fontSize: '0.75rem' }}
+                                        style={{ background: 'var(--error)', border: 'none', color: 'white', padding: '2px 8px', borderRadius: '3px', cursor: 'pointer', fontSize: '0.75rem' }}
                                     >
                                         Decline
                                     </button>
@@ -369,124 +451,140 @@ const WorkplaceBoard = () => {
                 )}
             </header>
 
-            <div className="board-controls">
-                <div className="sprint-selector">
-                    <select
-                        className="sprint-select"
-                        value={selectedSprintId}
-                        onChange={(e) => setSelectedSprintId(e.target.value)}
-                    >
-                        <option value="">Select Sprint...</option>
-                        {allSprints.map(s => (
-                            <option key={s._id} value={s._id}>
-                                {s.name} ({s.status.toUpperCase()})
-                            </option>
-                        ))}
-                    </select>
-                </div>
-
-                <div className="board-stats">
-                    <div className="stat-item">
-                        <span className="stat-value">{issues.length}</span>
-                        <span className="stat-label">Total Issues</span>
+            {activeView !== 'communication' && (
+                <div className="board-controls">
+                    <div className="sprint-selector">
+                        <select
+                            className="sprint-select"
+                            value={selectedSprintId}
+                            onChange={(e) => setSelectedSprintId(e.target.value)}
+                        >
+                            <option value="">Select Sprint...</option>
+                            {allSprints.map(s => (
+                                <option key={s._id} value={s._id}>
+                                    {s.name} ({s.status.toUpperCase()})
+                                </option>
+                            ))}
+                        </select>
                     </div>
-                    <div className="stat-item">
-                        <span className="stat-value">{issues.filter(i => i.status === 'Done').length}</span>
-                        <span className="stat-label">Completed</span>
-                    </div>
-                    <div className="stat-item">
-                        <span className="stat-value">
-                            {activeSprint ? Math.round((issues.filter(i => i.status === 'Done').length / issues.length) * 100) || 0 : 0}%
-                        </span>
-                        <span className="stat-label">Progress</span>
-                    </div>
-                </div>
 
-                <div className="agent-status-bar">
-                    <div className="agent-indicator pulse"></div>
-                    <span>AI Agent Monitoring Active</span>
-                </div>
-            </div>
-
-
-
-            <div className="board-columns-container">
-                {columns.map(column => (
-                    <div
-                        key={column}
-                        className={`board-column ${dragOverColumn === column ? 'drag-over' : ''}`}
-                        onDragOver={(e) => handleDragOver(e, column)}
-                        onDragLeave={handleDragLeave}
-                        onDrop={(e) => handleDrop(e, column)}
-                    >
-                        <div className="column-header">
-                            <div className="column-title" style={{ borderLeft: `4px solid ${getColumnColor(column)}` }}>
-                                <h3>{column}</h3>
-                                <span className="column-count">
-                                    {filteredIssues.filter(issue => issue.status === column).length}
-                                </span>
-                            </div>
-                            <button className="column-menu-btn">
-                                <MoreVertical size={16} />
-                            </button>
+                    <div className="board-stats">
+                        <div className="stat-item">
+                            <span className="stat-label">Total Tickets</span>
+                            <span className="stat-value">{issues.length}</span>
                         </div>
+                        <div className="stat-item">
+                            <span className="stat-label">Velocity</span>
+                            <span className="stat-value accent">
+                                {issues.length > 0 ? Math.round((issues.filter(i => i.status === 'Completed').length / issues.length) * 100) : 0}%
+                            </span>
+                        </div>
+                    </div>
 
-                        <div className="column-content">
-                            {filteredIssues
-                                .filter(issue => issue.status === column)
-                                .map(issue => (
-                                    <div
-                                        key={issue._id}
-                                        className="issue-card"
-                                        draggable
-                                        onDragStart={(e) => handleDragStart(e, issue._id)}
-                                        onClick={() => setSelectedIssueDetail(issue)}
-                                    >
-                                        <div className="issue-header">
-                                            <span className="issue-key">{issue.issueKey}</span>
-                                            <div className="issue-meta">
-                                                <span className="issue-type">{getIssueTypeIcon(issue.type)}</span>
-                                                <div
-                                                    className="priority-dot"
-                                                    style={{ backgroundColor: getPriorityColor(issue.priority) }}
-                                                    title={issue.priority}
-                                                />
+                    <div className="agent-status-bar">
+                        <div className="status-dot"></div>
+                        <span className="agent-status-text">AI MONITORING ACTIVE</span>
+                    </div>
+                </div>
+            )}
+
+
+
+            {activeView === 'communication' ? (
+                <ProjectCommunication projectId={projectId} />
+            ) : activeView === 'analytics' ? (
+                <ProjectAnalytics projectId={projectId} />
+            ) : (
+                <div className="board-columns-container">
+                    {columns.map(column => (
+                        <div
+                            key={column}
+                            className={`board-column ${dragOverColumn === column ? 'drag-over' : ''}`}
+                            onDragOver={(e) => handleDragOver(e, column)}
+                            onDragLeave={handleDragLeave}
+                            onDrop={(e) => handleDrop(e, column)}
+                        >
+                            <div className="column-header">
+                                <div className="column-title" style={{ borderLeft: `4px solid ${getColumnColor(column)}` }}>
+                                    <h3>{column}</h3>
+                                    <span className="column-count">
+                                        {filteredIssues.filter(issue => issue.status === column).length}
+                                    </span>
+                                </div>
+                                <button className="column-menu-btn">
+                                    <MoreVertical size={16} />
+                                </button>
+                            </div>
+
+                            <div className="column-content">
+                                {filteredIssues
+                                    .filter(issue => issue.status === column)
+                                    .map(issue => (
+                                        <div
+                                            key={issue._id}
+                                            id={`issue-${issue._id}`}
+                                            className={`issue-card status-${issue.status.toLowerCase().replace(/\s+/g, '-')}`}
+                                            draggable
+                                            onDragStart={(e) => handleDragStart(e, issue._id)}
+                                            onClick={() => setSelectedIssueDetail(issue)}
+                                        >
+                                            <div className="issue-header">
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    <span className="issue-key">{issue.issueKey}</span>
+                                                    {pendingApprovals.some(a => a.ticket._id === issue._id) && (
+                                                        <span style={{ fontSize: '10px', background: 'var(--warning)', color: '#000', padding: '2px 6px', borderRadius: '10px', fontWeight: 'bold' }}>Pending Approval</span>
+                                                    )}
+                                                </div>
+                                                <div className="issue-meta">
+                                                    <span className="issue-type">{getIssueTypeIcon(issue.type)}</span>
+                                                    <div
+                                                        className="priority-dot"
+                                                        style={{ backgroundColor: getPriorityColor(issue.priority) }}
+                                                        title={issue.priority}
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <div className="issue-summary">
+                                                {issue.summary}
+                                            </div>
+
+                                            <div className="issue-footer">
+                                                {issue.assignee ? (
+                                                    <div className="assignee-avatar">
+                                                        {issue.assignee.firstName?.charAt(0)}{issue.assignee.lastName?.charAt(0)}
+                                                    </div>
+                                                ) : (
+                                                    <div className="assignee-placeholder">Unassigned</div>
+                                                )}
+
+                                                {issue.dueDate && (
+                                                    <div className="due-date">
+                                                        <Clock size={12} />
+                                                        {new Date(issue.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                                    </div>
+                                                )}
+
+                                                {issue.progressPercentage !== undefined && (
+                                                    <div className="issue-progress-bar-container" style={{ width: '100%', height: '4px', background: 'var(--bg-secondary)', borderRadius: '4px', marginTop: '8px', overflow: 'hidden' }}>
+                                                        <div style={{ width: `${issue.progressPercentage}%`, height: '100%', background: 'var(--success)', transition: 'width 0.5s ease-in-out' }}></div>
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
+                                    ))}
 
-                                        <div className="issue-summary">
-                                            {issue.summary}
-                                        </div>
-
-                                        <div className="issue-footer">
-                                            {issue.assignee ? (
-                                                <div className="assignee-avatar">
-                                                    {issue.assignee.firstName?.charAt(0)}{issue.assignee.lastName?.charAt(0)}
-                                                </div>
-                                            ) : (
-                                                <div className="assignee-placeholder">Unassigned</div>
-                                            )}
-
-                                            {issue.dueDate && (
-                                                <div className="due-date">
-                                                    <Clock size={12} />
-                                                    {new Date(issue.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                                                </div>
-                                            )}
-                                        </div>
+                                {filteredIssues.filter(issue => issue.status === column).length === 0 && (
+                                    <div className="empty-column">
+                                        Drop issues here
                                     </div>
-                                ))}
+                                )}
+                            </div>
 
-                            {filteredIssues.filter(issue => issue.status === column).length === 0 && (
-                                <div className="empty-column">
-                                    Drop issues here
-                                </div>
-                            )}
                         </div>
-
-                    </div>
-                ))}
-            </div>
+                    ))}
+                </div>
+            )}
 
 
 
@@ -562,13 +660,13 @@ const WorkplaceBoard = () => {
                     <div className="member-detail-modal">
                         <div className="member-detail-header">
                             <div className="member-detail-avatar" style={{ backgroundColor: 'hsl(200, 60%, 40%)' }}>
-                                {selectedMember.firstName?.charAt(0)}{selectedMember.lastName?.charAt(0)}
+                                {selectedMember.user.firstName?.charAt(0)}{selectedMember.user.lastName?.charAt(0)}
                             </div>
                             <div className="member-detail-info">
-                                <h4>{selectedMember.firstName} {selectedMember.lastName}</h4>
-                                <p>{selectedMember.email}</p>
-                                <span className="member-detail-role">
-                                    {project.owner._id === selectedMember._id ? 'Project Lead' : 'Team Member'}
+                                <h4>{selectedMember.user.firstName} {selectedMember.user.lastName}</h4>
+                                <p>{selectedMember.user.email}</p>
+                                <span className={`member-detail-role role-badge ${selectedMember.role.replace(' ', '-').toLowerCase()}`}>
+                                    {selectedMember.role}
                                 </span>
                             </div>
                         </div>
@@ -578,28 +676,28 @@ const WorkplaceBoard = () => {
                                 <div className="metric-card assigned">
                                     <Layout size={20} className="metric-icon" />
                                     <span className="metric-value">
-                                        {issues.filter(i => i.assignee?._id === selectedMember._id).length}
+                                        {issues.filter(i => i.assignee?._id === selectedMember.user._id).length}
                                     </span>
                                     <span className="metric-label">Assigned</span>
                                 </div>
                                 <div className="metric-card progress">
                                     <Clock size={20} className="metric-icon" />
                                     <span className="metric-value">
-                                        {issues.filter(i => i.assignee?._id === selectedMember._id && i.status === 'In Progress').length}
+                                        {issues.filter(i => i.assignee?._id === selectedMember.user._id && i.status === 'In Progress').length}
                                     </span>
                                     <span className="metric-label">In Progress</span>
                                 </div>
                                 <div className="metric-card dev-testing">
                                     <FlaskConical size={20} className="metric-icon" />
                                     <span className="metric-value">
-                                        {issues.filter(i => i.assignee?._id === selectedMember._id && i.status === 'Dev Testing').length}
+                                        {issues.filter(i => i.assignee?._id === selectedMember.user._id && i.status === 'Testing').length}
                                     </span>
                                     <span className="metric-label">Testing</span>
                                 </div>
                                 <div className="metric-card completed">
                                     <CheckCircle size={20} className="metric-icon" />
                                     <span className="metric-value">
-                                        {issues.filter(i => i.assignee?._id === selectedMember._id && i.status === 'Done').length}
+                                        {issues.filter(i => i.assignee?._id === selectedMember.user._id && i.status === 'Completed').length}
                                     </span>
                                     <span className="metric-label">Completed</span>
                                 </div>
@@ -614,12 +712,47 @@ const WorkplaceBoard = () => {
                 </>
             )}
 
+            {showApprovalPanel && (
+                <>
+                    <div className="modal-overlay" onClick={() => setShowApprovalPanel(false)} />
+                    <div className="member-detail-modal" style={{ width: '500px', maxHeight: '80vh', overflowY: 'auto' }}>
+                        <div className="member-detail-header" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
+                            <div className="member-detail-info">
+                                <h4>Pending System Approvals</h4>
+                            </div>
+                        </div>
+                        <div className="performance-section" style={{ padding: '15px' }}>
+                            {pendingApprovals.length === 0 ? <p>No pending approvals.</p> : pendingApprovals.map(req => (
+                                <div key={req._id} style={{ background: 'var(--bg-tertiary)', padding: '10px', borderRadius: '8px', marginBottom: '10px' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                                        <strong>{req.ticket.ticketCode || 'Ticket'}</strong>
+                                        <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{new Date(req.timestamp).toLocaleString()}</span>
+                                    </div>
+                                    <p style={{ margin: '5px 0', fontSize: '0.9rem' }}>{req.originalCommitMessage}</p>
+                                    <div style={{ fontSize: '0.85rem', color: 'var(--accent-primary)', marginBottom: '10px' }}>
+                                        Proposed Status: {req.proposedStatus} | Progress: {req.proposedProgress}%
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '10px' }}>
+                                        <button onClick={() => handleApprovalAction(req._id, 'approve')} style={{ background: 'var(--success)', border: 'none', color: 'white', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer', flex: 1 }}>Approve</button>
+                                        <button onClick={() => handleApprovalAction(req._id, 'reject')} style={{ background: 'var(--error)', border: 'none', color: 'white', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer', flex: 1 }}>Reject</button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                        <div className="member-detail-actions">
+                            <button className="close-detail-btn" onClick={() => setShowApprovalPanel(false)}>Close</button>
+                        </div>
+                    </div>
+                </>
+            )}
+
             {/* Ticket Detail Modal */}
             {selectedIssueDetail && (
                 <TicketDetailModal
                     issue={selectedIssueDetail}
                     onClose={() => setSelectedIssueDetail(null)}
                     getPriorityColor={getPriorityColor}
+                    onUpdate={fetchProjectData}
                 />
             )}
         </div>

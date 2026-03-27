@@ -17,7 +17,8 @@ const {
     removeProjectMember,
     getProjectLeaveRequests,
     respondToLeaveRequest,
-    getPendingInvitations
+    getPendingInvitations,
+    updateMemberRole
 } = require('../controllers/workplaceController');
 const { protect } = require('../middleware/authMiddleware');
 
@@ -37,11 +38,13 @@ router.put('/issues/:id/status', protect, updateIssueStatus);
 router.put('/issues/:id/move', protect, moveIssue);
 
 // Sprint Routes
-router.post('/sprints', protect, createSprint);
+router.post('/projects/:id/sprints', protect, createSprint);
+router.post('/sprints', protect, createSprint); // Keep original if needed by other features
 router.get('/projects/:id/sprints', protect, getProjectSprints);
 router.put('/sprints/:id/status', protect, updateSprintStatus);
 router.post('/projects/:id/members', protect, addProjectMember);
 router.delete('/projects/:id/leave', protect, leaveProject);
 router.delete('/projects/:id/members/:userId', protect, removeProjectMember);
+router.put('/projects/:id/members/:userId/role', protect, updateMemberRole);
 
 module.exports = router;

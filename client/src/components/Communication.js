@@ -114,11 +114,11 @@ const Communication = () => {
 
     const getStatusColor = (status) => {
         switch (status) {
-            case 'online': return '#00FF9C';
-            case 'away': return '#FFD700';
-            case 'busy': return '#FF4B4B';
-            case 'in-call': return '#A78BFA';
-            default: return '#9CA3AF';
+            case 'online': return 'var(--success)';
+            case 'away': return 'var(--warning)';
+            case 'busy': return 'var(--error)';
+            case 'in-call': return 'var(--accent-secondary)';
+            default: return 'var(--text-secondary)';
         }
     };
 
@@ -138,7 +138,7 @@ const Communication = () => {
 
     const emojiList = ['👍', '❤️', '😂', '😮', '😢', '🔥'];
 
-    if (isLoading) return <div className="comm-layout" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Loader2 className="animate-spin text-[#00FF9C]" size={48} /></div>;
+    if (isLoading) return <div className="comm-layout" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Loader2 className="animate-spin text-[var(--accent-primary)]" size={48} /></div>;
 
     return (
         <div className="comm-layout">
@@ -184,7 +184,7 @@ const Communication = () => {
                                 </div>
                                 {teams.map(team => (
                                     <div key={team._id}>
-                                        <div style={{ padding: '8px 12px', fontSize: '13px', fontWeight: 'bold', color: '#FFF', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <div style={{ padding: '8px 12px', fontSize: '13px', fontWeight: 'bold', color: 'var(--text-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                             {team.name}
                                             <div style={{ display: 'flex', gap: '8px' }}>
                                                 <UserPlus size={12} style={{ cursor: 'pointer', opacity: 0.7 }} onClick={(e) => { e.stopPropagation(); setSelectedTeamId(team._id); setShowMemberModal(true); }} title="Add Member" />
@@ -194,7 +194,7 @@ const Communication = () => {
                                         {channels.filter(c => c.teamId === team._id).map(channel => (
                                             <div key={channel._id} className={`comm-side-item ${activeId === channel._id ? 'active' : ''}`} onClick={() => setActive(channel._id, 'channel')}>
                                                 <div className="comm-item-left"><Hash size={18} /><span style={{ fontSize: '14px' }}>{channel.name}</span></div>
-                                                {channel.unread > 0 && <div style={{ background: '#FF4B4B', color: 'white', borderRadius: '10px', padding: '2px 6px', fontSize: '10px', fontWeight: 'bold' }}>{channel.unread}</div>}
+                                                {channel.unread > 0 && <div style={{ background: 'var(--error)', color: 'white', borderRadius: '10px', padding: '2px 6px', fontSize: '10px', fontWeight: 'bold' }}>{channel.unread}</div>}
                                             </div>
                                         ))}
                                     </div>
@@ -212,7 +212,7 @@ const Communication = () => {
                                             </div>
                                             <span style={{ fontSize: '14px' }}>{dm.name}</span>
                                         </div>
-                                        {dm.unread > 0 && <div style={{ background: '#FF4B4B', color: 'white', borderRadius: '10px', padding: '2px 6px', fontSize: '10px', fontWeight: 'bold' }}>{dm.unread}</div>}
+                                        {dm.unread > 0 && <div style={{ background: 'var(--error)', color: 'white', borderRadius: '10px', padding: '2px 6px', fontSize: '10px', fontWeight: 'bold' }}>{dm.unread}</div>}
                                     </div>
                                 ))}
                             </div>
@@ -239,12 +239,12 @@ const Communication = () => {
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <div>
                                 <h2 style={{ fontSize: '28px', fontWeight: 'bold' }}>Meetings</h2>
-                                <p style={{ color: '#9CA3AF' }}>Schedule and manage your sessions</p>
+                                <p style={{ color: 'var(--text-secondary)' }}>Schedule and manage your sessions</p>
                             </div>
                             <button
                                 onClick={() => setShowMeetingScheduler(true)}
                                 style={{
-                                    padding: '12px 24px', background: '#00FF9C', color: 'black',
+                                    padding: '12px 24px', background: 'var(--accent-primary)', color: 'black',
                                     border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer',
                                     display: 'flex', alignItems: 'center', gap: '8px'
                                 }}
@@ -255,25 +255,25 @@ const Communication = () => {
 
                         <div style={{ display: 'grid', gap: '16px' }}>
                             {meetings.length === 0 ? (
-                                <div style={{ padding: '60px', textAlign: 'center', background: '#111827', borderRadius: '12px', border: '1px dashed #1F2937' }}>
-                                    <div style={{ marginBottom: '16px', color: '#374151' }}><Calendar size={48} /></div>
-                                    <h3 style={{ color: '#E5E7EB' }}>No meetings scheduled</h3>
-                                    <p style={{ color: '#6B7280' }}>Host your first meeting by clicking the button above.</p>
+                                <div style={{ padding: '60px', textAlign: 'center', background: 'var(--bg-surface)', borderRadius: '12px', border: '1px dashed var(--border-color)' }}>
+                                    <div style={{ marginBottom: '16px', color: 'var(--text-secondary)' }}><Calendar size={48} /></div>
+                                    <h3 style={{ color: 'var(--text-primary)' }}>No meetings scheduled</h3>
+                                    <p style={{ color: 'var(--text-secondary)' }}>Host your first meeting by clicking the button above.</p>
                                 </div>
                             ) : (
                                 meetings.map(meeting => (
                                     <div key={meeting._id} style={{
-                                        background: '#111827', border: '1px solid #1F2937', borderRadius: '12px',
+                                        background: 'var(--bg-surface)', border: '1px solid var(--border-color)', borderRadius: '12px',
                                         padding: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center'
                                     }}>
                                         <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
-                                            <div style={{ padding: '12px', background: '#1F2937', borderRadius: '12px', textAlign: 'center', minWidth: '60px' }}>
-                                                <div style={{ fontSize: '10px', color: '#00FF9C', fontWeight: 'bold' }}>{new Date(meeting.scheduledAt).toLocaleString('en-US', { month: 'short' }).toUpperCase()}</div>
+                                            <div style={{ padding: '12px', background: 'var(--bg-secondary)', borderRadius: '12px', textAlign: 'center', minWidth: '60px' }}>
+                                                <div style={{ fontSize: '10px', color: 'var(--accent-primary)', fontWeight: 'bold' }}>{new Date(meeting.scheduledAt).toLocaleString('en-US', { month: 'short' }).toUpperCase()}</div>
                                                 <div style={{ fontSize: '20px', fontWeight: 'bold' }}>{new Date(meeting.scheduledAt).getDate()}</div>
                                             </div>
                                             <div>
                                                 <h4 style={{ margin: 0, fontSize: '18px' }}>{meeting.title}</h4>
-                                                <div style={{ display: 'flex', gap: '16px', marginTop: '4px', fontSize: '12px', color: '#9CA3AF' }}>
+                                                <div style={{ display: 'flex', gap: '16px', marginTop: '4px', fontSize: '12px', color: 'var(--text-secondary)' }}>
                                                     <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Clock size={14} /> {new Date(meeting.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ({meeting.duration} mins)</span>
                                                     <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Users size={14} /> {meeting.participants?.length || 0} participants</span>
                                                 </div>
@@ -283,13 +283,13 @@ const Communication = () => {
                                             <button
                                                 onClick={() => joinCall(meeting.meetingLink, 'video', false)}
                                                 style={{
-                                                    padding: '10px 20px', background: '#00FF9C', color: 'black',
+                                                    padding: '10px 20px', background: 'var(--accent-primary)', color: 'black',
                                                     border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer'
                                                 }}
                                             >
                                                 Join
                                             </button>
-                                            <button style={{ padding: '10px', background: '#1F2937', border: 'none', borderRadius: '6px', color: '#9CA3AF', cursor: 'pointer' }}><MoreHorizontal size={20} /></button>
+                                            <button style={{ padding: '10px', background: 'var(--bg-secondary)', border: 'none', borderRadius: '6px', color: 'var(--text-secondary)', cursor: 'pointer' }}><MoreHorizontal size={20} /></button>
                                         </div>
                                     </div>
                                 ))
@@ -300,14 +300,14 @@ const Communication = () => {
                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px' }}>
                         <div className="comm-logo-box" style={{ width: '80px', height: '80px', borderRadius: '24px' }}><Zap size={40} color="black" /></div>
                         <h3 className="comm-nav-title" style={{ fontSize: '24px' }}>Welcome to ClustAura</h3>
-                        <p style={{ color: '#6B7280', fontSize: '14px' }}>Select a conversation to start.</p>
+                        <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>Select a conversation to start.</p>
                     </div>
                 ) : (
                     <>
                         {/* Header */}
                         <div className="comm-chat-header">
                             <div className="comm-header-left">
-                                {activeType === 'channel' ? <Hash className="text-[#00FF9C]" size={24} /> : <div className="comm-avatar" style={{ width: '32px', height: '32px' }}>{activeChat?.name?.[0]}</div>}
+                                {activeType === 'channel' ? <Hash className="text-[var(--accent-primary)]" size={24} /> : <div className="comm-avatar" style={{ width: '32px', height: '32px' }}>{activeChat?.name?.[0]}</div>}
                                 <div>
                                     <div className="comm-header-title">{activeChat?.name}</div>
                                     <div className="comm-header-subtitle">{activeType === 'channel' ? 'Channel' : activeChat?.status}</div>
@@ -317,7 +317,7 @@ const Communication = () => {
                                 <div className="comm-action-tool" onClick={() => startCallGlobal(activeId, 'audio')}><Phone size={20} /></div>
                                 <div className="comm-action-tool" onClick={() => startCallGlobal(activeId, 'video')}><Video size={20} /></div>
                                 <div className="comm-v-divider"></div>
-                                <div className={`comm-action-tool ${showMembersSidebar ? 'active-tool' : ''}`} onClick={() => setShowMembersSidebar(!showMembersSidebar)} title="View Members" style={{ color: showMembersSidebar ? '#00FF9C' : 'inherit' }}><Users size={20} /></div>
+                                <div className={`comm-action-tool ${showMembersSidebar ? 'active-tool' : ''}`} onClick={() => setShowMembersSidebar(!showMembersSidebar)} title="View Members" style={{ color: showMembersSidebar ? 'var(--accent-primary)' : 'inherit' }}><Users size={20} /></div>
                             </div>
                         </div>
 
@@ -412,7 +412,7 @@ const Communication = () => {
                                     <div ref={chatEndRef} />
                                     {/* Typing Indicator */}
                                     {typingUsers[activeId] && typingUsers[activeId].length > 0 && (
-                                        <div style={{ padding: '8px 16px', color: '#9CA3AF', fontSize: '12px', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <div style={{ padding: '8px 16px', color: 'var(--text-secondary)', fontSize: '12px', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                             <div className="typing-dots">
                                                 <span>.</span><span>.</span><span>.</span>
                                             </div>
@@ -433,26 +433,26 @@ const Communication = () => {
 
                             {/* Members Sidebar */}
                             {showMembersSidebar && (
-                                <div className="comm-members-sidebar" style={{ width: '260px', background: '#111827', borderLeft: '1px solid #1F2937', display: 'flex', flexDirection: 'column' }}>
-                                    <div style={{ padding: '16px', borderBottom: '1px solid #1F2937', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                        <h3 style={{ fontSize: '16px', fontWeight: 'bold', color: '#E2E8F0', margin: 0 }}>Members</h3>
-                                        <div style={{ fontSize: '12px', color: '#9CA3AF' }}>{activeType === 'channel' ? teams.find(t => t._id === activeChat?.teamId)?.members?.length || 0 : 2}</div>
+                                <div className="comm-members-sidebar" style={{ width: '260px', background: 'var(--bg-surface)', borderLeft: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column' }}>
+                                    <div style={{ padding: '16px', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                        <h3 style={{ fontSize: '16px', fontWeight: 'bold', color: 'var(--text-primary)', margin: 0 }}>Members</h3>
+                                        <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{activeType === 'channel' ? teams.find(t => t._id === activeChat?.teamId)?.members?.length || 0 : 2}</div>
                                     </div>
                                     <div className="custom-scrollbar" style={{ flex: 1, overflowY: 'auto', padding: '8px' }}>
                                         {activeType === 'channel' ? (
                                             teams.find(t => t._id === activeChat?.teamId)?.members?.map(member => (
-                                                <div key={member._id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px', borderRadius: '6px', cursor: 'default', transition: 'background 0.2s' }} className="member-item hover:bg-[#1F2937]">
-                                                    <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#374151', color: '#E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '14px' }}>
+                                                <div key={member._id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px', borderRadius: '6px', cursor: 'default', transition: 'background 0.2s' }} className="member-item hover:bg-[var(--bg-secondary)]">
+                                                    <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--bg-secondary)', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '14px' }}>
                                                         {member.firstName?.[0]}
                                                     </div>
                                                     <div style={{ overflow: 'hidden' }}>
-                                                        <div style={{ color: '#E2E8F0', fontWeight: '500', fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{member.firstName} {member.lastName}</div>
-                                                        <div style={{ color: '#9CA3AF', fontSize: '12px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{member.email}</div>
+                                                        <div style={{ color: 'var(--text-primary)', fontWeight: '500', fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{member.firstName} {member.lastName}</div>
+                                                        <div style={{ color: 'var(--text-secondary)', fontSize: '12px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{member.email}</div>
                                                     </div>
                                                 </div>
                                             ))
                                         ) : (
-                                            <div style={{ padding: '16px', textAlign: 'center', color: '#6B7280', fontSize: '14px' }}>
+                                            <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '14px' }}>
                                                 Direct Message
                                             </div>
                                         )}
@@ -466,13 +466,13 @@ const Communication = () => {
                 {/* Team Modal Reuse (Simplified) */}
                 {showTeamModal && (
                     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 5000 }}>
-                        <div style={{ background: '#1F2937', padding: '24px', borderRadius: '12px', width: '400px' }}>
-                            <h3 style={{ color: 'white', marginBottom: '16px' }}>Create New Team</h3>
+                        <div style={{ background: 'var(--bg-surface)', padding: '24px', borderRadius: '12px', width: '400px', border: '1px solid var(--border-color)' }}>
+                            <h3 style={{ color: 'var(--text-primary)', marginBottom: '16px' }}>Create New Team</h3>
                             <form onSubmit={handleCreateTeam}>
-                                <input type="text" value={newTeamName} onChange={e => setNewTeamName(e.target.value)} placeholder="Team Name" style={{ width: '100%', padding: '10px', marginBottom: '16px', background: '#374151', border: 'none', color: 'white', borderRadius: '8px' }} autoFocus />
+                                <input type="text" value={newTeamName} onChange={e => setNewTeamName(e.target.value)} placeholder="Team Name" style={{ width: '100%', padding: '10px', marginBottom: '16px', background: 'var(--bg-secondary)', border: 'none', color: 'var(--text-primary)', borderRadius: '8px' }} autoFocus />
                                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-                                    <button type="button" onClick={() => setShowTeamModal(false)} style={{ padding: '8px 16px', background: 'transparent', color: '#9CA3AF', border: 'none', cursor: 'pointer' }}>Cancel</button>
-                                    <button type="submit" style={{ padding: '8px 16px', background: '#00FF9C', color: 'black', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>Create</button>
+                                    <button type="button" onClick={() => setShowTeamModal(false)} style={{ padding: '8px 16px', background: 'transparent', color: 'var(--text-secondary)', border: 'none', cursor: 'pointer' }}>Cancel</button>
+                                    <button type="submit" style={{ padding: '8px 16px', background: 'var(--accent-primary)', color: 'black', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>Create</button>
                                 </div>
                             </form>
                         </div>
@@ -481,13 +481,13 @@ const Communication = () => {
 
                 {showChannelModal && (
                     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 5000 }}>
-                        <div style={{ background: '#1F2937', padding: '24px', borderRadius: '12px', width: '400px' }}>
-                            <h3 style={{ color: 'white', marginBottom: '16px' }}>Create New Channel</h3>
+                        <div style={{ background: 'var(--bg-surface)', padding: '24px', borderRadius: '12px', width: '400px', border: '1px solid var(--border-color)' }}>
+                            <h3 style={{ color: 'var(--text-primary)', marginBottom: '16px' }}>Create New Channel</h3>
                             <form onSubmit={handleCreateChannel}>
-                                <input type="text" value={newChannelName} onChange={e => setNewChannelName(e.target.value)} placeholder="Channel Name" style={{ width: '100%', padding: '10px', marginBottom: '16px', background: '#374151', border: 'none', color: 'white', borderRadius: '8px' }} autoFocus />
+                                <input type="text" value={newChannelName} onChange={e => setNewChannelName(e.target.value)} placeholder="Channel Name" style={{ width: '100%', padding: '10px', marginBottom: '16px', background: 'var(--bg-secondary)', border: 'none', color: 'var(--text-primary)', borderRadius: '8px' }} autoFocus />
                                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-                                    <button type="button" onClick={() => setShowChannelModal(false)} style={{ padding: '8px 16px', background: 'transparent', color: '#9CA3AF', border: 'none', cursor: 'pointer' }}>Cancel</button>
-                                    <button type="submit" style={{ padding: '8px 16px', background: '#00FF9C', color: 'black', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>Create</button>
+                                    <button type="button" onClick={() => setShowChannelModal(false)} style={{ padding: '8px 16px', background: 'transparent', color: 'var(--text-secondary)', border: 'none', cursor: 'pointer' }}>Cancel</button>
+                                    <button type="submit" style={{ padding: '8px 16px', background: 'var(--accent-primary)', color: 'black', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>Create</button>
                                 </div>
                             </form>
                         </div>
@@ -496,13 +496,13 @@ const Communication = () => {
 
                 {showMemberModal && (
                     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 5000 }}>
-                        <div style={{ background: '#1F2937', padding: '24px', borderRadius: '12px', width: '400px' }}>
-                            <h3 style={{ color: 'white', marginBottom: '16px' }}>Add Member to Team</h3>
+                        <div style={{ background: 'var(--bg-surface)', padding: '24px', borderRadius: '12px', width: '400px', border: '1px solid var(--border-color)' }}>
+                            <h3 style={{ color: 'var(--text-primary)', marginBottom: '16px' }}>Add Member to Team</h3>
                             <form onSubmit={handleAddMember}>
-                                <input type="email" value={newMemberEmail} onChange={e => setNewMemberEmail(e.target.value)} placeholder="User Email" style={{ width: '100%', padding: '10px', marginBottom: '16px', background: '#374151', border: 'none', color: 'white', borderRadius: '8px' }} autoFocus />
+                                <input type="email" value={newMemberEmail} onChange={e => setNewMemberEmail(e.target.value)} placeholder="User Email" style={{ width: '100%', padding: '10px', marginBottom: '16px', background: 'var(--bg-secondary)', border: 'none', color: 'var(--text-primary)', borderRadius: '8px' }} autoFocus />
                                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-                                    <button type="button" onClick={() => setShowMemberModal(false)} style={{ padding: '8px 16px', background: 'transparent', color: '#9CA3AF', border: 'none', cursor: 'pointer' }}>Cancel</button>
-                                    <button type="submit" style={{ padding: '8px 16px', background: '#00FF9C', color: 'black', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>Add</button>
+                                    <button type="button" onClick={() => setShowMemberModal(false)} style={{ padding: '8px 16px', background: 'transparent', color: 'var(--text-secondary)', border: 'none', cursor: 'pointer' }}>Cancel</button>
+                                    <button type="submit" style={{ padding: '8px 16px', background: 'var(--accent-primary)', color: 'black', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>Add</button>
                                 </div>
                             </form>
                         </div>

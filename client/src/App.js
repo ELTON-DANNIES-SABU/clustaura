@@ -9,7 +9,6 @@ import PostFeed from './components/PostFeed';
 import ChallengeDetail from './components/ChallengeDetail';
 import Profile from './components/Profile';
 import UserProfile from './components/UserProfile';
-import Workplace from './components/Workplace';
 import WorkplaceBoard from './components/WorkplaceBoard';
 import Friends from './components/Friends';
 import Chat from './components/Chat';
@@ -19,7 +18,9 @@ import AIGuide from './components/AIGuide';
 import AIPlanner from './components/Workplace/AIPlanner';
 import GlobalCallManager from './components/GlobalCallManager';
 import { ToastProvider } from './components/Community/shared/Toast';
+import { ThemeProvider } from './contexts/ThemeContext';
 import './styles.css';
+
 
 // Create a navigation hook component
 const NavigationHandler = () => {
@@ -38,9 +39,10 @@ const NavigationHandler = () => {
 
 function App() {
     return (
-        <ToastProvider>
-            <Router>
-                <NavigationHandler />
+        <ThemeProvider>
+            <ToastProvider>
+                <Router>
+                    <NavigationHandler />
                 <GlobalCallManager />
                 <Routes>
                     <Route path="/" element={<Navigate to="/login" />} />
@@ -53,7 +55,7 @@ function App() {
                     <Route path="/challenge/:id" element={<ChallengeDetail />} />
                     <Route path="/profile" element={<Profile />} />
                     <Route path="/profile/:id" element={<UserProfile />} />
-                    <Route path="/workplace" element={<Workplace />} />
+                    <Route path="/workplace" element={<Dashboard defaultTab="projects" />} />
                     <Route path="/workplace/project/:projectId/board" element={<WorkplaceBoard />} />
                     <Route path="/workplace/project/:projectId/ai-planner" element={<AIPlanner />} />
                     <Route path="/friends" element={<Friends />} />
@@ -64,6 +66,7 @@ function App() {
                 <AIGuide />
             </Router>
         </ToastProvider>
+        </ThemeProvider>
     );
 }
 

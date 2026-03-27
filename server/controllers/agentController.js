@@ -34,7 +34,9 @@ const savePlanToDatabase = async (projectId, plan) => {
     const sprintShells = plan.sprints.map(s => ({
         name: s.name,
         project: projectId,
-        status: 'future'
+        status: 'future',
+        startDate: s.startDate ? new Date(s.startDate) : undefined,
+        endDate: s.endDate ? new Date(s.endDate) : undefined
     }));
     const createdSprints = await Sprint.insertMany(sprintShells);
 
@@ -70,7 +72,9 @@ const savePlanToDatabase = async (projectId, plan) => {
             priority: (t.priority || 'medium').toLowerCase(),
             type: (t.type || 'task').toLowerCase(),
             effort: parseInt(t.effort) || 1,
-            skillsRequired: Array.isArray(t.skillsRequired) ? t.skillsRequired : []
+            skillsRequired: Array.isArray(t.skillsRequired) ? t.skillsRequired : [],
+            startDate: t.startDate ? new Date(t.startDate) : undefined,
+            endDate: t.endDate ? new Date(t.endDate) : undefined
         };
     });
     const createdTickets = await Ticket.insertMany(ticketsToInsert);
@@ -95,13 +99,34 @@ const savePlanToDatabase = async (projectId, plan) => {
 
     // 6. Workforce Estimation
     console.log("Estimating workforce requirements...");
-    const techRequirements = await teamEstimatorAgent.estimateWorkforce(projectId, createdTickets, plan.recommendedTechnologies || []);
+    let projectTechs = plan.recommendedTechnologies || plan.technologies || [];
+    if (projectTechs.length === 0) {
+        createdTickets.forEach(t => {
+            if (Array.isArray(t.skillsRequired)) {
+                t.skillsRequired.forEach(skill => {
+                    if (!projectTechs.includes(skill)) projectTechs.push(skill);
+                });
+            }
+        });
+    }
+    const techRequirements = await teamEstimatorAgent.estimateWorkforce(projectId, createdTickets, projectTechs);
     
-    // Count actual members for gaps
-    const projectMembers = await User.find({ _id: { $in: project.members } });
+    // Count actual members for gaps dynamically
+    const UserSkillProfile = require('../models/UserSkillProfile');
+    const memberProfiles = await UserSkillProfile.find({ user: { $in: project.members.map(m => m.user) } });
     for (const req of techRequirements) {
-        req.currentDevelopers = 0; // Simplified
-        req.gap = Math.max(0, req.requiredDevelopers - 0);
+        let count = 0;
+        const techLower = req.technology.toLowerCase();
+        memberProfiles.forEach(profile => {
+            if (profile.skills && profile.skills.some(s => {
+                const skillLower = s.toLowerCase();
+                return techLower.includes(skillLower) || skillLower.includes(techLower);
+            })) {
+                count++;
+            }
+        });
+        req.currentDevelopers = count;
+        req.gap = Math.max(0, req.requiredDevelopers - count);
     }
     await TeamRequirement.insertMany(techRequirements);
 
@@ -109,32 +134,28 @@ const savePlanToDatabase = async (projectId, plan) => {
     console.log("Saving bidirectional relationships...");
     for (const m of createdModules) {
         const moduleTickets = createdTickets.filter(t => 
-            (t.module && t.module.toString() === m._id.toString()) ||
-            (t.moduleName && m.moduleName && t.moduleName.toLowerCase().trim() === m.moduleName.toLowerCase().trim())
+            (t.module && String(t.module) === String(m._id)) ||
+            (t.moduleName && m.moduleName && String(t.moduleName).toLowerCase().trim() === String(m.moduleName).toLowerCase().trim())
         );
         console.log(`Module: ${m.moduleName}, Found ${moduleTickets.length} tickets`);
         await ProjectModule.findByIdAndUpdate(m._id, { tickets: moduleTickets.map(t => t._id) });
     }
     for (const s of createdSprints) {
         const sprintTickets = createdTickets.filter(t => 
-            (t.sprint && t.sprint.toString() === s._id.toString()) ||
-            (t.sprintName && s.name && t.sprintName.toLowerCase().trim() === s.name.toLowerCase().trim())
+            (t.sprint && String(t.sprint) === String(s._id)) ||
+            (t.sprintName && s.name && String(t.sprintName).toLowerCase().trim() === String(s.name).toLowerCase().trim())
         );
         console.log(`Sprint: ${s.name}, Found ${sprintTickets.length} tickets`);
         await Sprint.findByIdAndUpdate(s._id, { tickets: sprintTickets.map(t => t._id) });
     }
 
     // 8. Auto-assignment
-    console.log("Starting auto-assignment...");
-    const assignedResults = await skillMatchingAgent.matchTicketsToUsers(createdTickets, projectMembers);
-    for (const result of assignedResults) {
-        if (result.assignedUser) {
-            await Ticket.findByIdAndUpdate(result._id, { assignedUser: result.assignedUser });
-        }
-    }
+    console.log("Skipping auto-assignment, tickets will begin in To Do state...");
+    // Auto-assignment is now handled manually by Team Leads via the dynamic assignment UI.
+    // Tickets are left with assignedUser: null and status: 'To Do'.
 
     // Update Project Metadata
-    project.recommendedTechnologies = plan.recommendedTechnologies || [];
+    project.recommendedTechnologies = projectTechs;
     project.modules = createdModules.map(m => m._id);
     project.sprints = createdSprints.map(s => s._id);
     await project.save();
@@ -224,21 +245,66 @@ const getSuggestedTeam = async (req, res) => {
 const getFullPlan = async (req, res) => {
     try {
         const { projectId } = req.params;
-        const project = await Project.findById(projectId);
+        const project = await Project.findById(projectId).populate('members.user', 'firstName lastName email avatar');
         if (!project) return res.status(404).json({ message: 'Project not found' });
 
-        const [modules, tickets, sprints, requirements] = await Promise.all([
+        const isOwner = project.owner?._id.toString() === req.user._id.toString() || project.owner.toString() === req.user._id.toString();
+        const isLead = project.members?.find(m => (m.user?._id?.toString() === req.user._id.toString() || m.user?.toString() === req.user._id.toString()) && m.role === 'Project Lead');
+        const canSeeAll = isOwner || !!isLead;
+
+        let [modules, tickets, sprints, requirements] = await Promise.all([
             ProjectModule.find({ project: projectId }).populate({
                 path: 'tickets',
                 populate: { path: 'assignedUser', select: 'firstName lastName avatar' }
-            }),
-            Ticket.find({ project: projectId }).populate('assignedUser', 'firstName lastName avatar').populate('module').populate('sprint'),
+            }).lean(),
+            Ticket.find({ project: projectId }).populate('assignedUser', 'firstName lastName avatar').populate('module').populate('sprint').lean(),
             Sprint.find({ project: projectId }).populate({
                 path: 'tickets',
                 populate: { path: 'assignedUser', select: 'firstName lastName avatar' }
-            }),
+            }).lean(),
             TeamRequirement.find({ project: projectId })
         ]);
+
+        if (!canSeeAll) {
+            // Filter tickets for regular members
+            tickets = tickets.filter(t => t.assignedUser?._id?.toString() === req.user._id.toString());
+            
+            const visibleTicketIds = tickets.map(t => t._id.toString());
+            const visibleModuleIds = tickets.filter(t => t.module).map(t => t.module._id?.toString() || t.module.toString());
+            const visibleSprintIds = tickets.filter(t => t.sprint).map(t => t.sprint._id?.toString() || t.sprint.toString());
+
+            // Filter modules to only those containing at least one visible ticket
+            modules = modules.filter(m => visibleModuleIds.includes(m._id.toString())).map(m => ({
+                ...m,
+                tickets: m.tickets.filter(tid => visibleTicketIds.includes(tid._id?.toString() || tid.toString()))
+            }));
+
+            // Filter sprints to only those containing at least one visible ticket
+            sprints = sprints.filter(s => visibleSprintIds.includes(s._id.toString())).map(s => ({
+                ...s,
+                tickets: s.tickets.filter(tid => visibleTicketIds.includes(tid._id?.toString() || tid.toString()))
+            }));
+        }
+
+        // Dynamically compute current team capacities based on actual project members
+        const UserSkillProfile = require('../models/UserSkillProfile');
+        const memberProfiles = await UserSkillProfile.find({ user: { $in: project.members.map(m => m.user) } });
+        
+        for (const req of requirements) {
+            let count = 0;
+            const techLower = req.technology.toLowerCase();
+            memberProfiles.forEach(profile => {
+                if (profile.skills && profile.skills.some(s => {
+                    const skillLower = s.toLowerCase();
+                    return techLower.includes(skillLower) || skillLower.includes(techLower);
+                })) {
+                    count++;
+                }
+            });
+            req.currentDevelopers = count;
+            req.gap = Math.max(0, req.requiredDevelopers - count);
+            await req.save(); // ensure it's persistent as they view it
+        }
 
         res.json({
             project,
@@ -260,7 +326,7 @@ const assignTickets = async (req, res) => {
         const { projectId } = req.body;
         if (!projectId) return res.status(400).json({ message: 'Project ID is required' });
 
-        const project = await Project.findById(projectId).populate('members');
+        const project = await Project.findById(projectId).populate('members.user');
         if (!project) return res.status(404).json({ message: 'Project not found' });
 
         // Fetch only unassigned tickets for this project
@@ -271,7 +337,7 @@ const assignTickets = async (req, res) => {
         }
 
         console.log(`Auto-assigning ${tickets.length} tickets for project: ${project.name}`);
-        const assignedResults = await skillMatchingAgent.matchTicketsToUsers(tickets, project.members);
+        const assignedResults = await skillMatchingAgent.matchTicketsToUsers(tickets, project.members.map(m => m.user));
 
         let successfulAssignments = 0;
         for (const result of assignedResults) {
@@ -303,10 +369,10 @@ const assignTickets = async (req, res) => {
 const getTeamAnalysis = async (req, res) => {
     try {
         const { projectId } = req.params;
-        const project = await Project.findById(projectId).populate('members');
+        const project = await Project.findById(projectId).populate('members.user');
         const tickets = await Ticket.find({ project: projectId });
 
-        const analysis = await capacityAgent.analyzeCapacity(tickets, project.members);
+        const analysis = await capacityAgent.analyzeCapacity(tickets, project.members.map(m => m.user));
         res.json(analysis);
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -319,7 +385,7 @@ const getTeamAnalysis = async (req, res) => {
 const improviseProjectPlan = async (req, res) => {
     try {
         const { projectId, improvisationQuery } = req.body;
-        const project = await Project.findById(projectId);
+        const project = await Project.findById(projectId).populate('members.user', 'firstName lastName email avatar');
         if (!project) return res.status(404).json({ message: 'Project not found' });
 
         // 1. Gather existing plan data for context
@@ -359,10 +425,37 @@ const improviseProjectPlan = async (req, res) => {
     }
 };
 
+const getTickets = async (req, res) => {
+    try {
+        const { projectId } = req.params;
+        const { sprint } = req.query;
+        
+        const project = await Project.findById(projectId);
+        if (!project) return res.status(404).json({ message: 'Project not found' });
+
+        const isOwner = project.owner?._id.toString() === req.user._id.toString() || project.owner.toString() === req.user._id.toString();
+        const isLead = project.members?.find(m => (m.user?._id?.toString() === req.user._id.toString() || m.user?.toString() === req.user._id.toString()) && m.role === 'Project Lead');
+        
+        const query = { project: projectId };
+        if (sprint) query.sprint = sprint;
+        
+        // If not owner/lead, only show assigned tickets
+        if (!isOwner && !isLead) {
+            query.assignedUser = req.user._id;
+        }
+
+        const tickets = await Ticket.find(query).populate('assignedUser', 'firstName lastName avatar');
+        res.json(tickets);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
 module.exports = {
     analyzeProjectPlan,
     improviseProjectPlan,
     getFullPlan,
+    getTickets,
     getSuggestedTeam,
     assignTickets,
     getTeamAnalysis

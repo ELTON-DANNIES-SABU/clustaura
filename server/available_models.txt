@@ -27,6 +27,8 @@ Available Models:
 - models/gemini-3-pro-image-preview (Nano Banana Pro)
 - models/nano-banana-pro-preview (Nano Banana Pro)
 - models/gemini-3.1-flash-image-preview (Nano Banana 2)
+- models/lyria-3-clip-preview (Lyria3 Clip Preview)
+- models/lyria-3-pro-preview (Lyria3 Pro Preview)
 - models/gemini-robotics-er-1.5-preview (Gemini Robotics-ER 1.5 Preview)
 - models/gemini-2.5-computer-use-preview-10-2025 (Gemini 2.5 Computer Use Preview 10-2025)
 - models/deep-research-pro-preview-12-2025 (Deep Research Pro Preview (Dec-12-2025))

@@ -57,6 +57,7 @@ const ResultsDashboard = () => {
             <style jsx>{`
                 .results-dashboard {
                     padding: 1rem;
+                    color: var(--text-primary);
                 }
                 .results-list {
                     display: grid;
@@ -65,8 +66,8 @@ const ResultsDashboard = () => {
                     margin-top: 1.5rem;
                 }
                 .result-card {
-                    background: var(--bg-secondary);
-                    border: 1px solid var(--border-primary);
+                    background: var(--bg-surface);
+                    border: 1px solid var(--border-color);
                     border-radius: var(--radius-lg);
                     padding: 1.5rem;
                 }
@@ -93,12 +94,16 @@ const ResultsDashboard = () => {
                 .stat .value {
                     font-size: 1.25rem;
                     font-weight: 700;
-                    color: var(--primary-mint);
+                    color: var(--accent-primary);
                 }
                 .status.badge {
                     font-size: 0.75rem;
                     padding: 0.2rem 0.6rem;
+                    border-radius: var(--radius-sm);
                 }
+                .status.badge.submitted { background: rgba(0, 255, 163, 0.1); color: var(--accent-primary); }
+                .status.badge.failed { background: rgba(239, 68, 68, 0.1); color: var(--error); }
+                .status.badge.passed { background: rgba(34, 197, 94, 0.1); color: var(--success); }
             `}</style>
         </div>
     );

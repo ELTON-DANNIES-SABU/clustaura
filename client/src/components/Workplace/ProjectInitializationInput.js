@@ -24,7 +24,8 @@ const ProjectInitializationInput = ({ projectId, projectName, onPlanGenerated })
             onPlanGenerated(data);
         } catch (error) {
             console.error('Generation Error:', error);
-            alert('AI failed to generate plan. Please try again.');
+            const errorMsg = error.response?.data?.message || 'AI failed to architect SDLC structure. Please try again in a few seconds.';
+            alert(errorMsg);
         } finally {
             setIsGenerating(false);
         }

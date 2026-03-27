@@ -231,10 +231,11 @@ const TestBuilder = ({ onTestCreated }) => {
             <style jsx>{`
                 .test-builder {
                     background: var(--bg-surface);
-                    border: 1px solid var(--border-primary);
+                    border: 1px solid var(--border-color);
                     border-radius: var(--radius-lg);
                     padding: 2rem;
                     max-width: 600px;
+                    color: var(--text-primary);
                 }
                 .req-row {
                     display: grid;
@@ -246,14 +247,15 @@ const TestBuilder = ({ onTestCreated }) => {
                 .category-label {
                     font-size: 0.9rem;
                     font-weight: 600;
+                    color: var(--text-secondary);
                 }
                 .builder-form { display: flex; flex-direction: column; gap: 1.5rem; }
                 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-                .checkbox-label { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; cursor: pointer; }
+                .checkbox-label { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; cursor: pointer; color: var(--text-secondary); }
                 input, select, textarea { 
                     padding: 0.8rem; 
                     background: var(--bg-secondary); 
-                    border: 1px solid var(--border-primary);
+                    border: 1px solid var(--border-color);
                     border-radius: var(--radius-md);
                     color: var(--text-primary);
                 }
@@ -264,21 +266,23 @@ const TestBuilder = ({ onTestCreated }) => {
                     top: 100%;
                     left: 0;
                     right: 0;
-                    background: #1a1a20;
-                    border: 1px solid var(--border-primary);
+                    background: var(--bg-surface);
+                    border: 1px solid var(--border-color);
                     border-radius: var(--radius-md);
                     z-index: 100;
                     max-height: 200px;
                     overflow-y: auto;
+                    box-shadow: var(--shadow-lg);
                 }
                 .search-item {
                     padding: 0.8rem;
                     cursor: pointer;
                     display: flex;
                     flex-direction: column;
+                    border-bottom: 1px solid var(--border-color);
                 }
-                .search-item:hover { background: rgba(255, 255, 255, 0.05); }
-                .user-email { font-size: 0.75rem; color: #888; }
+                .search-item:hover { background: var(--bg-tertiary); }
+                .user-email { font-size: 0.75rem; color: var(--text-tertiary); }
                 .invited-list {
                     display: flex;
                     flex-wrap: wrap;
@@ -287,28 +291,29 @@ const TestBuilder = ({ onTestCreated }) => {
                 }
                 .invited-chip {
                     background: rgba(0, 255, 163, 0.1);
-                    color: var(--primary-mint);
+                    color: var(--accent-primary);
                     padding: 0.3rem 0.8rem;
                     border-radius: 50px;
                     font-size: 0.85rem;
                     display: flex;
                     align-items: center;
                     gap: 0.5rem;
+                    border: 1px solid rgba(0, 255, 163, 0.2);
                 }
                 .invited-chip button {
                     background: none;
                     border: none;
-                    color: var(--primary-mint);
+                    color: var(--accent-primary);
                     cursor: pointer;
                     font-size: 1.2rem;
                 }
                 .rules-section {
-                    background: rgba(255, 255, 255, 0.02);
+                    background: var(--bg-secondary);
                     padding: 1rem;
                     border-radius: var(--radius-md);
-                    border: 1px solid var(--border-primary);
+                    border: 1px solid var(--border-color);
                 }
-                .rules-section h4 { margin-bottom: 1rem; }
+                .rules-section h4 { margin-bottom: 1rem; color: var(--text-primary); }
             `}</style>
         </div>
     );

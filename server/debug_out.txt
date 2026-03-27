@@ -1,0 +1,33 @@
+{
+  "alice": {
+    "userId": "1",
+    "name": "Alice",
+    "matchScore": 0.7732,
+    "semanticScore": 1,
+    "cosineScore": 0.433,
+    "skills": [
+      "React",
+      "Node.js",
+      "MongoDB"
+    ]
+  },
+  "bob": {
+    "userId": "2",
+    "name": "Bob",
+    "matchScore": 0.0535,
+    "semanticScore": 0,
+    "cosineScore": 0.1336,
+    "skills": [
+      "Java",
+      "Spring"
+    ]
+  },
+  "charlie": {
+    "userId": "3",
+    "name": "Charlie",
+    "matchScore": 0,
+    "semanticScore": 0,
+    "cosineScore": 0,
+    "skills": []
+  }
+}

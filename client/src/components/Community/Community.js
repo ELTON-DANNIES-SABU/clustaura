@@ -128,7 +128,7 @@ const CommunityInner = () => {
                             onClick={handleCreateClick}
                             title="Create new challenge"
                             style={{
-                                background: 'linear-gradient(135deg, #339933, #40c0ff)',
+                                background: 'var(--gradient-primary)',
                                 color: 'white',
                                 marginRight: '8px'
                             }}

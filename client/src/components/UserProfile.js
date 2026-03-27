@@ -133,7 +133,7 @@ const UserProfile = () => {
         },
         banner: {
             height: '200px',
-            background: 'linear-gradient(135deg, rgba(0, 255, 163, 0.2) 0%, rgba(0, 0, 0, 0.8) 100%)',
+            background: 'linear-gradient(135deg, rgba(0, 255, 163, 0.2) 0%, var(--bg-primary) 100%)',
             position: 'relative'
         },
         profileHeader: {
@@ -149,14 +149,14 @@ const UserProfile = () => {
             height: '150px',
             borderRadius: '50%',
             overflow: 'hidden',
-            border: '4px solid rgba(26, 26, 26, 1)',
-            background: 'var(--gray-800)',
+            border: '4px solid var(--bg-surface)',
+            background: 'var(--bg-secondary)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             fontSize: '3rem',
             fontWeight: 'bold',
-            color: 'var(--primary-mint)',
+            color: 'var(--accent-primary)',
             boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3)',
             marginBottom: '1rem'
         },
@@ -169,12 +169,10 @@ const UserProfile = () => {
             fontSize: '2.5rem',
             fontWeight: '800',
             marginBottom: '0.25rem',
-            background: 'linear-gradient(to right, #00FFA3, #00FFCC)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent'
+            color: 'var(--text-primary)'
         },
         email: {
-            color: 'var(--gray-400)',
+            color: 'var(--text-secondary)',
             marginBottom: '1rem',
             fontSize: '1.1rem'
         },
@@ -182,9 +180,9 @@ const UserProfile = () => {
             display: 'flex',
             alignItems: 'center',
             gap: '0.5rem',
-            color: 'var(--gray-300)',
+            color: 'var(--text-secondary)',
             marginBottom: '1.5rem',
-            background: 'rgba(255,255,255,0.05)',
+            background: 'var(--bg-tertiary)',
             padding: '0.5rem 1rem',
             borderRadius: 'var(--radius-full)'
         },
@@ -194,8 +192,8 @@ const UserProfile = () => {
             marginBottom: '2rem'
         },
         primaryBtn: {
-            background: 'var(--primary-mint)',
-            color: 'var(--black)',
+            background: 'var(--accent-primary)',
+            color: '#fff',
             border: 'none',
             padding: '0.75rem 2rem',
             borderRadius: 'var(--radius-full)',
@@ -206,8 +204,8 @@ const UserProfile = () => {
         },
         secondaryBtn: {
             background: 'transparent',
-            color: 'var(--primary-mint)',
-            border: '2px solid var(--primary-mint)',
+            color: 'var(--accent-primary)',
+            border: '2px solid var(--accent-primary)',
             padding: '0.75rem 2rem',
             borderRadius: 'var(--radius-full)',
             fontWeight: '600',
@@ -216,13 +214,13 @@ const UserProfile = () => {
         },
         section: {
             padding: '2rem',
-            borderTop: '1px solid rgba(255,255,255,0.05)'
+            borderTop: '1px solid var(--border-color)'
         },
         sectionTitle: {
             fontSize: '1.25rem',
             fontWeight: '600',
             marginBottom: '1rem',
-            color: 'var(--primary-mint)'
+            color: 'var(--accent-primary)'
         },
         grid: {
             display: 'grid',
@@ -230,8 +228,8 @@ const UserProfile = () => {
             gap: '2rem'
         },
         skillTag: {
-            background: 'rgba(0, 255, 163, 0.1)',
-            color: 'var(--primary-mint)',
+            background: 'rgba(99, 102, 241, 0.1)',
+            color: 'var(--accent-primary)',
             padding: '0.5rem 1rem',
             borderRadius: 'var(--radius-md)',
             border: '1px solid rgba(0, 255, 163, 0.2)',

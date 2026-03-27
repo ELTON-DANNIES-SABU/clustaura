@@ -1,17 +1,19 @@
 import React from 'react';
 import { Layers, ChevronRight, CheckCircle } from 'lucide-react';
 
-const ModuleView = ({ modules, tickets, technologies }) => {
+const ModuleView = ({ modules, tickets, technologies, canManage }) => {
     return (
         <div className="module-view-panel">
-            <div className="tech-stack-section">
-                <h3>Recommended Tech Stack</h3>
-                <div className="tech-chips">
-                    {technologies.map((tech, i) => (
-                        <span key={i} className="tech-chip">{tech}</span>
-                    ))}
+            {canManage && (
+                <div className="tech-stack-section">
+                    <h3>Recommended Tech Stack</h3>
+                    <div className="tech-chips">
+                        {technologies.map((tech, i) => (
+                            <span key={i} className="tech-chip">{tech}</span>
+                        ))}
+                    </div>
                 </div>
-            </div>
+            )}
 
             <div className="modules-list">
                 <h3><Layers size={20} /> Project Modules</h3>

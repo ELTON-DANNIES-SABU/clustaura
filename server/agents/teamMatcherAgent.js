@@ -1,5 +1,6 @@
 const UserSkillProfile = require('../models/UserSkillProfile');
 const User = require('../models/User');
+const { calculateMatchScore } = require('../services/matchingEngine');
 
 /**
  * Matches project technical requirements to available platform users.
@@ -14,46 +15,58 @@ const matchUsersToRequirements = async (projectId, techRequirements) => {
     const results = techRequirements.map(req => {
         const technology = req.technology;
         const candidates = profiles.map(profile => {
-            // Calculate Match Score = (Skill Match × 0.6) + (Experience Level × 0.2) + (Availability × 0.2)
+            const user = profile.user || {};
             
-            // Skill Match (fuzzy matching for technology names)
-            const techLower = technology.toLowerCase();
-            const hasSkill = profile.skills.some(s => {
-                const skillLower = s.toLowerCase();
-                // Check if tech is in skill, skill is in tech, or they match partially
-                return techLower.includes(skillLower) || skillLower.includes(techLower);
-            });
-            const skillScore = hasSkill ? 1.0 : 0.0;
-            
-            // Experience Level weighting
-            const expWeights = { 'senior': 1.0, 'intermediate': 0.7, 'junior': 0.4 };
-            const expScore = expWeights[profile.experienceLevel] || 0.7;
-            
-            // Availability weighting
-            let availabilityScore = 0;
-            if (profile.availabilityStatus === 'available') availabilityScore = 1.0;
-            else if (profile.availabilityStatus === 'busy') availabilityScore = 0.5;
-            else availabilityScore = 0.0;
-            
-            // Availability also considers current workload (inverse)
-            // Assuming 0-10 scale where 0 is best availability
+            // Build the combined user profile expected by matchingEngine
+            const fullUserProfile = {
+                _id: user._id,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                avatar: user.avatar,
+                email: user.email,
+                skills: profile.skills,
+                bio: user.bio || '',
+                posts: [] // Workspace assignment doesn't strictly need community posts text
+            };
+
+            // Build the task/ticket data expected by matchingEngine
+            const reqData = {
+                requiredSkills: [technology],
+                description: `Need experts in ${technology}`
+            };
+
+            // Call the centralized HSVSM engine
+            const engineResult = calculateMatchScore(fullUserProfile, reqData);
+
+            // Optional workload integration as the previous version had
             const workloadAdjustment = Math.max(0, (10 - (profile.currentWorkload || 0)) / 10);
-            const finalAvailabilityScore = (availabilityScore * 0.7) + (workloadAdjustment * 0.3);
-
-            const totalScore = (skillScore * 0.6) + (expScore * 0.2) + (finalAvailabilityScore * 0.2);
-
+            
+            // Although engineResult already has matchScore, to exactly replicate the 100% replacement logic:
+            // The prompt says "Replace all existing recommendation logic... ensure consistent matching logic"
+            // So we just return the pure matchScore without custom additions.
+            // If they are wildly overloaded we can just pass that as metadata, but for ranking, use HSVSM.
+            
             return {
                 user: profile.user,
-                matchScore: parseFloat(totalScore.toFixed(2)),
+                matchScore: engineResult.matchScore,
+                semanticScore: engineResult.semanticScore,
+                cosineScore: engineResult.cosineScore,
                 skills: profile.skills,
                 experienceLevel: profile.experienceLevel
             };
         });
 
         // Rank candidates and pick top ones
-        const sortedCandidates = candidates
+        let sortedCandidates = candidates
             .filter(c => c.matchScore > 0.4) // Filter out very poor matches
             .sort((a, b) => b.matchScore - a.matchScore);
+
+        // Fallback: If no strict matches exist (e.g. for niche libraries like Bcrypt), suggest best available devs
+        if (sortedCandidates.length === 0) {
+            sortedCandidates = candidates
+                .filter(c => c.matchScore > 0.15) // Enough to catch available junior/intermediates
+                .sort((a, b) => b.matchScore - a.matchScore);
+        }
 
         return {
             technology,

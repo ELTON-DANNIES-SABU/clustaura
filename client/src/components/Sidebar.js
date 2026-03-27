@@ -23,14 +23,6 @@ const Sidebar = ({ activeLayout, onLayoutChange }) => {
                     </button>
 
                     <button
-                        className={`sidebar-btn ${activeLayout === 'communication' ? 'active' : ''}`}
-                        onClick={() => onLayoutChange('communication')}
-                    >
-                        <span className="sidebar-icon">💬</span>
-                        <span className="sidebar-text">Clustaura Communication</span>
-                    </button>
-
-                    <button
                         className={`sidebar-btn ${activeLayout === 'assessment' ? 'active' : ''}`}
                         onClick={() => onLayoutChange('assessment')}
                     >

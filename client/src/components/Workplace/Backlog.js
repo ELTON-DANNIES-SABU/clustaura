@@ -423,10 +423,10 @@ const Backlog = () => {
                                         {project.owner.firstName} {project.owner.lastName} (Owner)
                                     </option>
                                     {project.members && project.members
-                                        .filter(m => m._id !== project.owner._id)
-                                        .map(member => (
-                                            <option key={member._id} value={member._id}>
-                                                {member.firstName} {member.lastName}
+                                        .filter(m => m.user._id !== project.owner._id)
+                                        .map(memberObj => (
+                                            <option key={memberObj.user._id} value={memberObj.user._id}>
+                                                {memberObj.user.firstName} {memberObj.user.lastName} ({memberObj.role})
                                             </option>
                                         ))}
                                 </select>
@@ -458,6 +458,7 @@ const Backlog = () => {
                 issue={selectedIssueDetail}
                 onClose={() => setSelectedIssueDetail(null)}
                 getPriorityColor={getPriorityColor}
+                onUpdate={fetchData}
             />
         </div>
     );

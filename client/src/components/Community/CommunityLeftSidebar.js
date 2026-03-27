@@ -24,7 +24,7 @@ const CommunityLeftSidebar = ({ onClose, user, community }) => {
 
             <div className="section-header" style={{ marginBottom: '16px', marginTop: '10px' }}>
                 <div className="header-title">
-                    <Users className="title-icon" style={{ color: '#339933' }} />
+                    <Users className="title-icon" style={{ color: 'var(--node-green)' }} />
                     <h3 style={{ fontSize: '15px', fontWeight: 700 }}>
                         {community ? `${community.name} Members` : 'Community Members'}
                     </h3>
@@ -49,21 +49,21 @@ const CommunityLeftSidebar = ({ onClose, user, community }) => {
                                     background: 'rgba(255,255,255,0.02)',
                                     cursor: 'default'
                                 }}
-                                    onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(51,153,51,0.05)'}
-                                    onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}
+                                    onMouseEnter={(e) => e.currentTarget.style.background = 'var(--node-green-soft)'}
+                                    onMouseLeave={(e) => e.currentTarget.style.background = 'var(--bg-hover)'}
                                 >
                                     <div style={{
                                         width: '32px',
                                         height: '32px',
                                         borderRadius: '50%',
-                                        background: 'linear-gradient(135deg, #339933 0%, #40c0ff 100%)',
+                                        background: 'var(--gradient-primary)',
                                         display: 'flex',
                                         alignItems: 'center',
                                         justifyContent: 'center',
                                         fontSize: '11px',
                                         fontWeight: 700,
                                         color: 'white',
-                                        boxShadow: '0 2px 8px rgba(51,153,51,0.2)'
+                                        boxShadow: '0 2px 8px var(--node-green-soft)'
                                     }}>
                                         {initials}
                                     </div>
@@ -84,12 +84,12 @@ const CommunityLeftSidebar = ({ onClose, user, community }) => {
 
             <div style={{ padding: '16px', borderTop: '1px solid rgba(255,255,255,0.05)', marginTop: 'auto' }}>
                 <div style={{
-                    background: 'rgba(51,153,51,0.1)',
+                    background: 'var(--node-green-soft)',
                     padding: '12px',
                     borderRadius: '12px',
-                    border: '1px solid rgba(51,153,51,0.2)'
+                    border: '1px solid var(--border-medium)'
                 }}>
-                    <p style={{ fontSize: '11px', color: '#a0a0a0', margin: 0, textAlign: 'center' }}>
+                    <p style={{ fontSize: '11px', color: 'var(--text-secondary)', margin: 0, textAlign: 'center' }}>
                         Connect with professionals in <strong>{community?.name || 'Clustaura'}</strong>
                     </p>
                 </div>

@@ -1,15 +1,41 @@
 const Project = require('../models/Project');
 const Issue = require('../models/Issue');
+const Ticket = require('../models/Ticket');
 const Sprint = require('../models/Sprint');
 const User = require('../models/User');
 const Post = require('../models/Post');
 const Notification = require('../models/Notification');
+const teamAssignmentService = require('../services/teamAssignmentService');
 
 // @desc    Create a new sprint
 // @route   POST /api/workplace/sprints
 // @access  Private
 const createSprint = async (req, res) => {
-    res.status(403).json({ message: 'Manual sprint creation is disabled. Please use the AI SDLC Assistant.' });
+    try {
+        const { name, startDate, endDate } = req.body;
+        const projectId = req.params.id || req.body.projectId;
+
+        const project = await Project.findById(projectId);
+        if (!project) return res.status(404).json({ message: 'Project not found' });
+
+        const member = project.members.find(m => m.user.toString() === req.user._id.toString());
+        if (!member || (member.role !== 'Project Owner' && member.role !== 'Project Lead')) {
+            return res.status(403).json({ message: 'Only Project Owners or Leads can create sprints manually.' });
+        }
+
+        const sprint = await Sprint.create({
+            project: projectId,
+            name,
+            startDate,
+            endDate,
+            status: 'future'
+        });
+
+        res.status(201).json(sprint);
+    } catch (error) {
+        console.error('Error in createSprint:', error);
+        res.status(500).json({ message: 'Server Error' });
+    }
 };
 
 // @desc    Get sprints for a project
@@ -102,7 +128,7 @@ const createProject = async (req, res) => {
             key: key.toUpperCase(),
             description,
             owner: req.user._id,
-            members: [req.user._id],
+            members: [{ user: req.user._id, role: 'Project Owner' }],
             community: communityId || null
         });
         res.status(201).json(project);
@@ -117,7 +143,7 @@ const createProject = async (req, res) => {
 const getProjects = async (req, res) => {
     try {
         const projects = await Project.find({
-            members: req.user._id
+            'members.user': req.user._id
         }).sort({ createdAt: -1 });
 
         res.json(projects);
@@ -134,14 +160,14 @@ const getProjectById = async (req, res) => {
     try {
         const project = await Project.findById(req.params.id)
             .populate('owner', 'firstName lastName email')
-            .populate('members', 'firstName lastName email profileImageUrl');
+            .populate('members.user', 'firstName lastName email avatar');
 
         if (!project) {
             return res.status(404).json({ message: 'Project not found' });
         }
 
         // Check if user is member
-        if (!project.members.some(member => member._id.toString() === req.user._id.toString())) {
+        if (!project.members.some(m => m.user._id.toString() === req.user._id.toString())) {
             return res.status(401).json({ message: 'Not authorized to view this project' });
         }
 
@@ -156,7 +182,43 @@ const getProjectById = async (req, res) => {
 // @route   POST /api/workplace/issues
 // @access  Private
 const createIssue = async (req, res) => {
-    res.status(403).json({ message: 'Manual issue creation is disabled. Please use the AI SDLC Assistant.' });
+    try {
+        const { title, description, projectId, sprintId, module, priority, type, startDate, endDate, assignedUser } = req.body;
+
+        const project = await Project.findById(projectId);
+        if (!project) return res.status(404).json({ message: 'Project not found' });
+
+        // Basic authorization - must be a member
+        const member = project.members.find(m => m.user.toString() === req.user._id.toString());
+        if (!member) return res.status(401).json({ message: 'Not authorized' });
+
+        // Generate Issue Key
+        const ticketCount = await Ticket.countDocuments({ project: projectId });
+        const issueCount = await Issue.countDocuments({ project: projectId });
+        const nextNumber = ticketCount + issueCount + 1;
+        const issueKey = `${project.key}-${nextNumber}`;
+
+        const ticket = await Ticket.create({
+            project: projectId,
+            sprint: sprintId || null,
+            module: module || null,
+            title,
+            description,
+            priority: priority || 'medium',
+            type: type || 'task',
+            status: 'To Do',
+            issueKey,
+            reporter: req.user._id,
+            startDate: startDate || null,
+            endDate: endDate || null,
+            assignedUser: assignedUser || null
+        });
+
+        res.status(201).json(ticket);
+    } catch (error) {
+        console.error('Error in createIssue:', error);
+        res.status(500).json({ message: 'Server Error' });
+    }
 };
 
 // @desc    Get issues for a project (optionally filtered by sprint)
@@ -192,22 +254,27 @@ const getProjectIssues = async (req, res) => {
 const updateIssueStatus = async (req, res) => {
     try {
         const { status } = req.body;
-        const issue = await Issue.findById(req.params.id);
+        let issue = await Issue.findById(req.params.id);
+        let isTicket = false;
 
         if (!issue) {
-            return res.status(404).json({ message: 'Issue not found' });
+            issue = await Ticket.findById(req.params.id);
+            if (!issue) {
+                return res.status(404).json({ message: 'Issue/Ticket not found' });
+            }
+            isTicket = true;
         }
 
-        // Auto-create post when moved to Done
-        if (status === 'Done' && issue.status !== 'Done') {
+        // Auto-create post when moved to Completed
+        if (status === 'Completed' && issue.status !== 'Completed') {
             try {
                 // Fetch project to get community association
                 const project = await Project.findById(issue.project);
 
                 const newPost = await Post.create({
-                    author: issue.assignee || req.user._id,
-                    title: `Completed Task: ${issue.summary}`,
-                    content: issue.description || `I successfully completed the task: ${issue.summary}`,
+                    author: issue.assignee || issue.assignedUser || req.user._id,
+                    title: `Completed Task: ${issue.summary || issue.title}`,
+                    content: issue.description || `I successfully completed the task: ${issue.summary || issue.title}`,
                     type: 'Update',
                     tags: ['Workplace', 'Achievement'],
                     community: project?.community || null,
@@ -223,7 +290,7 @@ const updateIssueStatus = async (req, res) => {
                 const io = req.app.get('io');
                 if (io) {
                     io.emit('new-post', populatedPost);
-                    console.log(`✅ Auto-created and EMITTED post for issue ${issue.issueKey}`);
+                    console.log(`✅ Auto-created and EMITTED post for issue ${issue.issueKey || issue.title}`);
                 }
             } catch (postError) {
                 console.error('❌ Error auto-creating post:', postError);
@@ -232,6 +299,18 @@ const updateIssueStatus = async (req, res) => {
         }
 
         issue.status = status;
+        if (status === 'In Progress') {
+             issue.progressPercentage = isTicket ? (issue.progressPercentage > 0 ? issue.progressPercentage : 10) : undefined;
+        } else if (status === 'Testing') {
+            if (isTicket) issue.progressPercentage = 90;
+        } else if (status === 'Completed') {
+            if (isTicket) issue.progressPercentage = 100;
+
+            // Automated Pipeline Hook: Re-balance and assign tickets when one finishes
+            teamAssignmentService.autoAssignProjectTickets(issue.project).catch(err => {
+                console.error("Background auto-assign sweep failed:", err);
+            });
+        }
         await issue.save();
 
         res.json(issue);
@@ -276,7 +355,7 @@ const addProjectMember = async (req, res) => {
         }
 
         // Check if already member
-        if (project.members.some(m => m.toString() === userToAdd._id.toString())) {
+        if (project.members.some(m => m.user.toString() === userToAdd._id.toString())) {
             return res.status(400).json({ message: 'User is already a member' });
         }
 
@@ -348,10 +427,13 @@ const respondToInvitation = async (req, res) => {
             project.invitations[invitationIndex].status = 'accepted';
             // Add to members
             const isAlreadyMember = project.members.some(
-                m => m.toString() === req.user._id.toString()
+                m => m.user.toString() === req.user._id.toString()
             );
             if (!isAlreadyMember) {
-                project.members.push(req.user._id);
+                project.members.push({
+                    user: req.user._id,
+                    role: project.invitations[invitationIndex].role || 'Member'
+                });
             }
             
             // Notify Lead
@@ -499,7 +581,7 @@ const respondToLeaveRequest = async (req, res) => {
 
         if (action === 'approve') {
             // Remove from members
-            project.members = project.members.filter(m => m.toString() !== userId);
+            project.members = project.members.filter(m => m.user.toString() !== userId);
 
             // Notify user
             try {
@@ -565,16 +647,64 @@ const removeProjectMember = async (req, res) => {
         }
 
         // Remove from members
-        project.members = project.members.filter(m => m.toString() !== userId);
+        project.members = project.members.filter(m => m.user.toString() !== userId);
         await project.save();
 
         const updatedProject = await Project.findById(project._id)
             .populate('owner', 'firstName lastName email')
-            .populate('members', 'firstName lastName email profileImageUrl');
+            .populate('members.user', 'firstName lastName email profileImageUrl');
 
         res.json(updatedProject);
     } catch (error) {
         console.error('Error removing member:', error);
+        res.status(500).json({ message: 'Server Error' });
+    }
+};
+
+// @desc    Update member role in project
+// @route   PUT /api/workplace/projects/:id/members/:userId/role
+// @access  Private (Owner only)
+const updateMemberRole = async (req, res) => {
+    try {
+        const { role } = req.body;
+        const { userId } = req.params;
+        const project = await Project.findById(req.params.id);
+
+        if (!project) {
+            return res.status(404).json({ message: 'Project not found' });
+        }
+
+        // Only owner can change roles
+        if (project.owner.toString() !== req.user._id.toString()) {
+            return res.status(401).json({ message: 'Only the project owner can change roles' });
+        }
+
+        const memberIndex = project.members.findIndex(m => m.user.toString() === userId);
+        if (memberIndex === -1) {
+            return res.status(404).json({ message: 'Member not found in project' });
+        }
+
+        // Cannot change owner's role through this endpoint
+        if (userId === project.owner.toString()) {
+            return res.status(400).json({ message: 'Cannot change the project owner\'s role' });
+        }
+
+        // Only allow specific roles
+        const validRoles = ['Member', 'Project Lead'];
+        if (!validRoles.includes(role)) {
+            return res.status(400).json({ message: 'Invalid role. Choose Member or Project Lead.' });
+        }
+
+        project.members[memberIndex].role = role;
+        await project.save();
+
+        const updatedProject = await Project.findById(project._id)
+            .populate('owner', 'firstName lastName email')
+            .populate('members.user', 'firstName lastName email profileImageUrl');
+
+        res.json(updatedProject);
+    } catch (error) {
+        console.error('Error updating member role:', error);
         res.status(500).json({ message: 'Server Error' });
     }
 };
@@ -634,5 +764,6 @@ module.exports = {
     removeProjectMember,
     getProjectLeaveRequests,
     respondToLeaveRequest,
-    getPendingInvitations
+    getPendingInvitations,
+    updateMemberRole
 };

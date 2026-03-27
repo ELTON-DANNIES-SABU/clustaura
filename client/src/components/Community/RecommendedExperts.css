@@ -20,7 +20,7 @@
     right: -50px;
     width: 200px;
     height: 200px;
-    background: radial-gradient(circle at center, rgba(51, 153, 51, 0.15) 0%, transparent 70%);
+    background: radial-gradient(circle at center, rgba(0, 255, 163, 0.1) 0%, transparent 70%);
     pointer-events: none;
     z-index: 0;
 }
@@ -32,7 +32,7 @@
     left: -50px;
     width: 200px;
     height: 200px;
-    background: radial-gradient(circle at center, rgba(64, 192, 255, 0.1) 0%, transparent 70%);
+    background: radial-gradient(circle at center, rgba(59, 130, 246, 0.1) 0%, transparent 70%);
     pointer-events: none;
     z-index: 0;
 }
@@ -59,7 +59,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 4px 12px rgba(51, 153, 51, 0.3);
+    box-shadow: 0 4px 12px rgba(0, 255, 163, 0.3);
 }
 
 .experts-title-text {
@@ -205,7 +205,7 @@
     font-weight: 800;
     font-size: var(--text-base);
     flex-shrink: 0;
-    box-shadow: 0 4px 12px rgba(51, 153, 51, 0.2);
+    box-shadow: 0 4px 12px rgba(0, 255, 163, 0.2);
 }
 
 .expert-details {
@@ -237,7 +237,7 @@
     border-radius: var(--radius-full);
     font-size: 9px;
     font-weight: 800;
-    box-shadow: 0 2px 8px rgba(51, 153, 51, 0.3);
+    box-shadow: 0 2px 8px rgba(0, 255, 163, 0.3);
 }
 
 .expert-skills {
@@ -325,12 +325,12 @@
     letter-spacing: 1px;
     cursor: pointer;
     transition: all var(--transition-bounce);
-    box-shadow: 0 4px 12px rgba(51, 153, 51, 0.2);
+    box-shadow: 0 4px 12px rgba(0, 255, 163, 0.2);
 }
 
 .invite-expert-btn:hover:not(:disabled) {
     transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(51, 153, 51, 0.4);
+    box-shadow: 0 6px 16px rgba(0, 255, 163, 0.4);
 }
 
 .invite-expert-btn:disabled {

@@ -7,6 +7,8 @@ const ProjectsView = () => {
     const navigate = useNavigate();
     const [projects, setProjects] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [showCreateModal, setShowCreateModal] = useState(false);
+    const [newProject, setNewProject] = useState({ name: '', key: '', description: '', communityId: '' });
 
     useEffect(() => {
         const fetchProjects = async () => {
@@ -28,8 +30,42 @@ const ProjectsView = () => {
         fetchProjects();
     }, []);
 
+    const handleCreateProject = async (e) => {
+        e.preventDefault();
+        try {
+            const userStr = localStorage.getItem('user');
+            const { token } = JSON.parse(userStr);
+
+            // Auto-generate a unique 6-character key from name + random
+            const baseKey = newProject.name.substring(0, 3).toUpperCase();
+            const randomSuffix = Math.random().toString(36).substring(2, 5).toUpperCase();
+            const key = `${baseKey}${randomSuffix}`;
+
+            const projectRes = await axios.post('/api/workplace/projects', { ...newProject, key }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            const projectId = projectRes.data._id;
+
+            // Trigger AI Analysis immediately
+            await axios.post('/api/agents/analyze-project', {
+                projectId,
+                title: newProject.name,
+                description: newProject.description
+            }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            setShowCreateModal(false);
+            setNewProject({ name: '', key: '', description: '', communityId: '' });
+            navigate(`/workplace/project/${projectId}/ai-planner`);
+        } catch (error) {
+            alert(error.response?.data?.message || 'Error initializing automated workspace');
+        }
+    };
+
     const getProjectColor = (index) => {
-        const colors = ['#00ffaa', '#00ccff', '#aa00ff', '#ffaa00', '#ff0066'];
+        const colors = ['var(--accent-primary)', 'var(--accent-secondary)', '#8b5cf6', '#ec4899', '#f97316'];
         return colors[index % colors.length];
     };
 
@@ -48,7 +84,7 @@ const ProjectsView = () => {
                 <h2>My Projects</h2>
                 <button
                     className="create-btn-small"
-                    onClick={() => navigate('/workplace')}
+                    onClick={() => setShowCreateModal(true)}
                 >
                     <Plus size={16} /> New Project
                 </button>
@@ -86,13 +122,58 @@ const ProjectsView = () => {
                         <p>No projects found.</p>
                         <button
                             className="create-btn-accent"
-                            onClick={() => navigate('/workplace')}
+                            onClick={() => setShowCreateModal(true)}
                         >
                             Get Started
                         </button>
                     </div>
                 )}
             </div>
+
+            {showCreateModal && (
+                <div className="modal-overlay">
+                    <div className="modal-content">
+                        <div className="modal-header">
+                            <h2>Create New Project</h2>
+                            <button className="modal-close" onClick={() => setShowCreateModal(false)}>×</button>
+                        </div>
+                        <form onSubmit={handleCreateProject}>
+                            <div className="form-group">
+                                <label>
+                                    <span>What are we building today? (Project Title)</span>
+                                    <input
+                                        type="text"
+                                        value={newProject.name}
+                                        onChange={e => setNewProject({ ...newProject, name: e.target.value })}
+                                        placeholder="e.g., AI-Powered CRM"
+                                        required
+                                    />
+                                </label>
+                            </div>
+                            <div className="form-group">
+                                <label>
+                                    <span>Describe the system requirements & goals</span>
+                                    <textarea
+                                        value={newProject.description}
+                                        onChange={e => setNewProject({ ...newProject, description: e.target.value })}
+                                        placeholder="Describe features, target users, and technical constraints..."
+                                        rows="6"
+                                        required
+                                    />
+                                </label>
+                            </div>
+                            <div className="modal-actions">
+                                <button type="button" className="cancel-btn" onClick={() => setShowCreateModal(false)}>
+                                    Cancel
+                                </button>
+                                <button type="submit" className="create-btn ai-sparkle">
+                                    🚀 Initialize Automated Workspace
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

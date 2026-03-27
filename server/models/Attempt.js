@@ -42,7 +42,9 @@ const attemptSchema = new mongoose.Schema({
         feedback: String
     }],
     violations: [{
-        type: { type: String }, // 'tab-switch', 'exit-fullscreen'
+        type: { type: String }, // 'TAB_SWITCH', 'NOISE', 'MULTIPLE_FACE', 'GAZE_AWAY', 'FACE_NOT_VISIBLE'
+        severity: { type: String, enum: ['LOW', 'MEDIUM', 'HIGH'] },
+        duration: { type: Number, default: 0 },
         timestamp: { type: Date, default: Date.now }
     }],
     totalScore: {

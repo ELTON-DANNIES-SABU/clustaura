@@ -280,8 +280,8 @@ const Friends = () => {
                         onChange={(e) => setSearchQuery(e.target.value)}
                     />
                     <svg className="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none">
-                        <circle cx="11" cy="11" r="8" stroke="#00ffaa" strokeWidth="2" />
-                        <path d="M21 21l-4.35-4.35" stroke="#00ffaa" strokeWidth="2" strokeLinecap="round" />
+                        <circle cx="11" cy="11" r="8" stroke="var(--accent-primary)" strokeWidth="2" />
+                        <path d="M21 21l-4.35-4.35" stroke="var(--accent-primary)" strokeWidth="2" strokeLinecap="round" />
                     </svg>
                 </div>
 

@@ -8,6 +8,17 @@ const TicketSchema = new mongoose.Schema({
     description: {
         type: String
     },
+    ticketCode: {
+        type: String
+    },
+    repositoryBranch: {
+        type: String
+    },
+    commits: [{
+        hash: String,
+        message: String,
+        timestamp: Date
+    }],
     module: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'ProjectModule',
@@ -39,6 +50,10 @@ const TicketSchema = new mongoose.Schema({
     status: {
         type: String,
         default: 'To Do'
+    },
+    progressPercentage: {
+        type: Number,
+        default: 0
     },
     skillsRequired: [{
         type: String

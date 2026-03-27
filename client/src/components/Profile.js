@@ -609,8 +609,8 @@ const Profile = () => {
                                                     <div key={post._id} className="activity-card" onClick={() => navigate(link)}>
                                                         <div className="activity-card-header">
                                                             <span className="community-tag" style={{
-                                                                background: isChallenge ? 'rgba(52, 152, 219, 0.1)' : 'rgba(0, 255, 163, 0.1)',
-                                                                color: isChallenge ? '#3498db' : 'var(--primary-mint)'
+                                                                background: isChallenge ? 'rgba(59, 130, 246, 0.1)' : 'rgba(0, 255, 163, 0.2)',
+                                                                color: isChallenge ? 'var(--accent-secondary)' : 'var(--accent-primary)'
                                                             }}>
                                                                 {post.community?.name || 'General'}
                                                             </span>
@@ -654,7 +654,7 @@ const Profile = () => {
                                                     <div key={comment._id} className="activity-card" onClick={() => comment.post?._id && navigate(link)}>
                                                         <div className="activity-card-header">
                                                             <span className="comment-on">On: {comment.post?.title || 'Unknown Post'}</span>
-                                                            {isChallenge && <span className="community-tag" style={{ background: 'rgba(52, 152, 219, 0.1)', color: '#3498db', marginLeft: '8px', fontSize: '10px' }}>Challenge</span>}
+                                                            {isChallenge && <span className="community-tag" style={{ background: 'rgba(59, 130, 246, 0.1)', color: 'var(--accent-secondary)', marginLeft: '8px', fontSize: '10px' }}>Challenge</span>}
                                                             <span className="activity-date">{new Date(comment.createdAt).toLocaleDateString()}</span>
                                                         </div>
                                                         <p className="activity-content">"{comment.content}"</p>

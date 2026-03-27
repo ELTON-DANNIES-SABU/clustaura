@@ -1,0 +1,54 @@
+﻿[dotenv@17.2.3] injecting env (8) from server\.env -- tip: ≡ƒöÉ prevent committing .env to code: https://dotenvx.com/precommit
+Attempting to connect to MongoDB: mongodb+srv:****@cluster0.ouumxnw.mongodb.net/clustaura?retryWrites=true&w=majority
+MongoDB Connected: ac-lfzasqj-shard-00-01.ouumxnw.mongodb.net
+Database Name: clustaura
+Port: 27017
+Project ID: new ObjectId('69bc4ef8cc04823d0de25101')
+Tickets: 43
+Sprints: 5
+Inserted Reqs: 42
+node : ReferenceError: 
+s is not defined
+At line:1 char:1
++ node fix.js > 
+fix.log 2>&1
++ ~~~~~~~~~~~~~~~~~~~~~
+~~~~~
+    + CategoryInfo     
+         : NotSpecifi  
+  ed: (ReferenceErro   
+ r: s is not define    
+d:String) [], Remo    
+teException
+    + FullyQualifiedEr 
+   rorId : NativeComm  
+  andError
+ 
+    at C:\Users\risho\O
+neDrive\Desktop\clustau
+ra_new\clustaura\server
+\agents\timelineAgent.j
+s:41:17
+    at Array.filter 
+(<anonymous>)
+    at C:\Users\risho\O
+neDrive\Desktop\clustau
+ra_new\clustaura\server
+\agents\timelineAgent.j
+s:38:49
+    at Array.map 
+(<anonymous>)
+    at Object.generateT
+imeline (C:\Users\risho
+\OneDrive\Desktop\clust
+aura_new\clustaura\serv
+er\agents\timelineAgent
+.js:25:36)
+    at C:\Users\risho\O
+neDrive\Desktop\clustau
+ra_new\clustaura\fix.js
+:47:66
+    at process.processT
+icksAndRejections (node
+:internal/process/task_
+queues:105:5)

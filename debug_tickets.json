@@ -1,0 +1,27 @@
+{
+  "project": "AI-Powered Telemedicine Platform",
+  "ticketCount": 43,
+  "sprints": [
+    {
+      "name": "Sprint 1: Foundation & Core Authentication",
+      "ticketCount": 0
+    },
+    {
+      "name": "Sprint 2: Real-Time Communication & Basic Scheduling",
+      "ticketCount": 0
+    },
+    {
+      "name": "Sprint 3: AI & EHR Integration Core",
+      "ticketCount": 0
+    },
+    {
+      "name": "Sprint 4: Advanced Features & Payments",
+      "ticketCount": 0
+    },
+    {
+      "name": "Sprint 5: Security, Performance & Deployment Readiness",
+      "ticketCount": 0
+    }
+  ],
+  "sampleSprintId": "69bc518ba17974a540abb9d1"
+}

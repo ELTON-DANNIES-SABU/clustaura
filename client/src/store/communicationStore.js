@@ -143,6 +143,22 @@ const useCommunicationStore = create((set, get) => ({
         const { activeId, activeType } = get();
         if (!activeId || !content.trim()) return;
 
+        // Optimistic UI Update
+        const userStr = localStorage.getItem('user');
+        const user = userStr ? JSON.parse(userStr) : null;
+        const tempId = 'temp-' + Date.now();
+        
+        const tempMsg = {
+            _id: tempId,
+            content,
+            sender: user,
+            createdAt: new Date().toISOString(),
+            [activeType === 'channel' ? 'channelId' : 'recipient']: activeId,
+            isTemp: true
+        };
+        
+        get().addMessageToState(activeId, tempMsg);
+
         try {
             const config = { headers: getAuthHeader() };
             const payload = {
@@ -150,9 +166,41 @@ const useCommunicationStore = create((set, get) => ({
                 [activeType === 'channel' ? 'channelId' : 'recipientId']: activeId
             };
 
-            await axios.post(`${API_URL}/messages`, payload, config);
+            const res = await axios.post(`${API_URL}/messages`, payload, config);
+            
+            // Replace optimistic message with actual data from server
+            set(state => {
+                const currentMsgs = state.messages[activeId] || [];
+                // Check if socket already appended the real message (avoid duplicates)
+                const hasRealMsg = currentMsgs.some(m => m._id === res.data._id);
+                
+                let updatedMsgs = currentMsgs.filter(m => m._id !== tempId); // Remove temp
+                if (!hasRealMsg) {
+                    updatedMsgs.push(res.data); // Append real if socket hasn't done it yet
+                }
+                
+                return {
+                    messages: {
+                        ...state.messages,
+                        [activeId]: updatedMsgs
+                    }
+                };
+            });
+
         } catch (error) {
             console.error('Error sending message:', error);
+            alert("Failed to send message: " + (error.response?.data?.message || error.message));
+            
+            // Revert optimistic update
+            set(state => {
+                const currentMsgs = state.messages[activeId] || [];
+                return {
+                    messages: {
+                        ...state.messages,
+                        [activeId]: currentMsgs.filter(m => m._id !== tempId)
+                    }
+                };
+            });
         }
     },
 

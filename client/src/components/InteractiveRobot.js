@@ -135,7 +135,7 @@ const InteractiveRobot = ({ onActivate }) => {
                             <div
                                 className="cute-eye left"
                                 style={{
-                                    boxShadow: `0 0 ${8 + eyeGlow * 10}px #00ffa3`,
+                                    boxShadow: `0 0 ${8 + eyeGlow * 10}px rgba(0, 255, 163, 0.6)`,
                                     transform: `scale(${1 + eyeGlow * 0.1})`
                                 }}
                             >

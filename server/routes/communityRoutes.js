@@ -21,6 +21,7 @@ router.get('/posts/:id', communityController.getPostById);
 router.put('/posts/:id', protect, communityController.updatePost);
 router.delete('/posts/:id', protect, communityController.deletePost);
 router.put('/posts/:id/vote', protect, communityController.votePost);
+router.get('/posts/:id/recommended-contributors', protect, communityController.getRecommendedContributors);
 
 // Comment Routes
 router.post('/comments', protect, communityController.createComment);

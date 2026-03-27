@@ -2,6 +2,7 @@ const Community = require('../models/Community');
 const Post = require('../models/Post');
 const Comment = require('../models/Comment');
 const Challenge = require('../models/Challenge');
+const communitySuggestionService = require('../services/communitySuggestionService');
 
 // --- Community Controllers ---
 
@@ -454,6 +455,17 @@ exports.getUserComments = async (req, res) => {
         res.json(allComments);
     } catch (error) {
         console.error('getUserComments Error:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+exports.getRecommendedContributors = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const limit = parseInt(req.query.limit) || 5;
+        const recommendations = await communitySuggestionService.getRecommendedContributors(id, limit);
+        res.json(recommendations);
+    } catch (error) {
         res.status(500).json({ message: error.message });
     }
 };

@@ -10,6 +10,7 @@ import Friends from './Friends';
 import Profile from './Profile';
 import AIGuide from './AIGuide';
 import AssessmentPortal from './Assessment/AssessmentPortal';
+import ThemeToggle from './ThemeToggle';
 import '../styles.css';
 
 // SVG Icons
@@ -67,20 +68,20 @@ const LogoutIcon = () => (
 
 const SearchIcon = () => (
     <svg className="pro-search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none">
-        <circle cx="11" cy="11" r="8" stroke="#00ffaa" strokeWidth="2" />
-        <path d="M21 21l-4.35-4.35" stroke="#00ffaa" strokeWidth="2" strokeLinecap="round" />
+        <circle cx="11" cy="11" r="8" stroke="var(--accent-primary)" strokeWidth="2" />
+        <path d="M21 21l-4.35-4.35" stroke="var(--accent-primary)" strokeWidth="2" strokeLinecap="round" />
     </svg>
 );
 
 const HomeIcon = ({ isActive }) => (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
         <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"
-            stroke={isActive ? "#00ffaa" : "currentColor"}
+            stroke={isActive ? "var(--accent-primary)" : "currentColor"}
             strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round" />
         <polyline points="9 22 9 12 15 12 15 22"
-            stroke={isActive ? "#00ffaa" : "currentColor"}
+            stroke={isActive ? "var(--accent-primary)" : "currentColor"}
             strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round" />
@@ -90,7 +91,7 @@ const HomeIcon = ({ isActive }) => (
 const ProjectsIcon = ({ isActive }) => (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
         <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"
-            stroke={isActive ? "#00ffaa" : "currentColor"}
+            stroke={isActive ? "var(--accent-primary)" : "currentColor"}
             strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round" />
@@ -100,17 +101,17 @@ const ProjectsIcon = ({ isActive }) => (
 const FriendRequestIcon = ({ isActive, hasRequests }) => (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
         <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"
-            stroke={isActive ? "#00ffaa" : "currentColor"}
+            stroke={isActive ? "var(--accent-primary)" : "currentColor"}
             strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round" />
         <circle cx="8.5" cy="7" r="4"
-            stroke={isActive ? "#00ffaa" : "currentColor"}
+            stroke={isActive ? "var(--accent-primary)" : "currentColor"}
             strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round" />
         <path d="M20 8v6M23 11h-6"
-            stroke={isActive ? "#00ffaa" : "currentColor"}
+            stroke={isActive ? "var(--accent-primary)" : "currentColor"}
             strokeWidth="2"
             strokeLinecap="round" />
     </svg>
@@ -119,12 +120,12 @@ const FriendRequestIcon = ({ isActive, hasRequests }) => (
 const ProfileIcon = ({ isActive }) => (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
         <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"
-            stroke={isActive ? "#00ffaa" : "currentColor"}
+            stroke={isActive ? "var(--accent-primary)" : "currentColor"}
             strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round" />
         <circle cx="12" cy="7" r="4"
-            stroke={isActive ? "#00ffaa" : "currentColor"}
+            stroke={isActive ? "var(--accent-primary)" : "currentColor"}
             strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round" />
@@ -134,12 +135,12 @@ const ProfileIcon = ({ isActive }) => (
 const SettingsIcon = ({ isActive }) => (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
         <circle cx="12" cy="12" r="3"
-            stroke={isActive ? "#00ffaa" : "currentColor"}
+            stroke={isActive ? "var(--accent-primary)" : "currentColor"}
             strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round" />
-        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"
-            stroke={isActive ? "#00ffaa" : "currentColor"}
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1-2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"
+            stroke={isActive ? "var(--accent-primary)" : "currentColor"}
             strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round" />
@@ -149,7 +150,7 @@ const SettingsIcon = ({ isActive }) => (
 const PlusIcon = () => (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
         <path d="M12 5v14M5 12h14"
-            stroke="#000"
+            stroke="var(--bg-primary)"
             strokeWidth="3"
             strokeLinecap="round" />
     </svg>
@@ -422,8 +423,7 @@ const NotificationsPanel = ({ showNotifications, notificationList, handleMarkAll
     </div>
 );
 
-const Dashboard = () => {
-    const [darkMode, setDarkMode] = useState(true);
+const Dashboard = ({ defaultTab = 'home' }) => {
     const [notifications, setNotifications] = useState(3);
     const [messages, setMessages] = useState(2);
     const [friendRequests, setFriendRequests] = useState(2);
@@ -431,7 +431,7 @@ const Dashboard = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState({ users: [], challenges: [] });
     const [showSearchResults, setShowSearchResults] = useState(false);
-    const [activeNav, setActiveNav] = useState('home');
+    const [activeNav, setActiveNav] = useState(defaultTab);
     const [news, setNews] = useState([]);
     const [newsCategory, setNewsCategory] = useState('all');
     const [lastUpdate, setLastUpdate] = useState('');
@@ -446,6 +446,12 @@ const Dashboard = () => {
     const [notificationList, setNotificationList] = useState([]);
 
     const navigate = useNavigate();
+
+    useEffect(() => {
+        if (defaultTab) {
+            setActiveNav(defaultTab);
+        }
+    }, [defaultTab]);
 
     useEffect(() => {
         const user = localStorage.getItem('user');
@@ -623,9 +629,6 @@ const Dashboard = () => {
                 break;
             case 'community':
                 navigate('/community');
-                break;
-            case 'communication':
-                navigate('/communication');
                 break;
             case 'workplace':
                 navigate('/workplace');
@@ -865,11 +868,6 @@ const Dashboard = () => {
         'Security', 'Performance', 'Documentation', 'Other'
     ];
 
-
-    const toggleTheme = () => {
-        setDarkMode(!darkMode);
-    };
-
     // State for recent challenges
     const [recentChallenges, setRecentChallenges] = useState([]);
     const [expandedComments, setExpandedComments] = useState({}); // Tracking which challenge has comments open
@@ -1010,7 +1008,7 @@ const Dashboard = () => {
 
 
     return (
-        <div className={`dashboard-layout ${darkMode ? '' : 'light'}`}>
+        <div className="dashboard-layout">
             <header className="pro-header">
                 <div className="pro-header-content">
                     <div className="pro-logo">
@@ -1099,6 +1097,7 @@ const Dashboard = () => {
                     </div>
 
                     <div className="pro-icons-container">
+                        <ThemeToggle />
                         <NotificationBell />
                         <div className="pro-user-profile">
                             <div className="pro-user-avatar">
@@ -1330,17 +1329,6 @@ const Dashboard = () => {
                 handleProfileClick={handleProfileClick}
                 friendRequests={friendRequests}
                 setShowPostModal={setShowPostModal}
-            />
-
-            {/* Overlay for panels */}
-            {showChat && <div className="panel-overlay" onClick={() => setShowChat(false)}></div>}
-
-            {/* Chat Panel */}
-            <ChatPanel
-                showChat={showChat}
-                setShowChat={setShowChat}
-                chatMessages={chatMessages}
-                handleSendMessage={handleSendMessage}
             />
 
             <NotificationsPanel

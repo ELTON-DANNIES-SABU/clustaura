@@ -1,5 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
+import * as tf from '@tensorflow/tfjs';
+import * as faceLandmarksDetection from '@tensorflow-models/face-landmarks-detection';
+import '@mediapipe/face_mesh';
+
+// We need @tensorflow/tfjs-backend-webgl manually initialized usually, but tfjs auto-loads it.
 
 const TestAttempt = ({ testId, onFinish }) => {
     const [test, setTest] = useState(null);
@@ -7,22 +12,89 @@ const TestAttempt = ({ testId, onFinish }) => {
     const [currentQuestionIdx, setCurrentQuestionIdx] = useState(0);
     const [timeLeft, setTimeLeft] = useState(0);
     const [loading, setLoading] = useState(true);
-    const [responses, setResponses] = useState({}); // { questionId: { selectedOptions: [] } }
+    const [responses, setResponses] = useState({});
     const [isSaving, setIsSaving] = useState(false);
     const [result, setResult] = useState(null);
     const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
-    const [alertConfig, setAlertConfig] = useState(null); // { message, type }
+    const [alertConfig, setAlertConfig] = useState(null);
     const violationRef = useRef(0);
 
+    // AI Proctoring Refs & States
+    const videoRef = useRef(null);
+    const streamRef = useRef(null);
+    const detectorRef = useRef(null);
+    const audioContextRef = useRef(null);
+    const analyserRef = useRef(null);
+    const loopRef = useRef(null);
+
+    const gazeAwayTicks = useRef(0);
+    const multipleFaceTicks = useRef(0);
+    const noiseTicks = useRef(0);
+    const noFaceTicks = useRef(0);
+
+    const [hasPermissions, setHasPermissions] = useState(false);
+    const [proctorLoading, setProctorLoading] = useState(false);
+    const [proctorMsg, setProctorMsg] = useState('');
+
     useEffect(() => {
-        startAttempt();
-        setupAntiCheat();
-        document.body.classList.add('exam-mode');
+        // We do NOT start immediately anymore. Wait for permissions.
         return () => {
             removeAntiCheat();
             document.body.classList.remove('exam-mode');
+            if (loopRef.current) clearInterval(loopRef.current);
+            if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
+            if (audioContextRef.current) audioContextRef.current.close();
         };
     }, []);
+
+    const requestPermissions = async () => {
+        setProctorLoading(true);
+        setProctorMsg('Requesting Camera & Microphone access...');
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+            streamRef.current = stream;
+            
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const source = audioCtx.createMediaStreamSource(stream);
+            const analyser = audioCtx.createAnalyser();
+            analyser.fftSize = 256;
+            source.connect(analyser);
+            audioContextRef.current = audioCtx;
+            analyserRef.current = analyser;
+
+            setProctorMsg('Loading AI Models (This may take a moment)...');
+            await tf.setBackend('webgl');
+            const model = faceLandmarksDetection.SupportedModels.MediaPipeFaceMesh;
+            const detectorConfig = {
+                runtime: 'mediapipe',
+                solutionPath: 'https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh'
+            };
+            const detector = await faceLandmarksDetection.createDetector(model, detectorConfig);
+            detectorRef.current = detector;
+
+            setHasPermissions(true);
+            setTimeout(() => {
+                if (videoRef.current) videoRef.current.srcObject = streamRef;
+            }, 500);
+            
+            startAttempt();
+        } catch (e) {
+            console.error('Proctoring Error:', e);
+            alert('Camera and microphone access is strictly required for this assessment.');
+            setProctorLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        if (hasPermissions && attempt) {
+            if (videoRef.current && streamRef.current) {
+                videoRef.current.srcObject = streamRef.current;
+            }
+            setupAntiCheat();
+            document.body.classList.add('exam-mode');
+            loopRef.current = setInterval(detectProctoring, 1500);
+        }
+    }, [hasPermissions, attempt]);
 
     const startAttempt = async () => {
         try {
@@ -57,18 +129,114 @@ const TestAttempt = ({ testId, onFinish }) => {
         }
     };
 
+    const logExpandedViolation = async (type, severity, duration) => {
+        if (!attempt) return;
+        try {
+            const userStr = localStorage.getItem('user');
+            const userData = JSON.parse(userStr);
+            const config = { headers: { Authorization: `Bearer ${userData.token}` } };
+            await axios.post(`/api/assessment/attempts/${attempt._id}/violation`, { type, severity, duration }, config);
+        } catch (error) {
+            console.error('Error logging violation:', error);
+        }
+    };
+
+    const detectProctoring = async () => {
+        // Audio Noise Level
+        if (analyserRef.current) {
+            const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
+            analyserRef.current.getByteFrequencyData(dataArray);
+            let avgVolume = 0;
+            if (dataArray.length > 0) {
+                avgVolume = dataArray.reduce((a, b) => a + b) / dataArray.length;
+            }
+            if (avgVolume > 50) {
+                noiseTicks.current++;
+            } else {
+                noiseTicks.current = 0;
+            }
+
+            if (noiseTicks.current >= 2) {
+                setAlertConfig({ message: '⚠ High background noise detected!', type: 'warning' });
+                violationRef.current += 1;
+                logExpandedViolation('NOISE', 'MEDIUM', 3);
+                noiseTicks.current = 0;
+            }
+        }
+
+        // Face & Gaze Detection
+        if (detectorRef.current && videoRef.current && videoRef.current.readyState === 4) {
+            try {
+                const faces = await detectorRef.current.estimateFaces(videoRef.current);
+                
+                if (faces.length === 0) {
+                    noFaceTicks.current++;
+                    if (noFaceTicks.current >= 2) {
+                        setAlertConfig({ message: '⚠ Face not visible on screen!', type: 'warning' });
+                        violationRef.current += 1;
+                        logExpandedViolation('FACE_NOT_VISIBLE', 'HIGH', 3);
+                        noFaceTicks.current = 0;
+                    }
+                } else {
+                    noFaceTicks.current = 0;
+                }
+
+                if (faces.length > 1) {
+                    multipleFaceTicks.current++;
+                    if (multipleFaceTicks.current >= 2) {
+                        setAlertConfig({ message: '⚠ Multiple faces detected!', type: 'error' });
+                        violationRef.current += 1;
+                        logExpandedViolation('MULTIPLE_FACE', 'HIGH', 3);
+                        multipleFaceTicks.current = 0;
+                    }
+                } else {
+                    multipleFaceTicks.current = 0;
+                }
+
+                if (faces.length === 1) {
+                    const keypoints = faces[0].keypoints;
+                    if (keypoints && keypoints.length > 400) {
+                        const nose = keypoints[1];
+                        const leftEar = keypoints[234];
+                        const rightEar = keypoints[454];
+
+                        if (nose && leftEar && rightEar) {
+                            const center = (leftEar.x + rightEar.x) / 2;
+                            const offset = nose.x - center;
+                            const width = rightEar.x - leftEar.x;
+                            const ratio = offset / width;
+                            
+                            if (ratio < -0.15 || ratio > 0.15) {
+                                gazeAwayTicks.current++;
+                            } else {
+                                gazeAwayTicks.current = 0;
+                            }
+
+                            if (gazeAwayTicks.current >= 2) {
+                                setAlertConfig({ message: '⚠ Please focus on the screen.', type: 'warning' });
+                                violationRef.current += 1;
+                                logExpandedViolation('GAZE_AWAY', 'HIGH', 3);
+                                gazeAwayTicks.current = 0;
+                            }
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error("Detector Error:", err);
+            }
+        }
+    };
+
     const handleTabSwitch = useCallback(async () => {
         violationRef.current += 1;
-        setAlertConfig({
-            message: `Warning! Tab switching detected. Violation count: ${violationRef.current}`,
-            type: 'warning'
-        });
-        await logViolation('tab-switch');
+        setAlertConfig({ message: `Warning! Tab switching detected.`, type: 'warning' });
+        await logExpandedViolation('TAB_SWITCH', 'LOW', 0);
     }, [attempt]);
 
     const handleFullscreenChange = useCallback(async () => {
         if (!document.fullscreenElement) {
-            await logViolation('exit-fullscreen');
+            violationRef.current += 1;
+            await logExpandedViolation('EXIT_FULLSCREEN', 'LOW', 0);
         }
     }, [attempt]);
 
@@ -81,18 +249,6 @@ const TestAttempt = ({ testId, onFinish }) => {
         window.removeEventListener('blur', handleTabSwitch);
         document.removeEventListener('fullscreenchange', handleFullscreenChange);
     }, [handleTabSwitch, handleFullscreenChange]);
-
-    const logViolation = async (type) => {
-        if (!attempt) return;
-        try {
-            const userStr = localStorage.getItem('user');
-            const userData = JSON.parse(userStr);
-            const config = { headers: { Authorization: `Bearer ${userData.token}` } };
-            await axios.post(`/api/assessment/attempts/${attempt._id}/violation`, { type }, config);
-        } catch (error) {
-            console.error('Error logging violation:', error);
-        }
-    };
 
     const handleAnswerSelection = (optionIdx) => {
         const qId = currentQuestion?._id;
@@ -192,6 +348,39 @@ const TestAttempt = ({ testId, onFinish }) => {
         return `${h > 0 ? h + ':' : ''}${m < 10 ? '0' + m : m}:${s < 10 ? '0' + s : s}`;
     };
 
+    if (!hasPermissions) {
+        return (
+            <div className="test-attempt-container result-screen">
+                <div className="result-card" style={{ padding: '2rem', textAlign: 'center' }}>
+                    <div className="result-header">
+                        <h1>Security & Privacy Notice</h1>
+                        <p style={{ marginTop: '1rem', color: '#888' }}>
+                            This assessment uses an AI Proctoring system to ensure integrity. <br/><br/>
+                            We require access to your Camera and Microphone to detect:
+                            <br/>✔ Screen Focus / Gaze
+                            <br/>✔ Multiple Faces
+                            <br/>✔ High Background Noise
+                            <br/>✔ Window Switching
+                            <br/><br/>
+                            <b>All AI processing acts locally on your device in real-time. No video or audio is ever recorded or uploaded to our servers.</b>
+                        </p>
+                        
+                        {proctorLoading ? (
+                            <div style={{ marginTop: '2rem', color: 'var(--accent-primary)', fontWeight: 'bold' }}>
+                                <div className="spinner"></div>
+                                <p>{proctorMsg}</p>
+                            </div>
+                        ) : (
+                            <button className="btn-success" style={{ marginTop: '2rem' }} onClick={requestPermissions}>
+                                Grant Access & Start Test
+                            </button>
+                        )}
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     if (loading) return <div className="test-loading">Preparing your assessment...</div>;
 
     if (result) {
@@ -236,17 +425,18 @@ const TestAttempt = ({ testId, onFinish }) => {
                         display: flex;
                         align-items: center;
                         justify-content: center;
-                        background: radial-gradient(circle at center, #0a0a0f 0%, #050505 100%);
+                        background: radial-gradient(circle at center, var(--bg-primary) 0%, #000 100%);
+                        color: var(--text-primary);
                     }
                     .result-card {
-                        background: rgba(20, 20, 25, 0.8);
+                        background: var(--bg-surface);
                         backdrop-filter: blur(20px);
-                        border: 1px solid rgba(255, 255, 255, 0.05);
+                        border: 1px solid var(--border-color);
                         border-radius: 24px;
                         width: 100%;
                         max-width: 600px;
                         overflow: hidden;
-                        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+                        box-shadow: var(--shadow-xl);
                         animation: slideUp 0.6s cubic-bezier(0.23, 1, 0.32, 1);
                     }
                     @keyframes slideUp {
@@ -257,8 +447,8 @@ const TestAttempt = ({ testId, onFinish }) => {
                         padding: 3rem 2rem;
                         text-align: center;
                     }
-                    .result-header.passed { background: linear-gradient(180deg, rgba(0, 255, 163, 0.1) 0%, transparent 100%); }
-                    .result-header.failed { background: linear-gradient(180deg, rgba(255, 71, 87, 0.1) 0%, transparent 100%); }
+                    .result-header.passed { background: linear-gradient(180deg, rgba(34, 197, 94, 0.1) 0%, transparent 100%); }
+                    .result-header.failed { background: linear-gradient(180deg, rgba(239, 68, 68, 0.1) 0%, transparent 100%); }
                     
                     .result-icon {
                         font-size: 4rem;
@@ -267,22 +457,22 @@ const TestAttempt = ({ testId, onFinish }) => {
                     .result-header h1 {
                         font-size: 2rem;
                         margin-bottom: 0.5rem;
-                        color: #fff;
+                        color: var(--text-primary);
                     }
                     .result-header p {
-                        color: #888;
+                        color: var(--text-secondary);
                         font-size: 1.1rem;
                     }
                     .result-stats {
                         display: grid;
                         grid-template-columns: repeat(3, 1fr);
                         gap: 1px;
-                        background: rgba(255, 255, 255, 0.05);
-                        border-top: 1px solid rgba(255, 255, 255, 0.05);
-                        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+                        background: var(--border-color);
+                        border-top: 1px solid var(--border-color);
+                        border-bottom: 1px solid var(--border-color);
                     }
                     .stat-item {
-                        background: #0d0d12;
+                        background: var(--bg-primary);
                         padding: 2rem 1rem;
                         display: flex;
                         flex-direction: column;
@@ -293,16 +483,16 @@ const TestAttempt = ({ testId, onFinish }) => {
                         font-size: 0.8rem;
                         text-transform: uppercase;
                         letter-spacing: 1px;
-                        color: #666;
+                        color: var(--text-tertiary);
                         font-weight: 700;
                     }
                     .stat-value {
                         font-size: 1.25rem;
                         font-weight: 800;
-                        color: #fff;
+                        color: var(--text-primary);
                     }
-                    .status-badge.passed { color: var(--primary-mint); }
-                    .status-badge.failed { color: #ff4757; }
+                    .status-badge.passed { color: var(--success); }
+                    .status-badge.failed { color: var(--error); }
                     
                     .result-footer {
                         padding: 2rem;
@@ -319,6 +509,24 @@ const TestAttempt = ({ testId, onFinish }) => {
 
     return (
         <div className="test-attempt-container">
+            <video 
+                ref={videoRef} 
+                autoPlay 
+                playsInline 
+                muted 
+                style={{
+                    position: 'absolute',
+                    top: '20px',
+                    right: '20px',
+                    width: '120px',
+                    height: '90px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border-color)',
+                    background: '#000',
+                    zIndex: 10,
+                    objectFit: 'cover'
+                }} 
+            />
             <header className="test-header">
                 <div className="test-info">
                     <h2>{test?.title}</h2>
@@ -459,35 +667,33 @@ const TestAttempt = ({ testId, onFinish }) => {
                     right: 0;
                     bottom: 0;
                     left: 0;
-                    background: #050505;
+                    background: var(--bg-primary);
                     z-index: 1000;
                     display: flex;
                     flex-direction: column;
                     padding: 1.5rem;
-                    color: #e0e0e0;
-                    font-family: 'Inter', sans-serif;
+                    color: var(--text-primary);
+                    font-family: var(--font-family-sans);
                 }
 
                 .test-header {
                     display: flex;
                     justify-content: space-between;
                     align-items: center;
-                    background: rgba(20, 20, 25, 0.8);
+                    background: var(--bg-surface);
                     backdrop-filter: blur(10px);
                     padding: 0.75rem 2rem;
                     border-radius: 12px;
-                    border: 1px solid rgba(255, 255, 255, 0.05);
+                    border: 1px solid var(--border-color);
                     margin-bottom: 1.5rem;
-                    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+                    box-shadow: var(--shadow-lg);
                 }
 
                 .test-info h2 {
                     font-size: 1.25rem;
                     font-weight: 700;
                     margin: 0;
-                    background: linear-gradient(135deg, #fff, #888);
-                    -webkit-background-clip: text;
-                    -webkit-text-fill-color: transparent;
+                    color: var(--text-primary);
                 }
 
                 .test-timer {
@@ -495,12 +701,12 @@ const TestAttempt = ({ testId, onFinish }) => {
                     align-items: center;
                     gap: 0.75rem;
                     font-size: 1.5rem;
-                    font-family: 'JetBrains Mono', monospace;
-                    color: var(--primary-mint);
-                    background: rgba(0, 255, 163, 0.05);
+                    font-weight: 700;
+                    color: var(--accent-primary);
+                    background: rgba(0, 255, 163, 0.1);
                     padding: 0.4rem 1.2rem;
                     border-radius: 50px;
-                    border: 1px solid rgba(0, 255, 163, 0.2);
+                    border: 1px solid var(--accent-primary);
                 }
 
                 .test-layout {
@@ -512,13 +718,13 @@ const TestAttempt = ({ testId, onFinish }) => {
                 }
 
                 .question-area {
-                    background: rgba(15, 15, 20, 0.6);
+                    background: var(--bg-surface);
                     border-radius: 20px;
-                    border: 1px solid rgba(255, 255, 255, 0.05);
+                    border: 1px solid var(--border-color);
                     padding: 2.5rem;
                     display: flex;
                     flex-direction: column;
-                    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+                    box-shadow: var(--shadow-md);
                     height: 100%;
                     overflow: hidden;
                 }
@@ -538,15 +744,15 @@ const TestAttempt = ({ testId, onFinish }) => {
                     background: transparent;
                 }
                 .question-card::-webkit-scrollbar-thumb {
-                    background: rgba(255, 255, 255, 0.1);
+                    background: var(--border-color);
                     border-radius: 10px;
                 }
                 .question-card::-webkit-scrollbar-thumb:hover {
-                    background: rgba(0, 255, 163, 0.3);
+                    background: var(--accent-primary);
                 }
 
                 .q-number {
-                    color: var(--primary-mint);
+                    color: var(--accent-primary);
                     font-size: 0.9rem;
                     font-weight: 800;
                     text-transform: uppercase;
@@ -560,7 +766,7 @@ const TestAttempt = ({ testId, onFinish }) => {
                     font-weight: 500;
                     line-height: 1.5;
                     margin-bottom: 3rem;
-                    color: #ffffff;
+                    color: var(--text-primary);
                 }
 
                 .options-list {
@@ -572,10 +778,10 @@ const TestAttempt = ({ testId, onFinish }) => {
 
                 .option-btn {
                     padding: 1.25rem 1.5rem;
-                    background: rgba(255, 255, 255, 0.02);
-                    border: 1px solid rgba(255, 255, 255, 0.05);
+                    background: var(--bg-secondary);
+                    border: 1px solid var(--border-color);
                     border-radius: 12px;
-                    color: #b0b0b0;
+                    color: var(--text-secondary);
                     text-align: left;
                     cursor: pointer;
                     transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
@@ -585,16 +791,16 @@ const TestAttempt = ({ testId, onFinish }) => {
                 }
 
                 .option-btn:hover {
-                    background: rgba(255, 255, 255, 0.05);
-                    border-color: rgba(0, 255, 163, 0.3);
+                    background: var(--bg-surface);
+                    border-color: var(--accent-primary);
                     transform: translateX(5px);
-                    color: #fff;
+                    color: var(--text-primary);
                 }
 
                 .option-btn.selected {
-                    background: rgba(0, 255, 163, 0.08);
-                    border-color: var(--primary-mint);
-                    color: var(--primary-mint);
+                    background: rgba(0, 255, 163, 0.1);
+                    border-color: var(--accent-primary);
+                    color: var(--accent-primary);
                     box-shadow: 0 0 20px rgba(0, 255, 163, 0.1);
                 }
 
@@ -613,9 +819,9 @@ const TestAttempt = ({ testId, onFinish }) => {
                 }
 
                 .option-btn.selected .option-label {
-                    background: var(--primary-mint);
-                    color: #000;
-                    border-color: var(--primary-mint);
+                    background: var(--accent-primary);
+                    color: #fff;
+                    border-color: var(--accent-primary);
                 }
 
                 .action-bar {
@@ -625,7 +831,7 @@ const TestAttempt = ({ testId, onFinish }) => {
                     justify-content: space-between;
                     gap: 1.5rem;
                     padding-top: 2rem;
-                    border-top: 1px solid rgba(255, 255, 255, 0.05);
+                    border-top: 1px solid var(--border-color);
                     background: inherit;
                 }
 
@@ -647,33 +853,33 @@ const TestAttempt = ({ testId, onFinish }) => {
                 }
 
                 .btn-nav {
-                    background: rgba(255, 255, 255, 0.05);
-                    border: 1px solid rgba(255, 255, 255, 0.1);
-                    color: #888;
+                    background: var(--bg-tertiary);
+                    border: 1px solid var(--border-color);
+                    color: var(--text-secondary);
                 }
 
                 .btn-nav:hover:not(:disabled) {
-                    background: rgba(255, 255, 255, 0.1);
-                    color: #fff;
-                    border-color: rgba(255, 255, 255, 0.2);
+                    background: var(--bg-secondary);
+                    color: var(--text-primary);
+                    border-color: var(--border-color);
                 }
 
                 .btn-clear {
                     background: transparent;
-                    border: 1px solid rgba(255, 71, 87, 0.2);
-                    color: #ff4757;
+                    border: 1px solid rgba(239, 68, 68, 0.2);
+                    color: var(--error);
                 }
 
                 .btn-clear:hover:not(:disabled) {
-                    background: rgba(255, 71, 87, 0.1);
-                    border-color: #ff4757;
+                    background: rgba(239, 68, 68, 0.1);
+                    border-color: var(--error);
                 }
 
                 .btn-save-next {
                     flex: 1;
                     padding: 1rem;
-                    background: linear-gradient(135deg, var(--primary-mint), #00d4a3);
-                    color: #000;
+                    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+                    color: #fff;
                     border: none;
                     border-radius: 12px;
                     font-weight: 700;
@@ -687,7 +893,7 @@ const TestAttempt = ({ testId, onFinish }) => {
 
                 .btn-save-next:hover:not(:disabled) {
                     transform: translateY(-2px);
-                    box-shadow: 0 8px 25px rgba(0, 255, 163, 0.4);
+                    box-shadow: 0 8px 25px rgba(99, 102, 241, 0.4);
                 }
 
                 .btn-nav:disabled, .btn-clear:disabled, .btn-save-next:disabled {
@@ -697,9 +903,9 @@ const TestAttempt = ({ testId, onFinish }) => {
                 }
 
                 .question-palette {
-                    background: rgba(20, 20, 25, 0.6);
+                    background: var(--bg-surface);
                     border-radius: 20px;
-                    border: 1px solid rgba(255, 255, 255, 0.05);
+                    border: 1px solid var(--border-color);
                     padding: 2rem;
                     display: flex;
                     flex-direction: column;
@@ -710,7 +916,7 @@ const TestAttempt = ({ testId, onFinish }) => {
                     font-size: 1.1rem;
                     font-weight: 700;
                     margin-bottom: 1.5rem;
-                    color: #888;
+                    color: var(--text-tertiary);
                     text-transform: uppercase;
                     letter-spacing: 1px;
                 }
@@ -727,16 +933,16 @@ const TestAttempt = ({ testId, onFinish }) => {
                     width: 4px;
                 }
                 .palette-grid::-webkit-scrollbar-thumb {
-                    background: rgba(255, 255, 255, 0.05);
+                    background: var(--border-color);
                     border-radius: 10px;
                 }
 
                 .palette-btn {
                     aspect-ratio: 1;
                     border-radius: 10px;
-                    border: 1px solid rgba(255, 255, 255, 0.08);
-                    background: rgba(255, 255, 255, 0.03);
-                    color: #666;
+                    border: 1px solid var(--border-color);
+                    background: var(--bg-secondary);
+                    color: var(--text-tertiary);
                     font-weight: 700;
                     cursor: pointer;
                     transition: all 0.2s;
@@ -747,38 +953,38 @@ const TestAttempt = ({ testId, onFinish }) => {
                 }
 
                 .palette-btn:hover {
-                    background: rgba(255, 255, 255, 0.1);
-                    color: #fff;
+                    background: var(--bg-tertiary);
+                    color: var(--text-primary);
                 }
 
                 .palette-btn.active {
                     background: transparent;
-                    border-color: var(--primary-mint);
-                    color: var(--primary-mint);
-                    box-shadow: inset 0 0 10px rgba(0, 255, 163, 0.1);
+                    border-color: var(--accent-primary);
+                    color: var(--accent-primary);
+                    box-shadow: inset 0 0 10px rgba(99, 102, 241, 0.1);
                     transform: scale(1.1);
                 }
 
                 .palette-btn.saved {
-                    background: var(--primary-mint);
-                    border-color: var(--primary-mint);
-                    color: #000;
+                    background: var(--accent-primary);
+                    border-color: var(--accent-primary);
+                    color: #fff;
                 }
 
                 .violation-badge {
-                    background: rgba(255, 71, 87, 0.15);
-                    color: #ff4757;
+                    background: rgba(239, 68, 68, 0.1);
+                    color: var(--error);
                     padding: 0.4rem 0.8rem;
                     border-radius: 8px;
                     font-size: 0.8rem;
                     font-weight: 700;
                     margin-left: 1.5rem;
-                    border: 1px solid rgba(255, 71, 87, 0.3);
+                    border: 1px solid rgba(239, 68, 68, 0.3);
                 }
 
                 .btn-success {
-                    background: #fff;
-                    color: #000;
+                    background: var(--accent-primary);
+                    color: #fff;
                     border: none;
                     padding: 0.6rem 1.5rem;
                     border-radius: 8px;
@@ -789,7 +995,7 @@ const TestAttempt = ({ testId, onFinish }) => {
                 }
 
                 .btn-success:hover {
-                    background: var(--primary-mint);
+                    background: var(--accent-secondary);
                     transform: translateY(-1px);
                     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
                 }
@@ -812,14 +1018,14 @@ const TestAttempt = ({ testId, onFinish }) => {
                     top: 50%;
                     left: 50%;
                     transform: translate(-50%, -50%);
-                    background: #141419;
-                    border: 1px solid rgba(255, 255, 255, 0.1);
+                    background: var(--bg-surface);
+                    border: 1px solid var(--border-color);
                     border-radius: 20px;
                     width: 90%;
                     max-width: 450px;
                     padding: 2rem;
                     z-index: 2001;
-                    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+                    box-shadow: var(--shadow-xl);
                     animation: slideIn 0.4s cubic-bezier(0.23, 1, 0.32, 1);
                 }
 
@@ -828,12 +1034,12 @@ const TestAttempt = ({ testId, onFinish }) => {
 
                 .modal-header h3 {
                     font-size: 1.25rem;
-                    color: #fff;
+                    color: var(--text-primary);
                     margin-bottom: 1rem;
                 }
 
                 .modal-body p {
-                    color: #888;
+                    color: var(--text-secondary);
                     line-height: 1.6;
                     margin-bottom: 2rem;
                 }
@@ -845,10 +1051,10 @@ const TestAttempt = ({ testId, onFinish }) => {
                 }
 
                 .alert-modal.warning {
-                    border-color: rgba(255, 171, 0, 0.3);
+                    border-color: var(--warning);
                 }
                 .alert-modal.warning .modal-header h3 {
-                    color: #ffab00;
+                    color: var(--warning);
                 }
 
                 .text-center { text-align: center; }
