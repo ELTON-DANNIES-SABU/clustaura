@@ -2,11 +2,22 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { X, Calendar, User, Tag, AlertCircle, Clock, Zap, CheckCircle2, GitCommit, Github } from 'lucide-react';
 
-const TicketDetailModal = ({ issue, onClose, getPriorityColor, onUpdate }) => {
+const TicketDetailModal = ({ issue, onClose, getPriorityColor, onUpdate, canManage, projectMembers }) => {
     const [suggestions, setSuggestions] = useState([]);
     const [loadingSuggestions, setLoadingSuggestions] = useState(false);
     const [error, setError] = useState('');
     const [currentUser, setCurrentUser] = useState(null);
+    const [isEditing, setIsEditing] = useState(false);
+    const [editedTicket, setEditedTicket] = useState({
+        summary: '',
+        description: '',
+        priority: 'medium',
+        type: 'task',
+        startDate: '',
+        endDate: '',
+        status: 'To Do',
+        assignedUser: ''
+    });
 
     useEffect(() => {
         const userStr = localStorage.getItem('user');
@@ -14,6 +25,21 @@ const TicketDetailModal = ({ issue, onClose, getPriorityColor, onUpdate }) => {
             setCurrentUser(JSON.parse(userStr));
         }
     }, []);
+
+    useEffect(() => {
+        if (issue) {
+            setEditedTicket({
+                summary: issue.summary || issue.title || '',
+                description: issue.description || '',
+                priority: issue.priority || 'medium',
+                type: issue.type || 'task',
+                startDate: issue.startDate ? new Date(issue.startDate).toISOString().split('T')[0] : '',
+                endDate: (issue.endDate || issue.dueDate) ? new Date(issue.endDate || issue.dueDate).toISOString().split('T')[0] : '',
+                status: issue.status || 'To Do',
+                assignedUser: issue.assignedUser?._id || issue.assignedUser || ''
+            });
+        }
+    }, [issue]);
 
     const fetchSuggestions = async () => {
         try {
@@ -36,6 +62,14 @@ const TicketDetailModal = ({ issue, onClose, getPriorityColor, onUpdate }) => {
         }
     };
 
+    const isOwnerOrLead = canManage || (currentUser && (
+        currentUser.role === 'PM' || 
+        currentUser.role === 'Tech Lead' || 
+        currentUser.role === 'Creator' || 
+        currentUser._id === issue.project?.owner || 
+        currentUser._id === issue.project
+    ));
+
     const handleAssign = async (userId) => {
         try {
             const userStr = localStorage.getItem('user');
@@ -56,9 +90,52 @@ const TicketDetailModal = ({ issue, onClose, getPriorityColor, onUpdate }) => {
         }
     };
 
+    const handleSave = async () => {
+        try {
+            setError('');
+            const userStr = localStorage.getItem('user');
+            if (!userStr) return;
+            const { token } = JSON.parse(userStr);
+
+            const res = await axios.put(`/api/tickets/${issue._id}`, editedTicket, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            if (onUpdate) {
+                onUpdate(res.data.ticket);
+            }
+            setIsEditing(false);
+        } catch (err) {
+            console.error('Error updating ticket:', err);
+            setError(err.response?.data?.message || 'Failed to update ticket');
+        }
+    };
+
+    const handleDelete = async () => {
+        if (!window.confirm('Are you sure you want to permanently delete this ticket? This action cannot be undone.')) return;
+
+        try {
+            setError('');
+            const userStr = localStorage.getItem('user');
+            if (!userStr) return;
+            const { token } = JSON.parse(userStr);
+
+            await axios.delete(`/api/tickets/${issue._id}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            if (onUpdate) {
+                onUpdate({ _id: issue._id, deleted: true });
+            }
+            onClose();
+        } catch (err) {
+            console.error('Error deleting ticket:', err);
+            setError(err.response?.data?.message || 'Failed to delete ticket');
+        }
+    };
+
     if (!issue) return null;
 
-    const isOwnerOrLead = currentUser && (currentUser.role === 'PM' || currentUser.role === 'Tech Lead' || currentUser.role === 'Creator' || currentUser._id === issue.project?.owner);
 
     const formatDate = (dateString) => {
         if (!dateString || dateString === '') return 'Not set';
@@ -78,22 +155,56 @@ const TicketDetailModal = ({ issue, onClose, getPriorityColor, onUpdate }) => {
                 <div className="ticket-detail-header">
                     <div className="ticket-key-type">
                         <span className={`issue-type-icon ${issue.type}`} title={issue.type}></span>
-                        <span className="issue-key">{issue.issueKey}</span>
+                        <span className="issue-key">{issue.ticketCode || issue.issueKey}</span>
+                        {isOwnerOrLead && !isEditing && (
+                            <button className="edit-ticket-btn" onClick={() => setIsEditing(true)}>Edit</button>
+                        )}
+                        {isOwnerOrLead && isEditing && (
+                            <button className="edit-ticket-btn save" onClick={handleSave}>Save</button>
+                        )}
+                        {isOwnerOrLead && isEditing && (
+                            <button className="edit-ticket-btn cancel" onClick={() => setIsEditing(false)}>Cancel</button>
+                        )}
                     </div>
-                    <button className="close-modal-btn" onClick={onClose}>
-                        <X size={20} />
-                    </button>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        {isOwnerOrLead && (
+                             <button className="delete-ticket-btn" onClick={handleDelete} title="Delete Ticket">
+                                 <Tag size={16} /> Delete
+                             </button>
+                        )}
+                        <button className="close-modal-btn" onClick={onClose}>
+                            <X size={20} />
+                        </button>
+                    </div>
                 </div>
 
                 <div className="ticket-detail-body">
                     <div className="detail-main">
-                        <h2 className="detail-summary">{issue.summary || issue.title}</h2>
+                        {isEditing ? (
+                            <input 
+                                className="edit-summary-input"
+                                value={editedTicket.summary}
+                                onChange={e => setEditedTicket({...editedTicket, summary: e.target.value})}
+                                placeholder="Ticket Summary"
+                            />
+                        ) : (
+                            <h2 className="detail-summary">{issue.summary || issue.title}</h2>
+                        )}
 
                         <div className="detail-section">
                             <label><Clock size={14} /> Description</label>
-                            <div className="detail-description">
-                                {issue.description || 'No description provided.'}
-                            </div>
+                            {isEditing ? (
+                                <textarea 
+                                    className="edit-description-input"
+                                    value={editedTicket.description}
+                                    onChange={e => setEditedTicket({...editedTicket, description: e.target.value})}
+                                    placeholder="Add a more detailed description..."
+                                />
+                            ) : (
+                                <div className="detail-description">
+                                    {issue.description || 'No description provided.'}
+                                </div>
+                            )}
                         </div>
                         
                         {/* Dynamic Assignment Section */}
@@ -115,7 +226,12 @@ const TicketDetailModal = ({ issue, onClose, getPriorityColor, onUpdate }) => {
                                                     <div className="detail-avatar">{suggestion.user.firstName.charAt(0)}</div>
                                                     <div className="suggestion-user-details">
                                                         <span className="suggestion-name">{suggestion.user.firstName} {suggestion.user.lastName}</span>
-                                                        <span className="suggestion-match-score">Match Score: {suggestion.matchScore}</span>
+                                                        <span className="suggestion-match-score">Match: {(suggestion.matchScore * 100).toFixed(0)}%</span>
+                                                        <div className="match-breakdown-mini">
+                                                            <span title="Skills Score">S: {suggestion.ontologyScore > 0.7 ? 'High' : 'Med'}</span>
+                                                            <span title="Bio Relevance">B: {suggestion.bioScore > 0.5 ? 'Rel' : 'Neu'}</span>
+                                                            <span title="Work Evidence">E: {suggestion.postScore > 0.5 ? 'High' : 'Low'}</span>
+                                                        </div>
                                                     </div>
                                                 </div>
                                                 <div className="suggestion-stats">
@@ -141,41 +257,123 @@ const TicketDetailModal = ({ issue, onClose, getPriorityColor, onUpdate }) => {
                     <div className="detail-sidebar">
                         <div className="sidebar-group">
                             <label>Status</label>
-                            <span className={`status-badge ${issue.status === 'Pending' ? 'pending' : ''}`}>{issue.status}</span>
+                            {isEditing ? (
+                                <select 
+                                    className="edit-sidebar-select"
+                                    value={editedTicket.status}
+                                    onChange={e => setEditedTicket({...editedTicket, status: e.target.value})}
+                                >
+                                    <option value="To Do">To Do</option>
+                                    <option value="In Progress">In Progress</option>
+                                    <option value="Testing">Testing</option>
+                                    <option value="Completed">Completed</option>
+                                </select>
+                            ) : (
+                                <span className={`status-badge ${issue.status === 'Pending' ? 'pending' : ''}`}>{issue.status}</span>
+                            )}
                         </div>
 
                         <div className="sidebar-group">
                             <label><User size={14} /> Assignee</label>
-                            <div className="assignee-detail">
-                                <div className="detail-avatar">
-                                    {issue.assignedUser ? issue.assignedUser.firstName?.charAt(0) : (issue.assignee ? issue.assignee.firstName?.charAt(0) : '?')}
+                            {isEditing ? (
+                                <select 
+                                    className="edit-sidebar-select"
+                                    value={editedTicket.assignedUser}
+                                    onChange={e => setEditedTicket({...editedTicket, assignedUser: e.target.value})}
+                                >
+                                    <option value="">Unassigned</option>
+                                    {projectMembers?.map(m => (
+                                        <option key={m.user?._id || m.user} value={m.user?._id || m.user}>
+                                            {m.user?.firstName || 'System'} {m.user?.lastName || 'Account'} ({m.role})
+                                        </option>
+                                    ))}
+                                </select>
+                            ) : (
+                                <div className="assignee-detail">
+                                    <div className="detail-avatar">
+                                        {issue.assignedUser ? issue.assignedUser.firstName?.charAt(0) : (issue.assignee ? issue.assignee.firstName?.charAt(0) : '?')}
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                        <span>{issue.assignedUser ? `${issue.assignedUser.firstName} ${issue.assignedUser.lastName}` : (issue.assignee ? `${issue.assignee.firstName} ${issue.assignee.lastName}` : 'Unassigned')}</span>
+                                        {(issue.assignedUser?.email || issue.assignee?.email) && (
+                                            <span style={{ fontSize: '0.75rem', color: '#888', marginTop: '2px' }}>
+                                                {issue.assignedUser?.email || issue.assignee?.email}
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
-                                <span>{issue.assignedUser ? `${issue.assignedUser.firstName} ${issue.assignedUser.lastName}` : (issue.assignee ? `${issue.assignee.firstName} ${issue.assignee.lastName}` : 'Unassigned')}</span>
-                            </div>
+                            )}
                         </div>
 
                         <div className="sidebar-group">
                             <label><AlertCircle size={14} /> Priority</label>
-                            <div className="priority-detail">
-                                <span
-                                    className="priority-dot"
-                                    style={{ backgroundColor: getPriorityColor(issue.priority) }}
-                                ></span>
-                                <span className="capitalize">{issue.priority}</span>
-                            </div>
+                            {isEditing ? (
+                                <select 
+                                    className="edit-sidebar-select"
+                                    value={editedTicket.priority}
+                                    onChange={e => setEditedTicket({...editedTicket, priority: e.target.value})}
+                                >
+                                    <option value="highest">Highest</option>
+                                    <option value="high">High</option>
+                                    <option value="medium">Medium</option>
+                                    <option value="low">Low</option>
+                                    <option value="lowest">Lowest</option>
+                                </select>
+                            ) : (
+                                <div className="priority-detail">
+                                    <span
+                                        className="priority-dot"
+                                        style={{ backgroundColor: getPriorityColor(issue.priority) }}
+                                    ></span>
+                                    <span className="capitalize">{issue.priority}</span>
+                                </div>
+                            )}
                         </div>
 
                         <div className="sidebar-group">
                             <label><Calendar size={14} /> Dates</label>
-                            <div className="dates-detail">
-                                <div><strong>Start:</strong> {formatDate(issue.startDate)}</div>
-                                <div><strong>Due:</strong> {formatDate(issue.endDate || issue.dueDate)}</div>
-                            </div>
+                            {isEditing ? (
+                                <div className="edit-dates-container">
+                                    <div className="edit-date-item">
+                                        <span>Start</span>
+                                        <input 
+                                            type="date"
+                                            value={editedTicket.startDate}
+                                            onChange={e => setEditedTicket({...editedTicket, startDate: e.target.value})}
+                                        />
+                                    </div>
+                                    <div className="edit-date-item">
+                                        <span>End</span>
+                                        <input 
+                                            type="date"
+                                            value={editedTicket.endDate}
+                                            onChange={e => setEditedTicket({...editedTicket, endDate: e.target.value})}
+                                        />
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="dates-detail">
+                                    <div><strong>Start:</strong> {formatDate(issue.startDate)}</div>
+                                    <div><strong>Due:</strong> {formatDate(issue.endDate || issue.dueDate)}</div>
+                                </div>
+                            )}
                         </div>
 
                         <div className="sidebar-group">
                             <label><Tag size={14} /> Type</label>
-                            <span className={`issue-type ${issue.type} capitalize`}>{issue.type}</span>
+                            {isEditing ? (
+                                <select 
+                                    className="edit-sidebar-select"
+                                    value={editedTicket.type}
+                                    onChange={e => setEditedTicket({...editedTicket, type: e.target.value})}
+                                >
+                                    <option value="task">Task</option>
+                                    <option value="story">Story</option>
+                                    <option value="bug">Bug</option>
+                                </select>
+                            ) : (
+                                <span className={`issue-type ${issue.type} capitalize`}>{issue.type}</span>
+                            )}
                         </div>
 
                         {issue.progressPercentage !== undefined && (
@@ -475,6 +673,22 @@ const TicketDetailModal = ({ issue, onClose, getPriorityColor, onUpdate }) => {
                 .suggestion-match-score {
                     font-size: 0.8rem;
                     color: #00FF9C;
+                    margin-bottom: 2px;
+                }
+                
+                .match-breakdown-mini {
+                    display: flex;
+                    gap: 8px;
+                    font-size: 0.65rem;
+                    color: #888;
+                }
+                
+                .match-breakdown-mini span {
+                    background: rgba(255, 255, 255, 0.05);
+                    padding: 1px 4px;
+                    border-radius: 3px;
+                    border: 1px solid rgba(255, 255, 255, 0.1);
+                    cursor: help;
                 }
                 
                 .suggestion-stats {
@@ -527,6 +741,111 @@ const TicketDetailModal = ({ issue, onClose, getPriorityColor, onUpdate }) => {
                     background: rgba(255, 165, 2, 0.1);
                     color: #ffa502;
                     border: 1px solid rgba(255, 165, 2, 0.3);
+                }
+
+                .edit-ticket-btn {
+                    padding: 4px 12px;
+                    background: rgba(255, 255, 255, 0.05);
+                    border: 1px solid rgba(255, 255, 255, 0.1);
+                    color: #fff;
+                    border-radius: 4px;
+                    cursor: pointer;
+                    font-size: 0.8rem;
+                    transition: all 0.2s;
+                }
+
+                .edit-ticket-btn:hover {
+                    background: rgba(255, 255, 255, 0.1);
+                    border-color: var(--accent-primary);
+                }
+
+                .edit-ticket-btn.save {
+                    background: var(--accent-primary);
+                    color: #000;
+                    border: none;
+                    font-weight: bold;
+                }
+
+                .edit-ticket-btn.cancel {
+                    background: #ff4757;
+                    border: none;
+                    color: #fff;
+                }
+
+                .delete-ticket-btn {
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
+                    padding: 6px 12px;
+                    background: rgba(255, 71, 87, 0.1);
+                    border: 1px solid rgba(255, 71, 87, 0.3);
+                    color: #ff4757;
+                    border-radius: 4px;
+                    cursor: pointer;
+                    font-size: 0.85rem;
+                    transition: all 0.2s;
+                }
+
+                .delete-ticket-btn:hover {
+                    background: #ff4757;
+                    color: #fff;
+                }
+
+                .edit-summary-input {
+                    font-size: 1.5rem;
+                    color: #fff;
+                    background: rgba(0, 0, 0, 0.2);
+                    border: 1px solid var(--accent-primary);
+                    border-radius: 8px;
+                    padding: 8px 12px;
+                    width: 100%;
+                    margin-bottom: 24px;
+                    font-family: inherit;
+                }
+
+                .edit-description-input {
+                    width: 100%;
+                    min-height: 150px;
+                    background: rgba(0, 0, 0, 0.2);
+                    border: 1px solid #333;
+                    border-radius: 8px;
+                    color: #ccc;
+                    padding: 12px;
+                    font-family: inherit;
+                    line-height: 1.6;
+                    resize: vertical;
+                }
+
+                .edit-sidebar-select {
+                    width: 100%;
+                    background: #1a1d21;
+                    border: 1px solid #333;
+                    color: #ddd;
+                    padding: 6px 8px;
+                    border-radius: 4px;
+                    font-size: 0.85rem;
+                }
+
+                .edit-dates-container {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 8px;
+                }
+
+                .edit-date-item {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    font-size: 0.8rem;
+                }
+
+                .edit-date-item input {
+                    background: #1a1d21;
+                    border: 1px solid #333;
+                    color: #fff;
+                    padding: 4px;
+                    border-radius: 4px;
+                    width: 120px;
                 }
             `}</style>
         </>

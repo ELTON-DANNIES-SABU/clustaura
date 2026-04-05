@@ -9,6 +9,7 @@ import AISuggestionsPanel from './AISuggestionsPanel';
 import TeamRequirementPanel from './TeamRequirementPanel';
 import SprintTimelineView from './SprintTimelineView';
 import TeamSuggestionsPanel from './TeamSuggestionsPanel';
+import TicketDetailModal from './components/TicketDetailModal';
 import { Rocket, Brain, Users, Layout, Zap, AlertTriangle, Calendar, Users2 } from 'lucide-react';
 
 const AIPlanner = () => {
@@ -19,6 +20,7 @@ const AIPlanner = () => {
     const [planData, setPlanData] = useState(null);
     const [analysis, setAnalysis] = useState(null);
     const [activeTab, setActiveTab] = useState('modules'); // 'modules', 'timeline', 'workforce'
+    const [selectedIssueDetail, setSelectedIssueDetail] = useState(null);
 
     useEffect(() => {
         // Reset state when project changes to prevent data leakage
@@ -38,15 +40,15 @@ const AIPlanner = () => {
             const { data } = await axios.get(`/api/agents/full-plan/${projectId}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            
+
             setProject(data.project);
-            if (data.modules && data.modules.length > 0) {
+            if ((data.modules && data.modules.length > 0) || (data.requirements && data.requirements.length > 0)) {
                 setPlanData({
-                    modules: data.modules,
-                    tickets: data.tickets,
-                    sprints: data.sprints,
-                    technologies: data.technologies,
-                    requirements: data.requirements
+                    modules: data.modules || [],
+                    tickets: data.tickets || [],
+                    sprints: data.sprints || [],
+                    technologies: data.technologies || [],
+                    requirements: data.requirements || []
                 });
             } else {
                 setPlanData(null);
@@ -80,12 +82,12 @@ const AIPlanner = () => {
 
     const handleResetPlan = async () => {
         if (!window.confirm('Are you sure you want to reset the current SDLC plan? This will delete all generated modules, tickets, and sprints.')) return;
-        
+
         try {
             const userStr = localStorage.getItem('user');
             if (!userStr) return;
             const { token } = JSON.parse(userStr);
-            
+
             // We can reuse the analyze-project logic or a dedicated clear endpoint if we had one
             // For now, let's just clear the local state to show the input box again
             // and let the next generation handle the backend cleanup (analyze-project already does this)
@@ -95,10 +97,27 @@ const AIPlanner = () => {
         }
     };
 
+    const handleKickMember = async (userId) => {
+        if (!window.confirm("Are you sure you want to kick this member from the project?")) return;
+        try {
+            const userStr = localStorage.getItem('user');
+            if (!userStr) return;
+            const { token } = JSON.parse(userStr);
+            await axios.delete(`/api/workplace/projects/${projectId}/members/${userId}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            fetchFullPlan();       // Refresh project data
+            fetchAnalysis();       // Refresh AI analysis if any dependencies changed
+        } catch (error) {
+            console.error('Error kicking member:', error);
+            alert(error.response?.data?.message || 'Error removing member');
+        }
+    };
+
     if (loading) return <div className="loading">Initializing AI Assistant...</div>;
 
-    const isLeadOrOwner = 
-        project?.owner?._id === JSON.parse(localStorage.getItem('user'))?._id || 
+    const isLeadOrOwner =
+        project?.owner?._id === JSON.parse(localStorage.getItem('user'))?._id ||
         project?.owner === JSON.parse(localStorage.getItem('user'))?._id ||
         project?.members?.find(m => m.user?._id === JSON.parse(localStorage.getItem('user'))?._id)?.role === 'Project Lead';
 
@@ -111,7 +130,7 @@ const AIPlanner = () => {
                     </div>
                     <div className="header-title">
                         <h1>{project ? project.name : ''} AI Command Center</h1>
-                        <p>Agentic AI SDLC Assistant <span className="status-active">isActive</span></p>
+                        {/* <p>Agentic AI SDLC Assistant <span className="status-active">isActive</span></p> */}
                     </div>
                 </div>
                 <div className="planner-controls">
@@ -165,11 +184,12 @@ const AIPlanner = () => {
                                 tickets={planData.tickets}
                                 technologies={planData.technologies}
                                 canManage={isLeadOrOwner}
+                                onTicketClick={(ticket) => setSelectedIssueDetail(ticket)}
                             />
-                            { isLeadOrOwner && (
-                                <ProjectImprovisationInput 
-                                    projectId={projectId} 
-                                    onPlanImprovised={handlePlanGenerated} 
+                            {isLeadOrOwner && (
+                                <ProjectImprovisationInput
+                                    projectId={projectId}
+                                    onPlanImprovised={handlePlanGenerated}
                                 />
                             )}
                         </>
@@ -184,6 +204,7 @@ const AIPlanner = () => {
                             canManage={isLeadOrOwner}
                             onUpdate={fetchFullPlan}
                             modules={planData?.modules || []}
+                            onTicketClick={(ticket) => setSelectedIssueDetail(ticket)}
                         />
                     )}
 
@@ -198,16 +219,44 @@ const AIPlanner = () => {
                 </div>
 
                 <div className="right-panel">
-                    <TeamSkillPanel 
-                        members={project ? (project.members || []) : []} 
+                    <TeamSkillPanel
+                        members={project ? (project.members || []) : []}
                         analysis={analysis}
                         projectId={projectId}
-                        isOwner={project?.owner?._id === JSON.parse(localStorage.getItem('user'))?._id || project?.owner === JSON.parse(localStorage.getItem('user'))?._id}
+                        isOwner={isLeadOrOwner}
                         onMemberUpdate={(updatedProject) => setProject(updatedProject)}
+                        onKickMember={handleKickMember}
                     />
                     <AISuggestionsPanel analysis={analysis} />
                 </div>
             </div>
+
+            {selectedIssueDetail && (
+                <TicketDetailModal
+                    issue={selectedIssueDetail}
+                    onClose={() => setSelectedIssueDetail(null)}
+                    canManage={isLeadOrOwner}
+                    projectMembers={project?.members || []}
+                    getPriorityColor={(p) => {
+                        switch (p) {
+                            case 'highest': return 'var(--error)';
+                            case 'high': return 'var(--warning)';
+                            case 'medium': return 'var(--accent-primary)';
+                            case 'low': return 'var(--success)';
+                            case 'lowest': return 'var(--text-secondary)';
+                            default: return 'var(--border-color)';
+                        }
+                    }}
+                    onUpdate={(updatedTicket) => {
+                        if (updatedTicket.deleted) {
+                            setSelectedIssueDetail(null);
+                        } else {
+                            setSelectedIssueDetail(updatedTicket);
+                        }
+                        fetchFullPlan();
+                    }}
+                />
+            )}
         </div>
     );
 };

@@ -263,4 +263,95 @@ exports.incrementView = async (req, res) => {
     }
 };
 
+// Update a post
+exports.updatePost = async (req, res) => {
+    try {
+        const postId = req.params.id;
+        const { title, content, type, community, projectLink, tags } = req.body;
+        const userId = req.user.id;
+
+        const post = await Post.findById(postId);
+        if (!post) {
+            return res.status(404).json({ message: 'Post not found' });
+        }
+
+        // Authorization check
+        if (post.author.toString() !== userId) {
+            return res.status(403).json({ message: 'You are not authorized to update this post' });
+        }
+
+        // 1. Content Moderation on new content
+        if (content) {
+            const moderationResult = moderationService.checkContent(content);
+            post.isHidden = !moderationResult.isSafe;
+            if (post.isHidden) {
+                post.flags.push({ reason: moderationResult.reason, timestamp: new Date() });
+            }
+            post.content = content;
+        }
+
+        if (title) {
+            if (title.length > 120) {
+                return res.status(400).json({ message: 'Title must be less than 120 characters' });
+            }
+            post.title = title;
+        }
+
+        if (type) post.type = type;
+        if (community) post.community = community;
+        if (projectLink !== undefined) post.projectLink = projectLink;
+        if (tags) post.tags = tags;
+
+        const updatedPost = await post.save();
+        
+        // Populate for real-time emit
+        const populatedPost = await Post.findById(updatedPost._id)
+            .populate('author', 'firstName lastName avatar role')
+            .populate('community', 'name slug')
+            .lean();
+
+        // Emit real-time update
+        const io = req.app.get('io');
+        io.emit('post-updated', {
+            postId,
+            post: populatedPost,
+            action: 'edit'
+        });
+
+        res.json(populatedPost);
+    } catch (error) {
+        console.error('Error updating post:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+
+// Delete a post
+exports.deletePost = async (req, res) => {
+    try {
+        const postId = req.params.id;
+        const userId = req.user.id;
+
+        const post = await Post.findById(postId);
+        if (!post) {
+            return res.status(404).json({ message: 'Post not found' });
+        }
+
+        // Authorization check
+        if (post.author.toString() !== userId) {
+            return res.status(403).json({ message: 'You are not authorized to delete this post' });
+        }
+
+        await Post.findByIdAndDelete(postId);
+
+        // Emit real-time deletion
+        const io = req.app.get('io');
+        io.emit('post-deleted', { postId });
+
+        res.json({ message: 'Post deleted successfully', postId });
+    } catch (error) {
+        console.error('Error deleting post:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+
 module.exports = exports;

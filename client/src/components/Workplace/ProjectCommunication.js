@@ -221,6 +221,12 @@ const ProjectCommunication = ({ projectId }) => {
                         </div>
                     </div>
                     <div className="comm-header-actions">
+                         <div className="comm-action-tool" onClick={() => startCallGlobal(activeId, 'audio')} title="Start Audio Call">
+                            <Phone size={18} />
+                        </div>
+                        <div className="comm-action-tool" onClick={() => startCallGlobal(activeId, 'video')} title="Start Video Call">
+                            <Video size={18} />
+                        </div>
                          <div className={`comm-action-tool ${showMembersSidebar ? 'active-tool' : ''}`} onClick={() => setShowMembersSidebar(!showMembersSidebar)}>
                             <Users size={18} />
                         </div>
@@ -277,6 +283,53 @@ const ProjectCommunication = ({ projectId }) => {
                                                             <button type="button" onClick={() => setEditingId(null)} style={{ color: '#FF4B4B' }}><X size={14} /></button>
                                                         </div>
                                                     </form>
+                                                ) : msg.type === 'call' ? (
+                                                    <div style={{ 
+                                                        background: 'rgba(0, 255, 156, 0.05)', 
+                                                        border: '1px solid var(--comm-border)', 
+                                                        borderRadius: '12px', 
+                                                        padding: '16px', 
+                                                        marginTop: '8px',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'space-between',
+                                                        maxWidth: '400px',
+                                                        boxShadow: '0 4px 15px rgba(0,0,0,0.2)'
+                                                    }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                            <div style={{ 
+                                                                width: '40px', height: '40px', borderRadius: '50%', 
+                                                                background: 'var(--comm-dark-gray)', display: 'flex', 
+                                                                alignItems: 'center', justifyContent: 'center',
+                                                                color: 'var(--comm-neon-green)'
+                                                            }}>
+                                                                {msg.metadata?.callType === 'video' ? <Video size={20} /> : <Phone size={20} />}
+                                                            </div>
+                                                            <div>
+                                                                <div style={{ fontWeight: '600', fontSize: '14px' }}>
+                                                                    {msg.metadata?.callType === 'video' ? 'Video Meeting' : 'Audio Call'}
+                                                                </div>
+                                                                <div style={{ fontSize: '12px', color: 'var(--comm-text-secondary)' }}>
+                                                                    Started by {senderObj.firstName}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <button 
+                                                            onClick={() => joinCall(msg.metadata?.roomId || activeId, msg.metadata?.callType || 'video')}
+                                                            style={{ 
+                                                                background: 'var(--comm-neon-green)', 
+                                                                color: 'black', 
+                                                                border: 'none', 
+                                                                padding: '6px 20px', 
+                                                                borderRadius: '20px', 
+                                                                fontWeight: 'bold', 
+                                                                cursor: 'pointer',
+                                                                fontSize: '13px'
+                                                            }}
+                                                        >
+                                                            Join
+                                                        </button>
+                                                    </div>
                                                 ) : (
                                                     <div className="comm-msg-content">{msg.content}</div>
                                                 )}

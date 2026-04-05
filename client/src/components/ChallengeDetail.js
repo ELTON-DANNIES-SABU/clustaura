@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { ArrowLeft, Trash2, Trophy, Users, MessageSquare } from 'lucide-react';
+import { ArrowLeft, Trash2 } from 'lucide-react';
 import NotificationBell from './NotificationBell';
 import RecommendedExperts from './Community/RecommendedExperts';
 import '../styles.css';
@@ -116,39 +116,7 @@ const ChallengeDetail = () => {
         }
     };
 
-    const handleVote = async () => {
-        try {
-            const userStr = localStorage.getItem('user');
-            const userData = JSON.parse(userStr);
-            const token = userData.token;
-            const config = {
-                headers: { Authorization: `Bearer ${token}` }
-            };
 
-            await axios.put(`/api/challenges/${id}/vote`, {}, config);
-            fetchChallengeDetail(); // Refresh to see updated vote count
-        } catch (error) {
-            console.error('Error voting:', error);
-        }
-    };
-
-    const handleJoinChallenge = async () => {
-        try {
-            const userStr = localStorage.getItem('user');
-            const userData = JSON.parse(userStr);
-            const token = userData.token;
-            const config = {
-                headers: { Authorization: `Bearer ${token}` }
-            };
-
-            await axios.put(`/api/challenges/${id}/join`, {}, config);
-            alert('You have successfully joined the challenge!');
-            fetchChallengeDetail();
-        } catch (error) {
-            console.error('Error joining:', error);
-            alert(error.response?.data?.message || 'Failed to join challenge');
-        }
-    };
 
     const handleDeleteChallenge = async () => {
         if (!window.confirm('Are you sure you want to delete this challenge?')) return;
@@ -191,11 +159,10 @@ const ChallengeDetail = () => {
     };
 
     const formatDate = (dateString) => {
-        return new Date(dateString).toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
-        });
+        const date = new Date(dateString);
+        const options = { year: 'numeric', month: 'long', day: 'numeric' };
+        const time = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        return `${date.toLocaleDateString('en-US', options)} at ${time}`;
     };
 
     const formatTime = (dateString) => {
@@ -221,8 +188,7 @@ const ChallengeDetail = () => {
         );
     }
 
-    const hasVoted = challenge.votes?.includes(currentUser?._id);
-    const hasJoined = challenge.participants?.some(p => p._id === currentUser?._id);
+
 
     const handleBackdropClick = (e) => {
         // Only close if clicking the backdrop itself, not the content
@@ -315,11 +281,15 @@ const ChallengeDetail = () => {
                                         <span className="author-name">
                                             {challenge.author?.firstName} {challenge.author?.lastName}
                                         </span>
-                                        <span className="challenge-date">{formatDate(challenge.createdAt)}</span>
                                     </div>
                                 </div>
-                                <div className={`difficulty-badge ${challenge.difficulty?.toLowerCase()}`}>
-                                    {challenge.difficulty}
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
+                                    <div className={`difficulty-badge ${challenge.difficulty?.toLowerCase()}`}>
+                                        {challenge.difficulty}
+                                    </div>
+                                    <span className="challenge-date" style={{ color: '#666', fontSize: '0.75rem', fontWeight: '500' }}>
+                                        {formatDate(challenge.createdAt)}
+                                    </span>
                                 </div>
                             </div>
 
@@ -338,42 +308,7 @@ const ChallengeDetail = () => {
                             <p>{challenge.description}</p>
                         </div>
 
-                        {/* Challenge Stats & Actions */}
-                        <div className="challenge-detail-stats">
-                            <div className="stats-row">
-                                <div className="stat-item">
-                                    <span className="stat-icon">🔥</span>
-                                    <span className="stat-value">{challenge.votes?.length || 0}</span>
-                                    <span className="stat-label">Votes</span>
-                                </div>
-                                <div className="stat-item">
-                                    <span className="stat-icon">👥</span>
-                                    <span className="stat-value">{challenge.participants?.length || 0}</span>
-                                    <span className="stat-label">Participants</span>
-                                </div>
-                                <div className="stat-item">
-                                    <span className="stat-icon">💬</span>
-                                    <span className="stat-value">{challenge.comments?.length || 0}</span>
-                                    <span className="stat-label">Comments</span>
-                                </div>
-                            </div>
 
-                            <div className="action-buttons">
-                                <button
-                                    className={`vote-btn-large ${hasVoted ? 'voted' : ''}`}
-                                    onClick={handleVote}
-                                >
-                                    {hasVoted ? '🔥 Voted' : '🔥 Vote'}
-                                </button>
-                                <button
-                                    className={`join-btn-large ${hasJoined ? 'joined' : ''}`}
-                                    onClick={handleJoinChallenge}
-                                    disabled={hasJoined}
-                                >
-                                    {hasJoined ? '✓ Joined' : 'Join Challenge'}
-                                </button>
-                            </div>
-                        </div>
 
                         {/* AI Expert Recommendations */}
                         {(() => {

@@ -13,6 +13,24 @@ import StarBadge from './StarBadge';
 import useCommunityStore from '../store/communityStore';
 import './Community/Community.css'; // explicitly apply community header CSS to this page.
 
+const getTimeAgo = (dateString) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const seconds = Math.floor((now - date) / 1000);
+    
+    if (seconds < 60) return `${seconds}s ago`;
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    if (days < 30) return `${days}d ago`;
+    const months = Math.floor(days / 30);
+    if (months < 12) return `${months}mo ago`;
+    const years = Math.floor(days / 365);
+    return `${years}y ago`;
+};
+
 const Challenges = () => {
     const { selectedProfessionTags } = useCommunityStore();
     const [challenges, setChallenges] = useState([]);
@@ -251,14 +269,13 @@ const Challenges = () => {
                                                 <div className="flex flex-col">
                                                     <span className="text-sm font-bold text-gray-200">
                                                         {challenge.author?.firstName} {challenge.author?.lastName}
-                                                        {challenge.author?._id && <StarBadge userId={challenge.author._id} />}
-                                                    </span>
-                                                    <span className="text-[10px] text-gray-600 font-bold uppercase tracking-wider">
-                                                        {new Date(challenge.createdAt).toLocaleDateString()}
                                                     </span>
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-3">
+                                                <span className="text-[10px] text-gray-500 font-medium tracking-wider mr-2" style={{ opacity: 0.6 }}>
+                                                    {new Date(challenge.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })} • {new Date(challenge.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                </span>
                                                 <div className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-widest border border-subtle ${challenge.difficulty === 'Expert' ? 'text-red-500 border-red-500/20' :
                                                     challenge.difficulty === 'Advanced' ? 'text-orange-500 border-orange-500/20' :
                                                         challenge.difficulty === 'Intermediate' ? 'text-blue-500 border-blue-500/20' :
@@ -269,8 +286,27 @@ const Challenges = () => {
                                                 {currentUserId === (challenge.author?._id || challenge.author) && (
                                                     <button
                                                         onClick={(e) => handleDeleteChallenge(e, challenge._id)}
-                                                        className="p-1.5 rounded-lg text-gray-500 hover:text-red-500 hover:bg-red-500/10 transition-all border border-transparent hover:border-red-500/20"
                                                         title="Delete Challenge"
+                                                        style={{ 
+                                                            background: 'transparent', 
+                                                            border: '1px solid rgba(255, 71, 87, 0.2)', 
+                                                            color: '#ff4757', 
+                                                            cursor: 'pointer',
+                                                            padding: '6px',
+                                                            borderRadius: '6px',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            transition: 'all 0.2s ease'
+                                                        }}
+                                                        onMouseEnter={(e) => { 
+                                                            e.currentTarget.style.backgroundColor = 'rgba(255, 71, 87, 0.1)'; 
+                                                            e.currentTarget.style.borderColor = 'rgba(255, 71, 87, 0.5)';
+                                                        }}
+                                                        onMouseLeave={(e) => { 
+                                                            e.currentTarget.style.backgroundColor = 'transparent'; 
+                                                            e.currentTarget.style.borderColor = 'rgba(255, 71, 87, 0.2)';
+                                                        }}
                                                     >
                                                         <Trash2 size={14} />
                                                     </button>
@@ -314,12 +350,6 @@ const Challenges = () => {
                                                 </div>
                                             </div>
 
-                                            <button
-                                                className="btn-primary py-2 px-6 text-[10px]"
-                                                onClick={(e) => { e.stopPropagation(); handleJoinChallenge(challenge._id); }}
-                                            >
-                                                JOIN CHALLENGE
-                                            </button>
                                         </div>
                                     </div>
                                 </div>

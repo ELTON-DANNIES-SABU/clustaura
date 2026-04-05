@@ -100,7 +100,11 @@ const savePlanToDatabase = async (projectId, plan) => {
     // 6. Workforce Estimation
     console.log("Estimating workforce requirements...");
     let projectTechs = plan.recommendedTechnologies || plan.technologies || [];
+    console.log("AI Recommended Techs:", projectTechs);
+    
+    // Fallback 1: Derive from ticket skills if provided
     if (projectTechs.length === 0) {
+        console.log("No AI techs found, checking ticket skills...");
         createdTickets.forEach(t => {
             if (Array.isArray(t.skillsRequired)) {
                 t.skillsRequired.forEach(skill => {
@@ -108,27 +112,69 @@ const savePlanToDatabase = async (projectId, plan) => {
                 });
             }
         });
+        console.log("Derived Techs from tickets:", projectTechs);
     }
+
+    // Fallback 2: Use project's existing technologies if still empty
+    if (projectTechs.length === 0) {
+        console.log("Checking project-level metadata...");
+        if (project.recommendedTechnologies && project.recommendedTechnologies.length > 0) {
+            projectTechs = [...project.recommendedTechnologies];
+        } else if (project.technologies && project.technologies.length > 0) {
+            projectTechs = [...project.technologies];
+        }
+        console.log("Fallback to Project techs:", projectTechs);
+    }
+
+    // Fallback 3: Common sensible defaults if still empty (ensures Workforce tab is never blank)
+    if (projectTechs.length === 0) {
+        const commonTechs = ['Frontend', 'Backend'];
+        projectTechs = [...commonTechs];
+        console.log("Using generic fallbacks:", projectTechs);
+    }
+
+    // Ensure project is updated with latest recommended techs
+    if (projectTechs.length > 0) {
+        await Project.findByIdAndUpdate(projectId, { recommendedTechnologies: projectTechs });
+    }
+
     const techRequirements = await teamEstimatorAgent.estimateWorkforce(projectId, createdTickets, projectTechs);
+    console.log(`Generated ${techRequirements.length} tech requirements:`, JSON.stringify(techRequirements));
     
     // Count actual members for gaps dynamically
-    const UserSkillProfile = require('../models/UserSkillProfile');
-    const memberProfiles = await UserSkillProfile.find({ user: { $in: project.members.map(m => m.user) } });
-    for (const req of techRequirements) {
-        let count = 0;
-        const techLower = req.technology.toLowerCase();
-        memberProfiles.forEach(profile => {
-            if (profile.skills && profile.skills.some(s => {
-                const skillLower = s.toLowerCase();
-                return techLower.includes(skillLower) || skillLower.includes(techLower);
-            })) {
-                count++;
-            }
-        });
-        req.currentDevelopers = count;
-        req.gap = Math.max(0, req.requiredDevelopers - count);
+    try {
+        const UserSkillProfile = require('../models/UserSkillProfile');
+        // Ensure project.members exists before mapping
+        const memberIds = (project.members || []).map(m => m.user).filter(id => id);
+        const memberProfiles = memberIds.length > 0 ? await UserSkillProfile.find({ user: { $in: memberIds } }) : [];
+        
+        console.log(`Analyzing gaps for ${memberProfiles.length} project members...`);
+
+        for (const req of techRequirements) {
+            let count = 0;
+            const techLower = req.technology.toLowerCase();
+            memberProfiles.forEach(profile => {
+                if (profile.skills && profile.skills.some(s => {
+                    const skillLower = s.toLowerCase();
+                    return techLower.includes(skillLower) || skillLower.includes(techLower);
+                })) {
+                    count++;
+                }
+            });
+            req.currentDevelopers = count;
+            req.gap = Math.max(0, req.requiredDevelopers - count);
+        }
+    } catch (profileError) {
+        console.warn("Could not calculate gaps due to profile error:", profileError.message);
+        // Continue anyway - saving requirements is the priority
     }
-    await TeamRequirement.insertMany(techRequirements);
+    
+    try {
+        const savedReqs = await TeamRequirement.insertMany(techRequirements);
+        console.log(`Successfully saved ${savedReqs.length} TeamRequirement documents.`);
+    } catch (insertError) {
+        console.error("Critical: Failed to insertMany TeamRequirement:", insertError);
+    }
 
     // 7. Bidirectional relationships
     console.log("Saving bidirectional relationships...");
@@ -206,9 +252,73 @@ const getSuggestedTeam = async (req, res) => {
         const project = await Project.findById(projectId);
         if (!project) return res.status(404).json({ message: 'Project not found' });
 
-        const techRequirements = await TeamRequirement.find({ project: projectId });
+        let techRequirements = await TeamRequirement.find({ project: projectId });
+        
+        // SELF-HEALING: If no requirements found, try to generate them on the fly
         if (!techRequirements.length) {
-            return res.status(400).json({ message: 'No team requirements found for this project. Generate SDLC plan first.' });
+            console.log("Team requirements missing in DB. Attempting self-healing generation...");
+            let tickets = await Ticket.find({ project: projectId }).lean();
+            let projectTechs = project.recommendedTechnologies || project.technologies || [];
+            
+            // If No tickets exist, we'll try to estimate based on Project Metadata alone
+            // This ensures the page is not blank even before the AI Plan is fully generated
+            if (tickets.length === 0 && projectTechs.length === 0) {
+                console.log("No tickets found. Deriving initial techs from project meta...");
+                const commonTechs = ['Frontend', 'Backend', 'Fullstack'];
+                projectTechs = commonTechs.filter(t => 
+                    project.name.toLowerCase().includes(t.toLowerCase()) || 
+                    project.description?.toLowerCase().includes(t.toLowerCase())
+                );
+                if (projectTechs.length === 0) projectTechs = ['Frontend', 'Backend'];
+            } else if (tickets.length > 0 && projectTechs.length === 0) {
+                // Fallback: Derive from existing ticket skills
+                tickets.forEach(t => {
+                    if (Array.isArray(t.skillsRequired)) {
+                        t.skillsRequired.forEach(skill => {
+                            if (!projectTechs.includes(skill)) projectTechs.push(skill);
+                        });
+                    }
+                });
+                if (projectTechs.length === 0) projectTechs = ['Frontend', 'Backend'];
+            }
+            
+            // Generate requirements even if 0 tickets exist (will default to 1 dev per role)
+            const generatedReqs = await teamEstimatorAgent.estimateWorkforce(projectId, tickets || [], projectTechs);
+            if (generatedReqs.length > 0) {
+                try {
+                    const UserSkillProfile = require('../models/UserSkillProfile');
+                    const memberIds = (project.members || []).map(m => m.user).filter(id => id);
+                    const memberProfiles = memberIds.length > 0 ? await UserSkillProfile.find({ user: { $in: memberIds } }) : [];
+                    
+                    for (const req of generatedReqs) {
+                        let count = 0;
+                        const techLower = req.technology.toLowerCase();
+                        memberProfiles.forEach(profile => {
+                            if (profile.skills && profile.skills.some(s => {
+                                const skillLower = s.toLowerCase();
+                                return techLower.includes(skillLower) || skillLower.includes(techLower);
+                            })) {
+                                count++;
+                            }
+                        });
+                        req.currentDevelopers = count;
+                        req.gap = Math.max(0, req.requiredDevelopers - count);
+                    }
+                } catch (err) {
+                    console.warn("Self-healing: Profile check failed, continuing with partial data:", err.message);
+                }
+                
+                try {
+                    techRequirements = await TeamRequirement.insertMany(generatedReqs);
+                    console.log(`Self-healed (Zero-Ticket): Generated and saved ${techRequirements.length} requirements.`);
+                } catch (insertErr) {
+                    console.error("Self-healing: Failed to save generated requirements:", insertErr);
+                }
+            }
+        }
+
+        if (!techRequirements.length) {
+            return res.status(400).json({ message: 'No team requirements found and no tickets exist to derive them. Please generate an AI SDLC plan first.' });
         }
 
         console.log("Starting team matching process...");
@@ -223,7 +333,12 @@ const getSuggestedTeam = async (req, res) => {
                 requiredDevelopers: s.requiredDevelopers,
                 suggestedUsers: s.suggestedUsers.map(c => ({
                     user: c.user._id,
-                    matchScore: c.matchScore
+                    matchScore: c.matchScore,
+                    ontologyScore: c.ontologyScore,
+                    bioScore: c.bioScore,
+                    postScore: c.postScore,
+                    availabilityScore: c.availabilityScore,
+                    pendingTickets: c.pendingTickets
                 }))
             }))
         );
@@ -264,6 +379,63 @@ const getFullPlan = async (req, res) => {
             }).lean(),
             TeamRequirement.find({ project: projectId })
         ]);
+
+        // SELF-HEALING: If requirements missing, generate them (even if tickets are 0)
+        if (requirements.length === 0 && (isOwner || !!isLead)) {
+            console.log(`Self-healing (Full Plan) for project ${project.name}...`);
+            let projectTechs = project.recommendedTechnologies || project.technologies || [];
+            
+            // Zero-Ticket Estimation
+            if (tickets.length === 0 && projectTechs.length === 0) {
+                console.log("No tickets/techs. Deriving from metadata...");
+                const commonTechs = ['Frontend', 'Backend', 'Fullstack', 'DevOps', 'Mobile'];
+                projectTechs = commonTechs.filter(t => 
+                    project.name.toLowerCase().includes(t.toLowerCase()) || 
+                    project.description?.toLowerCase().includes(t.toLowerCase())
+                );
+                if (projectTechs.length === 0) projectTechs = ['Frontend', 'Backend'];
+            } else if (tickets.length > 0 && projectTechs.length === 0) {
+                const techSet = new Set();
+                tickets.forEach(t => {
+                    if (Array.isArray(t.skillsRequired)) t.skillsRequired.forEach(s => techSet.add(s));
+                });
+                projectTechs = Array.from(techSet);
+                if (projectTechs.length === 0) projectTechs = ['Frontend', 'Backend'];
+            }
+
+            const generatedReqs = await teamEstimatorAgent.estimateWorkforce(projectId, tickets || [], projectTechs);
+            if (generatedReqs.length > 0) {
+                try {
+                    const UserSkillProfile = require('../models/UserSkillProfile');
+                    const memberIds = (project.members || []).map(m => m.user).filter(id => id);
+                    const memberProfiles = memberIds.length > 0 ? await UserSkillProfile.find({ user: { $in: memberIds } }) : [];
+                    
+                    for (const req of generatedReqs) {
+                        let count = 0;
+                        const techLower = req.technology.toLowerCase();
+                        memberProfiles.forEach(p => {
+                            if (p.skills && p.skills.some(s => {
+                                const skillLower = s.toLowerCase();
+                                return techLower.includes(skillLower) || skillLower.includes(techLower);
+                            })) {
+                                count++;
+                            }
+                        });
+                        req.currentDevelopers = count;
+                        req.gap = Math.max(0, req.requiredDevelopers - count);
+                    }
+                } catch (profErr) {
+                    console.warn("Self-healing (Full Plan): Profile check failed:", profErr.message);
+                }
+                
+                try {
+                    requirements = await TeamRequirement.insertMany(generatedReqs);
+                    console.log(`Self-healed ${requirements.length} requirements during getFullPlan.`);
+                } catch (saveErr) {
+                    console.error("Self-healing (Full Plan): Failed to save requirements:", saveErr);
+                }
+            }
+        }
 
         if (!canSeeAll) {
             // Filter tickets for regular members

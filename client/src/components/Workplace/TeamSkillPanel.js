@@ -3,7 +3,22 @@ import { Users, Star, Activity } from 'lucide-react';
 import axios from 'axios';
 import './TeamSkillPanel.css';
 
-const TeamSkillPanel = ({ members, analysis, isOwner, projectId, onMemberUpdate }) => {
+const TeamSkillPanel = ({ members, analysis, isOwner, projectId, onMemberUpdate, onKickMember }) => {
+    const handleGithubSync = async (userId) => {
+        try {
+            const userStr = localStorage.getItem('user');
+            if (!userStr) return;
+            const { token } = JSON.parse(userStr);
+            const { data } = await axios.post(`/api/workplace/projects/${projectId}/members/${userId}/github-invite`, {}, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            alert(data.message || 'GitHub invitation sent successfully!');
+        } catch (error) {
+            console.error('Error syncing GitHub:', error);
+            alert(error.response?.data?.message || 'Error sending GitHub invitation. Make sure they have a GitHub username in their ClustAura profile.');
+        }
+    };
+
     const handleRoleChange = async (userId, newRole) => {
         try {
             const userStr = localStorage.getItem('user');
@@ -79,12 +94,29 @@ const TeamSkillPanel = ({ members, analysis, isOwner, projectId, onMemberUpdate 
 
                             <div className="member-actions">
                                 {isOwner && role !== 'Project Owner' && (
-                                    <button 
-                                        className="role-toggle-btn"
-                                        onClick={() => handleRoleChange(member?._id, role === 'Project Lead' ? 'Member' : 'Project Lead')}
-                                    >
-                                        {role === 'Project Lead' ? 'Demote to Member' : 'Promote to Project Lead'}
-                                    </button>
+                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                        <button 
+                                            className="role-toggle-btn"
+                                            onClick={() => handleRoleChange(member?._id, role === 'Project Lead' ? 'Member' : 'Project Lead')}
+                                        >
+                                            {role === 'Project Lead' ? 'Demote to Member' : 'Promote to Project Lead'}
+                                        </button>
+                                        <button 
+                                            className="role-toggle-btn"
+                                            style={{ backgroundColor: 'transparent', color: '#00FFA3', border: '1px solid #00FFA3', padding: '0 8px' }}
+                                            onClick={() => handleGithubSync(member?._id)}
+                                            title="Resend GitHub Invitation"
+                                        >
+                                            Sync GitHub
+                                        </button>
+                                        <button 
+                                            className="role-toggle-btn kick-btn"
+                                            style={{ backgroundColor: 'transparent', color: '#ff4757', border: '1px solid #ff4757' }}
+                                            onClick={() => { if (onKickMember) onKickMember(member?._id); }}
+                                        >
+                                            Kick
+                                        </button>
+                                    </div>
                                 )}
                             </div>
                         </div>

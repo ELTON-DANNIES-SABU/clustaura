@@ -51,6 +51,10 @@ const attemptSchema = new mongoose.Schema({
         type: Number,
         default: 0
     },
+    shuffledOrder: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Question'
+    }],
     rankSnapshot: Number
 }, {
     timestamps: true

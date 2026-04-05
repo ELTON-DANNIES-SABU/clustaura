@@ -27,7 +27,7 @@ const ProjectSchema = new mongoose.Schema({
         },
         role: {
             type: String,
-            enum: ['owner', 'lead', 'developer', 'Member'], // 'Member' retained for backward compatibility
+            enum: ['owner', 'lead', 'developer', 'Developer', 'Member', 'Project Owner', 'Project Lead'], // Broadened for compatibility
             default: 'developer'
         }
     }],
@@ -47,6 +47,8 @@ const ProjectSchema = new mongoose.Schema({
             ref: 'User'
         },
         role: String,
+        description: String,
+        workDetails: String,
         status: {
             type: String,
             enum: ['pending', 'accepted', 'rejected'],
@@ -67,6 +69,9 @@ const ProjectSchema = new mongoose.Schema({
         ref: 'Community'
     },
     repositoryUrl: {
+        type: String
+    },
+    githubAccessToken: {
         type: String
     },
     repositoryProvider: {

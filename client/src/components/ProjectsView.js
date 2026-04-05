@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { Folder, Plus, ChevronRight } from 'lucide-react';
+import { Folder, Plus, ChevronRight, CheckCircle, Rocket, X } from 'lucide-react';
 
 const ProjectsView = () => {
     const navigate = useNavigate();
     const [projects, setProjects] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showCreateModal, setShowCreateModal] = useState(false);
+    const [showSuccessModal, setShowSuccessModal] = useState(false);
+    const [createdProject, setCreatedProject] = useState(null);
     const [newProject, setNewProject] = useState({ name: '', key: '', description: '', communityId: '' });
 
     useEffect(() => {
@@ -56,9 +58,11 @@ const ProjectsView = () => {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
+            setCreatedProject({ ...newProject, _id: projectId, key });
             setShowCreateModal(false);
             setNewProject({ name: '', key: '', description: '', communityId: '' });
-            navigate(`/workplace/project/${projectId}/ai-planner`);
+            setShowSuccessModal(true);
+            // navigate(`/workplace/project/${projectId}/ai-planner`);
         } catch (error) {
             alert(error.response?.data?.message || 'Error initializing automated workspace');
         }
@@ -171,6 +175,38 @@ const ProjectsView = () => {
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {showSuccessModal && createdProject && (
+                <div className="modal-overlay">
+                    <div className="modal-content success-modal" style={{ textAlign: 'center', padding: '40px 24px' }}>
+                        <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'center' }}>
+                            <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'rgba(0, 255, 163, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <CheckCircle size={48} color="#00FFA3" />
+                            </div>
+                        </div>
+                        <h2 style={{ fontSize: '1.5rem', marginBottom: '8px', color: '#fff' }}>Project Initialized!</h2>
+                        <p style={{ color: 'rgba(255, 255, 255, 0.6)', marginBottom: '24px' }}>
+                            Working workspace created for <strong>{createdProject.name}</strong> ({createdProject.key}). 
+                            The AI engine is now analyzing your requirements.
+                        </p>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            <button 
+                                className="create-btn ai-sparkle" 
+                                style={{ width: '100%', padding: '14px', borderRadius: '8px', fontSize: '1rem' }}
+                                onClick={() => navigate(`/workplace/project/${createdProject._id}/ai-planner`)}
+                            >
+                                <Rocket size={18} style={{ marginRight: '8px' }} /> Launch AI Planner
+                            </button>
+                            <button 
+                                style={{ background: 'transparent', border: 'none', color: 'rgba(255, 255, 255, 0.4)', cursor: 'pointer', fontSize: '0.9rem' }}
+                                onClick={() => setShowSuccessModal(false)}
+                            >
+                                Not now, show me my projects
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

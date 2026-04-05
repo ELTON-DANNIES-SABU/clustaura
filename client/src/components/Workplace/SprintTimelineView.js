@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { Calendar, Clock, ChevronRight, Plus, X, AlertCircle } from 'lucide-react';
 import axios from 'axios';
+import { createPortal } from 'react-dom';
 
-const SprintTimelineView = ({ sprints, tickets, projectId, project, canManage, onUpdate, modules }) => {
+const SprintTimelineView = ({ sprints, tickets, projectId, project, canManage, onUpdate, modules, onTicketClick }) => {
     const [showSprintModal, setShowSprintModal] = useState(false);
     const [showTicketModal, setShowTicketModal] = useState(false);
     const [selectedSprintForTicket, setSelectedSprintForTicket] = useState(null);
@@ -133,7 +134,12 @@ const SprintTimelineView = ({ sprints, tickets, projectId, project, canManage, o
 
                         <div className="sprint-tickets-timeline">
                             {sprint.tickets.map((ticket, tIdx) => (
-                                <div key={ticket._id} className="timeline-ticket-item">
+                                <div 
+                                    key={ticket._id} 
+                                    className="timeline-ticket-item" 
+                                    style={{ cursor: onTicketClick ? 'pointer' : 'default' }}
+                                    onClick={() => onTicketClick && onTicketClick(ticket)}
+                                >
                                     <div className="ticket-bullet"></div>
                                     <div className="ticket-details">
                                         <div className="ticket-top">
@@ -171,74 +177,124 @@ const SprintTimelineView = ({ sprints, tickets, projectId, project, canManage, o
             </div>
 
             {/* Sprint Creation Modal */}
-            {showSprintModal && (
-                <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <div className="module-card" style={{ width: '400px', padding: '24px', border: '1px solid var(--accent-primary)' }}>
+            {showSprintModal && createPortal(
+                <div className="modal-overlay" style={{ 
+                    position: 'fixed', 
+                    top: 0, 
+                    left: 0, 
+                    right: 0, 
+                    bottom: 0, 
+                    background: 'rgba(0,0,0,0.9)', 
+                    zIndex: 9999, 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center',
+                    padding: '20px'
+                }}>
+                    <div className="module-card" style={{ 
+                        width: '100%',
+                        maxWidth: '400px', 
+                        padding: '24px', 
+                        border: '1px solid var(--accent-primary)',
+                        background: '#0B0F14',
+                        borderRadius: '12px',
+                        position: 'relative'
+                    }}>
                         <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
                             <h3 style={{ margin: 0 }}>Create New Sprint</h3>
                             <button onClick={() => setShowSprintModal(false)} style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer' }}><X size={20}/></button>
                         </div>
+
                         <form onSubmit={handleCreateSprint}>
-                            <div className="input-group">
-                                <label>Sprint Name</label>
-                                <input 
-                                    type="text" 
-                                    className="full-input" 
-                                    style={{ width: '100%', padding: '10px', background: '#000', border: '1px solid #333', color: '#fff', borderRadius: '4px' }} 
-                                    value={newSprint.name}
-                                    onChange={e => setNewSprint({...newSprint, name: e.target.value})}
-                                    required
-                                    placeholder="e.g. Sprint 1: Frontend Basics"
-                                />
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                                <div>
+                                    <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', color: 'rgba(255,255,255,0.6)' }}>Sprint Name</label>
+                                    <input 
+                                        type="text" 
+                                        value={newSprint.name}
+                                        onChange={(e) => setNewSprint({...newSprint, name: e.target.value})}
+                                        placeholder="e.g. Sprint 1, Alpha Launch"
+                                        required
+                                        style={{ width: '100%', padding: '10px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff' }}
+                                    />
+                                </div>
+
+                                <div style={{ display: 'flex', gap: '15px' }}>
+                                    <div style={{ flex: 1 }}>
+                                        <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', color: 'rgba(255,255,255,0.6)' }}>Start Date</label>
+                                        <input 
+                                            type="date" 
+                                            value={newSprint.startDate}
+                                            onChange={(e) => setNewSprint({...newSprint, startDate: e.target.value})}
+                                            required
+                                            style={{ width: '100%', padding: '10px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff' }}
+                                        />
+                                    </div>
+                                    <div style={{ flex: 1 }}>
+                                        <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', color: 'rgba(255,255,255,0.6)' }}>End Date</label>
+                                        <input 
+                                            type="date" 
+                                            value={newSprint.endDate}
+                                            onChange={(e) => setNewSprint({...newSprint, endDate: e.target.value})}
+                                            required
+                                            style={{ width: '100%', padding: '10px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff' }}
+                                        />
+                                    </div>
+                                </div>
                             </div>
-                            <div className="input-group" style={{ marginTop: '15px' }}>
-                                <label>Start Date</label>
-                                <input 
-                                    type="date" 
-                                    style={{ width: '100%', padding: '10px', background: '#000', border: '1px solid #333', color: '#fff', borderRadius: '4px' }}
-                                    value={newSprint.startDate}
-                                    onChange={e => setNewSprint({...newSprint, startDate: e.target.value})}
-                                    required
-                                />
+
+                            <div style={{ marginTop: '24px', display: 'flex', gap: '12px' }}>
+                                <button 
+                                    type="button"
+                                    onClick={() => setShowSprintModal(false)}
+                                    style={{ flex: 1, padding: '12px', background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', borderRadius: '6px', cursor: 'pointer' }}
+                                >
+                                    Cancel
+                                </button>
+                                <button 
+                                    type="submit"
+                                    disabled={loading}
+                                    style={{ flex: 1, padding: '12px', background: 'var(--accent-primary)', border: 'none', color: '#000', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}
+                                >
+                                    {loading ? 'Creating...' : 'Create Sprint'}
+                                </button>
                             </div>
-                            <div className="input-group" style={{ marginTop: '15px' }}>
-                                <label>End Date</label>
-                                <input 
-                                    type="date" 
-                                    style={{ width: '100%', padding: '10px', background: '#000', border: '1px solid #333', color: '#fff', borderRadius: '4px' }}
-                                    value={newSprint.endDate}
-                                    onChange={e => setNewSprint({...newSprint, endDate: e.target.value})}
-                                    required
-                                />
-                            </div>
-                            <button type="submit" className="generate-btn" disabled={loading} style={{ marginTop: '24px' }}>
-                                {loading ? 'Creating...' : 'Create Sprint'}
-                            </button>
                         </form>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
             {/* Ticket Creation Modal */}
-            {showTicketModal && (
-                <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <div className="module-card" style={{ width: '500px', padding: '24px', border: '1px solid var(--accent-primary)' }}>
+            {showTicketModal && createPortal(
+                <div className="modal-overlay" style={{ 
+                    position: 'fixed', 
+                    top: 0, 
+                    left: 0, 
+                    right: 0, 
+                    bottom: 0, 
+                    background: 'rgba(0,0,0,0.9)', 
+                    zIndex: 9999, 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center',
+                    padding: '20px'
+                }}>
+                    <div className="module-card" style={{ 
+                        width: '100%',
+                        maxWidth: '500px', 
+                        padding: '24px', 
+                        border: '1px solid var(--accent-primary)',
+                        background: '#0B0F14',
+                        borderRadius: '12px',
+                        position: 'relative'
+                    }}>
                         <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
                             <h3 style={{ margin: 0 }}>Add Manual Ticket to Sprint</h3>
                             <button onClick={() => setShowTicketModal(false)} style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer' }}><X size={20}/></button>
                         </div>
+
                         <form onSubmit={handleCreateTicket}>
-                            <div className="input-group">
-                                <label>Ticket Title</label>
-                                <input 
-                                    type="text" 
-                                    className="full-input" 
-                                    style={{ width: '100%', padding: '10px', background: '#000', border: '1px solid #333', color: '#fff', borderRadius: '4px' }} 
-                                    value={newTicket.title}
-                                    onChange={e => setNewTicket({...newTicket, title: e.target.value})}
-                                    required
-                                />
-                            </div>
                             <div className="input-group" style={{ marginTop: '15px' }}>
                                 <label>Description</label>
                                 <textarea 
@@ -320,7 +376,8 @@ const SprintTimelineView = ({ sprints, tickets, projectId, project, canManage, o
                             </button>
                         </form>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );

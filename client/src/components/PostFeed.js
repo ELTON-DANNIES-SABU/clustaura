@@ -97,15 +97,22 @@ const PostFeed = () => {
                         return { ...post, comments: [...(post.comments || []), updatedData.comment] };
                     } else if (updatedData.action === 'share') {
                         return { ...post, shares: updatedData.shares };
+                    } else if (updatedData.action === 'edit') {
+                        return updatedData.post;
                     }
                 }
                 return post;
             }));
         });
 
+        socket.on('post-deleted', (data) => {
+            setPosts(prev => prev.filter(post => post._id !== data.postId));
+        });
+
         return () => {
             socket.off('new-post');
             socket.off('post-updated');
+            socket.off('post-deleted');
         };
     }, [socket]);
 
@@ -361,6 +368,12 @@ const PostFeed = () => {
                                     onUpvote={handleUpvote}
                                     onBookmark={handleBookmark}
                                     onShare={handleShare}
+                                    onUpdate={(updatedPost) => {
+                                        setPosts(prev => prev.map(p => p._id === updatedPost._id ? updatedPost : p));
+                                    }}
+                                    onDelete={(postId) => {
+                                        setPosts(prev => prev.filter(p => p._id !== postId));
+                                    }}
                                 />
                             ))}
                             {posts.length === 0 && (

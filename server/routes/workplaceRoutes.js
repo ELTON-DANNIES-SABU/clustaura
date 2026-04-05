@@ -18,7 +18,11 @@ const {
     getProjectLeaveRequests,
     respondToLeaveRequest,
     getPendingInvitations,
-    updateMemberRole
+    generateInviteDetails,
+    updateMemberRole,
+    updateProjectSettings,
+    resendGithubInvite,
+    deleteProject
 } = require('../controllers/workplaceController');
 const { protect } = require('../middleware/authMiddleware');
 
@@ -26,6 +30,7 @@ const { protect } = require('../middleware/authMiddleware');
 router.post('/projects', protect, createProject);
 router.get('/projects', protect, getProjects);
 router.get('/projects/:id', protect, getProjectById);
+router.delete('/projects/:id', protect, deleteProject);
 router.get('/projects/:id/leave-requests', protect, getProjectLeaveRequests);
 router.post('/projects/:id/leave-requests/:userId/respond', protect, respondToLeaveRequest);
 router.post('/projects/:id/invitations/respond', protect, respondToInvitation);
@@ -43,8 +48,11 @@ router.post('/sprints', protect, createSprint); // Keep original if needed by ot
 router.get('/projects/:id/sprints', protect, getProjectSprints);
 router.put('/sprints/:id/status', protect, updateSprintStatus);
 router.post('/projects/:id/members', protect, addProjectMember);
+router.post('/projects/:id/generate-invite-details', protect, generateInviteDetails);
+router.post('/projects/:id/members/:userId/github-invite', protect, resendGithubInvite);
 router.delete('/projects/:id/leave', protect, leaveProject);
 router.delete('/projects/:id/members/:userId', protect, removeProjectMember);
 router.put('/projects/:id/members/:userId/role', protect, updateMemberRole);
+router.put('/projects/:id/settings', protect, updateProjectSettings);
 
 module.exports = router;

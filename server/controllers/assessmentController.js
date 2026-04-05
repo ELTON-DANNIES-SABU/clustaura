@@ -3,6 +3,7 @@ const Question = require('../models/Question');
 const Attempt = require('../models/Attempt');
 const User = require('../models/User');
 const aiService = require('../services/aiService');
+const codeExecutionService = require('../services/CodeExecutionService');
 
 // @desc    Create a new question
 // @route   POST /api/assessment/questions
@@ -77,6 +78,17 @@ exports.getTests = async (req, res) => {
     }
 };
 
+// Helper to shuffle an array
+const shuffleArray = (array) => {
+    let currentIndex = array.length, randomIndex;
+    while (currentIndex !== 0) {
+        randomIndex = Math.floor(Math.random() * currentIndex);
+        currentIndex--;
+        [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
+    }
+    return array;
+};
+
 // @desc    Start technical test attempt
 // @route   POST /api/assessment/tests/:id/start
 // @access  Private
@@ -84,14 +96,6 @@ exports.startTest = async (req, res) => {
     try {
         const test = await Test.findById(req.params.id);
         if (!test) return res.status(404).json({ message: 'Test not found' });
-
-        // Check if invited
-        const isInvited = test.invitedUsers.some(uid => uid.toString() === req.user.id.toString());
-        const isCreator = test.creator.toString() === req.user.id.toString();
-
-        if (!isInvited && !isCreator) {
-            return res.status(403).json({ message: 'You are not invited to this test' });
-        }
 
         // Check if already submitted (completed)
         const completedAttempt = await Attempt.findOne({
@@ -115,14 +119,36 @@ exports.startTest = async (req, res) => {
             return res.status(200).json({ success: true, data: existingAttempt });
         }
 
+        // Create flattened shuffled order if enabled
+        let questionOrder = [];
+        try {
+            test.sections.forEach(section => {
+                if (section.questions && section.questions.length > 0) {
+                    let sectionQs = [...section.questions];
+                    if (test.rules?.shuffleQuestions) {
+                        sectionQs = shuffleArray(sectionQs);
+                    }
+                    questionOrder.push(...sectionQs);
+                }
+            });
+        } catch (err) {
+            console.error("Shuffle algorithm error:", err);
+            // Fallback: Use questions in original order if they exist
+            test.sections.forEach(s => {
+                if (s.questions) questionOrder.push(...s.questions);
+            });
+        }
+
         const attempt = await Attempt.create({
             testId: test._id,
             candidateId: req.user.id,
-            status: 'In-Progress'
+            status: 'In-Progress',
+            shuffledOrder: questionOrder
         });
 
         res.status(201).json({ success: true, data: attempt });
     } catch (error) {
+        console.error("StartTest Error:", error);
         res.status(400).json({ success: false, message: error.message });
     }
 };
@@ -133,28 +159,33 @@ exports.startTest = async (req, res) => {
 exports.submitAnswer = async (req, res) => {
     try {
         const { questionId, selectedOptions, textResponse, codeResponse } = req.body;
-        const attempt = await Attempt.findById(req.params.id);
-
-        if (!attempt) return res.status(404).json({ message: 'Attempt not found' });
-        if (attempt.status !== 'In-Progress') return res.status(400).json({ message: 'Test already submitted' });
-
-        // Find if answer already exists
-        const answerIndex = attempt.answers.findIndex(a => a.questionId.toString() === questionId);
-
+        
         const answerData = {
             questionId,
-            selectedOptions,
+            selectedOptions: selectedOptions || [],
             textResponse,
-            codeResponse
+            codeResponse: typeof codeResponse === 'string' ? { code: codeResponse } : codeResponse
         };
 
-        if (answerIndex > -1) {
-            attempt.answers[answerIndex] = { ...attempt.answers[answerIndex], ...answerData };
-        } else {
-            attempt.answers.push(answerData);
+        // Attempt atomic update if answer exists
+        let attempt = await Attempt.findOneAndUpdate(
+            { _id: req.params.id, status: 'In-Progress', "answers.questionId": questionId },
+            { $set: { "answers.$": answerData } },
+            { new: true }
+        );
+
+        // If not found (either attempt missing, not in progress, or answer doesn't exist yet)
+        if (!attempt) {
+            attempt = await Attempt.findOneAndUpdate(
+                { _id: req.params.id, status: 'In-Progress' },
+                { $push: { answers: answerData } },
+                { new: true }
+            );
         }
 
-        await attempt.save();
+        if (!attempt) return res.status(404).json({ message: 'Attempt not found or already submitted' });
+
+        // Refetch attempt to handle order consistency in response if needed
         res.status(200).json({ success: true, data: attempt });
     } catch (error) {
         res.status(400).json({ success: false, message: error.message });
@@ -177,26 +208,47 @@ exports.finalizeAttempt = async (req, res) => {
 
         let totalScore = 0;
 
-        // Automated Scoring for MCQs
-        attempt.answers.forEach(answer => {
+        // Automated Scoring
+        for (const answer of attempt.answers) {
             const question = allQuestions.find(q => q._id.toString() === answer.questionId.toString());
-            if (!question) return;
+            if (!question) continue;
 
-            if (question.type === 'MCQ') {
-                const correctIndices = question.options
-                    .map((opt, idx) => opt.isCorrect ? idx : null)
-                    .filter(idx => idx !== null);
+            try {
+                if (question.type === 'MCQ') {
+                    const correctIndices = question.options
+                        .map((opt, idx) => opt.isCorrect ? idx : null)
+                        .filter(idx => idx !== null);
 
-                const isCorrect = correctIndices.length === answer.selectedOptions.length &&
-                    correctIndices.every(idx => answer.selectedOptions.includes(idx));
+                    const isCorrect = correctIndices.length === answer.selectedOptions.length &&
+                        correctIndices.every(idx => answer.selectedOptions.includes(idx));
 
-                if (isCorrect) {
-                    answer.marksObtained = question.marks || 1;
-                    totalScore += answer.marksObtained;
+                    if (isCorrect) {
+                        answer.marksObtained = question.marks || 1;
+                        totalScore += answer.marksObtained;
+                    }
+                    answer.isEvaluated = true;
+                } else if (question.type === 'Coding') {
+                    const codeData = answer.codeResponse || {};
+                    const code = codeData.code || '';
+                    const language = codeData.language || 'javascript';
+                    const testCases = question.codingConfig.testCases;
+
+                    if (testCases && testCases.length > 0 && code) {
+                        const results = await codeExecutionService.execute(language, code, testCases);
+                        const passCount = results.filter(r => r.status === 'PASS').length;
+                        
+                        const score = (passCount / testCases.length) * (question.marks || 5);
+                        answer.marksObtained = Math.round(score * 100) / 100;
+                        answer.testResults = results;
+                        totalScore += answer.marksObtained;
+                    }
+                    answer.isEvaluated = true;
                 }
-                answer.isEvaluated = true;
+            } catch (err) {
+                console.error(`Scoring error for question ${question._id}:`, err);
+                answer.feedback = "System failed to evaluate this response automatically.";
             }
-        });
+        }
 
         attempt.totalScore = totalScore;
         attempt.status = 'Submitted';
@@ -216,6 +268,63 @@ exports.finalizeAttempt = async (req, res) => {
         });
     } catch (error) {
         console.error("Finalize Error:", error);
+        res.status(500).json({ success: false, message: "Server error during submission. Please contact support." });
+    }
+};
+
+// @desc    Run candidate code against test cases
+// @route   POST /api/assessment/attempts/:id/run-code
+// @access  Private
+exports.runCode = async (req, res) => {
+    try {
+        const { questionId, code, language } = req.body;
+        
+        const question = await Question.findById(questionId);
+        if (!question) return res.status(404).json({ message: 'Question not found' });
+
+        // Run ALL test cases internal and visible
+        const allTestCases = question.codingConfig.testCases;
+        const rawResults = await codeExecutionService.execute(language, code, allTestCases);
+
+        // Mask hidden test cases in the response for the candidate
+        const maskedResults = rawResults.map((result, index) => {
+            const isVisible = allTestCases[index].isVisible;
+            if (isVisible) return result;
+            
+            // Mask hidden case data
+            return {
+                status: result.status,
+                error: result.error,
+                isVisible: false,
+                caseIndex: index + 1
+            };
+        });
+
+        const answerData = {
+            questionId,
+            codeResponse: { code, language },
+            testResults: maskedResults,
+            selectedOptions: []
+        };
+
+        // Atomic update for attempt (temporary storage of results)
+        let attempt = await Attempt.findOneAndUpdate(
+            { _id: req.params.id, status: 'In-Progress', "answers.questionId": questionId },
+            { $set: { "answers.$": answerData } },
+            { new: true }
+        );
+
+        if (!attempt) {
+            attempt = await Attempt.findOneAndUpdate(
+                { _id: req.params.id, status: 'In-Progress' },
+                { $push: { answers: answerData } },
+                { new: true }
+            );
+        }
+
+        res.status(200).json({ success: true, data: maskedResults });
+    } catch (error) {
+        console.error("RunCode Error:", error);
         res.status(400).json({ success: false, message: error.message });
     }
 };

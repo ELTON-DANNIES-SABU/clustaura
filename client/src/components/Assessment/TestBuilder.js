@@ -24,6 +24,7 @@ const TestBuilder = ({ onTestCreated }) => {
         { category: 'Logical Reasoning', difficulty: 'Intermediate', count: 0 },
         { category: 'Verbal', difficulty: 'Intermediate', count: 0 },
         { category: 'Technical', difficulty: 'Hard', count: 0 },
+        { category: 'Coding', difficulty: 'Intermediate', count: 0 },
     ]);
 
     const handleReqChange = (idx, field, value) => {

@@ -458,12 +458,12 @@ const useCommunicationStore = create((set, get) => ({
         });
 
         newSocket.on('call:media-update', ({ userId, mediaType, enabled }) => {
-            console.log("Media Update received:", userId, mediaType, enabled);
+            console.log("[Store] Individual Media Update received:", userId, mediaType, enabled);
             set(state => {
                 const currentParticipants = { ...state.activeCallParticipants };
                 Object.keys(currentParticipants).forEach(roomId => {
                     currentParticipants[roomId] = currentParticipants[roomId].map(p =>
-                        p.userId === userId ? { ...p, mediaState: { ...p.mediaState, [mediaType]: enabled } } : p
+                        String(p.userId) === String(userId) ? { ...p, mediaState: { ...p.mediaState, [mediaType]: enabled } } : p
                     );
                 });
                 return { activeCallParticipants: currentParticipants };

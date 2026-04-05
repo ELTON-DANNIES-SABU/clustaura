@@ -1,43 +1,38 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Mic, MicOff, Video, VideoOff, Settings, ShieldCheck } from 'lucide-react';
 
-const MeetingPreview = ({ onJoin, callType, userDetails, stream }) => {
-    const [isMuted, setIsMuted] = useState(false);
-    const [isVideoOff, setIsVideoOff] = useState(callType === 'audio');
+const MeetingPreview = ({ 
+    onJoin, 
+    callType, 
+    userDetails, 
+    stream,
+    isMuted,
+    isVideoOn,
+    toggleVideo,
+    toggleMute
+}) => {
     const [isHardwareMissing, setIsHardwareMissing] = useState(false);
     const videoRef = useRef(null);
+    const isVideoOff = !isVideoOn;
 
     useEffect(() => {
-        if (videoRef.current && stream) {
+        if (videoRef.current && stream && isVideoOn) {
             videoRef.current.srcObject = stream;
-
-            // Sync initial UI state with stream tracks
-            stream.getAudioTracks().forEach(t => t.enabled = !isMuted);
-            stream.getVideoTracks().forEach(t => t.enabled = !isVideoOff);
 
             if (callType === 'video' && stream.getVideoTracks().length === 0) {
                 setIsHardwareMissing(true);
-                setIsVideoOff(true);
+            } else {
+                setIsHardwareMissing(false);
             }
         } else if (!stream && callType === 'video') {
             setIsHardwareMissing(true);
-            setIsVideoOff(true);
+        } else if (stream) {
+            setIsHardwareMissing(stream.getVideoTracks().length === 0 && callType === 'video');
         }
-    }, [stream, isVideoOff, isMuted, callType]);
-
-    const toggleMute = () => {
-        setIsMuted(!isMuted);
-        if (stream) {
-            stream.getAudioTracks().forEach(t => t.enabled = isMuted);
-        }
-    };
-
-    const toggleVideo = () => {
-        setIsVideoOff(!isVideoOff);
-    };
+    }, [stream, isVideoOn, callType]);
 
     const handleJoin = () => {
-        // Pass the settings to the parent
+        // Final state is already managed by parent
         onJoin({ isMuted, isVideoOff });
     };
 

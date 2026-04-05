@@ -1,0 +1,23 @@
+﻿--- Profile Intelligence Matching Engine Test ---
+
+User: Alice Fullstacker
+Overall Match: 87.3%
+- Ontology Score (Skills): 100.0%
+- Bio Semantic Score: 57.7%
+- Post Evidence Score: 100.0%
+------------------------------------------
+
+User: Bob Backender
+Overall Match: 23.9%
+- Ontology Score (Skills): 40.0%
+- Bio Semantic Score: 12.9%
+- Post Evidence Score: 0.0%
+------------------------------------------
+
+User: Charlie Newbie
+Overall Match: 14.3%
+- Ontology Score (Skills): 20.0%
+- Bio Semantic Score: 14.4%
+- Post Evidence Score: 0.0%
+------------------------------------------
+

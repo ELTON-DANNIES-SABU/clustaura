@@ -1,5 +1,7 @@
 const Project = require('../models/Project');
 const Ticket = require('../models/Ticket');
+const Issue = require('../models/Issue');
+const Sprint = require('../models/Sprint');
 const ActivityLog = require('../models/ActivityLog');
 
 // Helper to check if user has approval rights (Lead or Owner)
@@ -18,16 +20,13 @@ const hasApprovalRights = async (projectId, userId) => {
     return false;
 };
 
-// Generate an activity trend array (mocked for visual sparkline purposes, based around the commit count)
-const generateMockTrend = (baseCount) => {
-    const trend = [];
-    let current = Math.max(1, baseCount / 5);
-    for(let i = 0; i < 7; i++) {
-        trend.push({ date: `Day ${i + 1}`, activity: Math.floor(current) });
-        current += (Math.random() * 5) - 1; // Trend upwards generally
-        if(current < 0) current = 0;
-    }
-    return trend.sort((a,b) => a.date.localeCompare(b.date));
+// Helper to get status distribution for a set of tickets
+const getStatusDistribution = (tickets) => {
+    const statuses = ['To Do', 'In Progress', 'Testing', 'Completed'];
+    return statuses.map(status => ({
+        name: status,
+        value: tickets.filter(t => t.status === status).length
+    }));
 };
 
 // @desc    Get comprehensive analytics for a project
@@ -45,46 +44,51 @@ const getProjectMemberAnalytics = async (req, res) => {
         const project = await Project.findById(projectId).populate('members.user', 'firstName lastName email avatar role');
         if (!project) return res.status(404).json({ message: 'Project not found' });
 
-        const tickets = await Ticket.find({ project: projectId });
+        // Fetch both Ticket and Issue models to ensure full board coverage across all sprints
+        const [tickets, issues] = await Promise.all([
+            Ticket.find({ project: projectId }),
+            Issue.find({ project: projectId })
+        ]);
+
+        // Normalize work items from both sources for unified metric calculation
+        const allWorkItems = [
+            ...tickets.map(t => ({ 
+                ...t.toObject(), 
+                assigneeId: t.assignedUser?.toString(),
+            })),
+            ...issues.map(i => ({ 
+                ...i.toObject(), 
+                assigneeId: (i.assignee?._id || i.assignee)?.toString(),
+            }))
+        ];
         
         let totalMembers = project.members?.length || 0;
         let totalTaskCompletionPercentage = 0;
-        let totalCodeCommits = 0;
 
         const membersList = project.members.map(memberObj => {
             const user = memberObj.user;
             if (!user) return null;
 
-            // Find tickets assigned to this user
-            const userTickets = tickets.filter(t => t.assignedUser && t.assignedUser.toString() === user._id.toString());
-            
-            const totalTasks = userTickets.length;
-            const activeTasks = userTickets.filter(t => t.status === 'In Progress' || t.status === 'Testing').length;
-            const completedTasks = userTickets.filter(t => t.status === 'Completed' || t.status === 'Done').length;
-            
-            // Just for UI variety
-            const ticketsClosed = completedTasks + Math.floor(Math.random() * 3); 
+            const userId = user._id.toString();
 
-            // Calculate code commits from ticket commits array
-            let userCommits = 0;
-            userTickets.forEach(t => {
-                if (t.commits && t.commits.length > 0) {
-                    userCommits += t.commits.length;
-                }
-            });
-
-            // Fallback for visual testing if no commits exist
-            if (userCommits === 0) userCommits = Math.floor(Math.random() * 40) + 5;
+            // Find work items assigned to this user from any source
+            const userWorkItems = allWorkItems.filter(item => item.assigneeId === userId);
+            
+            const totalTasks = userWorkItems.length;
+            const activeTasks = userWorkItems.filter(t => t.status === 'To Do' || t.status === 'In Progress').length;
+            const completedTasks = userWorkItems.filter(t => t.status === 'Completed' || t.status === 'Done').length;
+            
+            // Count of tickets in 'Testing' status (for "Tickets Pushed")
+            const ticketsPushed = userWorkItems.filter(t => t.status === 'Testing').length;
 
             const completionPercentage = totalTasks === 0 ? 0 : Math.round((completedTasks / totalTasks) * 100);
             
             totalTaskCompletionPercentage += completionPercentage;
-            totalCodeCommits += userCommits;
 
-            // Mock skills for UI
-            const skills = user.role === 'Backend Developer' || memberObj.role?.toLowerCase() === 'developer' 
-                ? ['Node.js', 'API'] 
-                : ['React', 'Frontend'];
+            // Skills based on role or data if available
+            const skills = memberObj.role?.toLowerCase().includes('lead') || user.role?.toLowerCase().includes('lead')
+                ? ['Management', 'Strategy']
+                : ['Development', 'Logic'];
 
             return {
                 id: user._id,
@@ -95,26 +99,34 @@ const getProjectMemberAnalytics = async (req, res) => {
                 role: memberObj.role || user.role,
                 skills,
                 metrics: {
-                    activeTasks: { count: activeTasks, total: totalTasks, trend: `+${Math.floor(Math.random()*3)}` },
-                    tasksCompleted: { count: completedTasks, trend: `+${Math.floor(Math.random()*50)}%`, subtitle: `${Math.floor(Math.random()*4)} this week` },
-                    ticketsClosed: { count: ticketsClosed, trend: `+${Math.floor(Math.random()*80)}%`, subtitle: `${Math.floor(Math.random()*5)} this week` },
-                    codeCommits: { count: userCommits, trend: `+${Math.floor(Math.random()*20)}%`, subtitle: 'last 30 days' },
-                    activityTrend: generateMockTrend(userCommits)
+                    activeTasks: { count: activeTasks, total: totalTasks, trend: 'pending' },
+                    tasksCompleted: { count: completedTasks, trend: `${completionPercentage}%`, subtitle: 'assigned task completion' },
+                    ticketsPushed: { count: ticketsPushed, trend: 'testing', subtitle: 'under testing' },
+                    statusDistribution: getStatusDistribution(userWorkItems)
                 }
             };
         }).filter(m => m !== null);
 
         const avgTaskCompletion = totalMembers === 0 ? 0 : Math.round(totalTaskCompletionPercentage / totalMembers);
-        const avgCodeCommits = totalMembers === 0 ? 0 : Math.round(totalCodeCommits / totalMembers);
+
+        // Calculate a more meaningful health status based on project completion 
+        let healthStatus = 'Project Initiated';
+        if (avgTaskCompletion > 0 && avgTaskCompletion <= 30) healthStatus = 'Early Progress';
+        else if (avgTaskCompletion > 30 && avgTaskCompletion <= 70) healthStatus = 'Active Development';
+        else if (avgTaskCompletion > 70 && avgTaskCompletion <= 99) healthStatus = 'Nearing Milestone';
+        else if (avgTaskCompletion === 100) healthStatus = 'Goal Reached';
 
         res.json({
             overview: {
                 totalMembers,
-                avgTaskCompletion: { value: avgTaskCompletion, trend: `+${Math.floor(Math.random()*20)}% vs last month` },
-                avgCodeCommits: { value: avgCodeCommits, subtitle: 'per member' }
+                projectName: project.name,
+                avgTaskCompletion: { value: avgTaskCompletion, trend: healthStatus },
+                projectStatusDistribution: getStatusDistribution(allWorkItems)
             },
             members: membersList
         });
+
+
 
     } catch (error) {
         console.error('Analytics Error:', error);

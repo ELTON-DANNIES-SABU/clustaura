@@ -54,60 +54,38 @@ const processPushEvent = async (payload, io, projectId) => {
             if (!ticket) continue;
 
             let progress = ticket.progressPercentage || 0;
-            let proposedStatus = ticket.status;
 
-            if (progress < 20) {
-                progress = 20; 
-                proposedStatus = 'In Progress';
-            } else if (progress < 100) {
-                progress = Math.min(progress + 10, 99);
+            if (progress < 80) {
+                progress += 10;
+            }
+            if (progress > 80) {
+                progress = 80;
             }
 
-            const confidenceScore = getAIConfidenceScore();
-            
-            // Auto-approved updates rule: first commit or minor progress
-            // Still requires confidence > 0.8
-            if (confidenceScore > 0.8) {
-                // Auto Apply Update
-                ticket.progressPercentage = progress;
-                ticket.status = proposedStatus;
+            // Always auto-apply commit updates
+            ticket.progressPercentage = progress;
+            ticket.status = 'In Progress';
 
-                const commitExists = ticket.commits.find(c => c.hash === hash);
-                if (!commitExists) {
-                    ticket.commits.push({ hash, message, timestamp });
-                }
-                await ticket.save();
+            const commitExists = ticket.commits.find(c => c.hash === hash);
+            if (!commitExists) {
+                ticket.commits.push({ hash, message, timestamp });
+            }
+            await ticket.save();
 
-                await ActivityLog.create({
-                    ticket: ticket._id,
-                    action: `Commit pushed: ${message.substring(0, 50)}...`,
-                    performedBy: authorUserId,
-                    source: 'user'
+            await ActivityLog.create({
+                ticket: ticket._id,
+                action: `Commit pushed: ${message.substring(0, 50)}...`,
+                performedBy: authorUserId,
+                source: 'user'
+            });
+
+            if (io) {
+                io.emit('ticketProgressUpdated', { 
+                    ticketId: ticket._id, 
+                    progress: ticket.progressPercentage, 
+                    status: ticket.status,
+                    commits: ticket.commits 
                 });
-
-                if (io) {
-                    io.emit('ticketProgressUpdated', { 
-                        ticketId: ticket._id, 
-                        progress: ticket.progressPercentage, 
-                        status: ticket.status,
-                        commits: ticket.commits 
-                    });
-                }
-            } else {
-                // Send for Approval
-                await ApprovalRequest.create({
-                    ticket: ticket._id,
-                    project: projectId,
-                    proposedStatus: proposedStatus,
-                    proposedProgress: progress,
-                    triggeredBy: 'system',
-                    status: 'pending',
-                    originalCommitMessage: message
-                });
-
-                if (io) {
-                    io.emit('approvalRequested', { ticketId: ticket._id, projectId });
-                }
             }
         }
     }
@@ -132,68 +110,31 @@ const processPullRequestEvent = async (payload, io, projectId) => {
         let proposedProgress = ticket.progressPercentage || 0;
         let originalMessage = action;
 
-        if (action === 'opened' || action === 'reopened') {
-            if (proposedProgress < 50) proposedProgress = 50;
+        if (action === 'opened') {
+            proposedProgress = 90;
             proposedStatus = 'Testing';
-            originalMessage = `Pull Request opened: ${title}`;
+            originalMessage = `Move ticket to Testing (PR Created)`;
         } else if (action === 'closed' && pr.merged) {
             proposedProgress = 100;
             proposedStatus = 'Completed';
-            originalMessage = `Pull Request merged: ${title}`;
-        } else if (action === 'submitted') {
-             const reviewState = payload.review?.state;
-             if (reviewState === 'approved' && proposedProgress < 80) {
-                 proposedProgress = 80;
-                 originalMessage = `Pull Request approved: ${title}`;
-             } else {
-                 continue; // Nothing to do
-             }
+            originalMessage = `Mark ticket as Completed (PR Merged)`;
         } else {
             continue; // Not an action we care about
         }
 
-        // PR actions are ALWAYS Approval-required updates based on rules
-        const confidenceScore = getAIConfidenceScore();
+        // Send for Approval
+        await ApprovalRequest.create({
+            ticket: ticket._id,
+            project: projectId,
+            proposedStatus: proposedStatus,
+            proposedProgress: proposedProgress,
+            triggeredBy: 'system',
+            status: 'pending',
+            originalCommitMessage: originalMessage
+        });
 
-        // Moving to Testing, Completed, PR merge actions -> ALWAYS require approval
-        const requiresApproval = true;
-
-        if (!requiresApproval && confidenceScore > 0.8) {
-             // Not hit due to rules, but kept for logical completeness
-             ticket.progressPercentage = proposedProgress;
-             ticket.status = proposedStatus;
-             await ticket.save();
-
-             await ActivityLog.create({
-                 ticket: ticket._id,
-                 action: originalMessage,
-                 performedBy: authorUserId || null,
-                 source: authorUserId ? 'user' : 'system'
-             });
-
-             if (io) {
-                 io.emit('ticketProgressUpdated', { 
-                     ticketId: ticket._id, 
-                     progress: ticket.progressPercentage, 
-                     status: ticket.status,
-                     commits: ticket.commits 
-                 });
-             }
-        } else {
-            // Send for Approval
-            await ApprovalRequest.create({
-                ticket: ticket._id,
-                project: projectId,
-                proposedStatus: proposedStatus,
-                proposedProgress: proposedProgress,
-                triggeredBy: 'system',
-                status: 'pending',
-                originalCommitMessage: originalMessage
-            });
-
-            if (io) {
-                io.emit('approvalRequested', { ticketId: ticket._id, projectId });
-            }
+        if (io) {
+            io.emit('approvalRequested', { ticketId: ticket._id, projectId });
         }
     }
 };

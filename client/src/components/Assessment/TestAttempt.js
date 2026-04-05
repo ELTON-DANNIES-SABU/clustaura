@@ -3,6 +3,8 @@ import axios from 'axios';
 import * as tf from '@tensorflow/tfjs';
 import * as faceLandmarksDetection from '@tensorflow-models/face-landmarks-detection';
 import '@mediapipe/face_mesh';
+import MonacoEditor from './MonacoEditor';
+import ReactMarkdown from 'react-markdown';
 
 // We need @tensorflow/tfjs-backend-webgl manually initialized usually, but tfjs auto-loads it.
 
@@ -10,14 +12,22 @@ const TestAttempt = ({ testId, onFinish }) => {
     const [test, setTest] = useState(null);
     const [attempt, setAttempt] = useState(null);
     const [currentQuestionIdx, setCurrentQuestionIdx] = useState(0);
-    const [timeLeft, setTimeLeft] = useState(0);
+    const [timeLeft, setTimeLeft] = useState(null);
     const [loading, setLoading] = useState(true);
     const [responses, setResponses] = useState({});
     const [isSaving, setIsSaving] = useState(false);
     const [result, setResult] = useState(null);
     const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
     const [alertConfig, setAlertConfig] = useState(null);
+    const [proctoringWarning, setProctoringWarning] = useState(null);
+    const [warningTimeout, setWarningTimeout] = useState(null);
     const violationRef = useRef(0);
+
+    // Coding specific states
+    const [code, setCode] = useState('');
+    const [language, setLanguage] = useState('javascript');
+    const [testResults, setTestResults] = useState(null);
+    const [isRunningCode, setIsRunningCode] = useState(false);
 
     // AI Proctoring Refs & States
     const videoRef = useRef(null);
@@ -35,6 +45,9 @@ const TestAttempt = ({ testId, onFinish }) => {
     const [hasPermissions, setHasPermissions] = useState(false);
     const [proctorLoading, setProctorLoading] = useState(false);
     const [proctorMsg, setProctorMsg] = useState('');
+
+    const allQuestions = test?.sections?.reduce((acc, section) => [...acc, ...section.questions], []) || [];
+    const currentQuestion = allQuestions[currentQuestionIdx];
 
     useEffect(() => {
         // We do NOT start immediately anymore. Wait for permissions.
@@ -73,10 +86,7 @@ const TestAttempt = ({ testId, onFinish }) => {
             detectorRef.current = detector;
 
             setHasPermissions(true);
-            setTimeout(() => {
-                if (videoRef.current) videoRef.current.srcObject = streamRef;
-            }, 500);
-            
+            // srcObject assignment moved to a dedicated useEffect
             startAttempt();
         } catch (e) {
             console.error('Proctoring Error:', e);
@@ -86,12 +96,12 @@ const TestAttempt = ({ testId, onFinish }) => {
     };
 
     useEffect(() => {
-        if (hasPermissions && attempt) {
-            if (videoRef.current && streamRef.current) {
-                videoRef.current.srcObject = streamRef.current;
-            }
+        if (hasPermissions && attempt && videoRef.current && streamRef.current) {
+            videoRef.current.srcObject = streamRef.current;
+            videoRef.current.play().catch(e => console.error("Video play error:", e));
             setupAntiCheat();
             document.body.classList.add('exam-mode');
+            if (loopRef.current) clearInterval(loopRef.current);
             loopRef.current = setInterval(detectProctoring, 1500);
         }
     }, [hasPermissions, attempt]);
@@ -110,14 +120,54 @@ const TestAttempt = ({ testId, onFinish }) => {
             const { data: attemptRes } = await axios.post(`/api/assessment/tests/${testId}/start`, {}, config);
             setAttempt(attemptRes.data);
 
-            // 3. Set Timer (Simplified: duration from test)
-            setTimeLeft(testRes.data.duration * 60);
+            // 3. Set Timer (Calculate based on start time if already in progress)
+            const testDuration = parseInt(testRes.data.duration, 10) || 60;
+            if (attemptRes.data.startTime) {
+                const startTime = new Date(attemptRes.data.startTime).getTime();
+                const now = Date.now();
+                const elapsedSeconds = Math.floor((now - startTime) / 1000);
+                const remainingSeconds = (testDuration * 60) - elapsedSeconds;
+                setTimeLeft(remainingSeconds > 0 ? remainingSeconds : 0);
+            } else {
+                setTimeLeft(testDuration * 60);
+            }
 
-            // 4. Populate existing responses if any
+            // 4. Handle shuffled order and set test state
+            const modifiedTest = { ...testRes.data };
+            try {
+                if (attemptRes.data.shuffledOrder && attemptRes.data.shuffledOrder.length > 0) {
+                    // Flatten all questions and reorder them based on the stored shuffle
+                    let questionsPool = [];
+                    modifiedTest.sections.forEach(s => {
+                        if (s.questions) questionsPool.push(...s.questions);
+                    });
+                    
+                    const orderedQs = attemptRes.data.shuffledOrder.map(id => {
+                        if (!id) return null;
+                        return questionsPool.find(q => q && q._id && q._id.toString() === id.toString());
+                    }).filter(q => q);
+
+                    if (orderedQs.length > 0) {
+                        modifiedTest.sections = [{ title: 'All Questions', questions: orderedQs }];
+                    }
+                }
+            } catch (err) {
+                console.error("Client-side Shuffle Error:", err);
+                // Fallback: Test state already has the original sections from line 117
+            }
+            setTest(modifiedTest);
+
+            // 5. Populate existing responses if any
             if (attemptRes.data.answers) {
                 const initialResponses = {};
                 attemptRes.data.answers.forEach(ans => {
-                    initialResponses[ans.questionId] = { selectedOptions: ans.selectedOptions };
+                    if (ans.questionId) {
+                        initialResponses[ans.questionId.toString()] = { 
+                            selectedOptions: ans.selectedOptions || [],
+                            codeResponse: ans.codeResponse,
+                            textResponse: ans.textResponse
+                        };
+                    }
                 });
                 setResponses(initialResponses);
             }
@@ -125,6 +175,7 @@ const TestAttempt = ({ testId, onFinish }) => {
             setLoading(false);
         } catch (error) {
             console.error('Error starting test:', error);
+            alert(`Could not start the assessment: ${error.response?.data?.message || error.message}. Please refresh.`);
             setLoading(false);
         }
     };
@@ -141,25 +192,41 @@ const TestAttempt = ({ testId, onFinish }) => {
         }
     };
 
+    const triggerWarning = (message, type = 'warning') => {
+        setProctoringWarning({ message, type });
+        if (warningTimeout) clearTimeout(warningTimeout);
+        const timeout = setTimeout(() => setProctoringWarning(null), 5000);
+        setWarningTimeout(timeout);
+    };
+
     const detectProctoring = async () => {
-        // Audio Noise Level
+        // Audio Analysis (Talking Detection)
         if (analyserRef.current) {
             const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
             analyserRef.current.getByteFrequencyData(dataArray);
-            let avgVolume = 0;
-            if (dataArray.length > 0) {
-                avgVolume = dataArray.reduce((a, b) => a + b) / dataArray.length;
+            
+            // Focus on 300Hz - 3000Hz range for human speech
+            const sampleRate = audioContextRef.current.sampleRate;
+            const binWidth = sampleRate / analyserRef.current.fftSize;
+            const startBin = Math.floor(300 / binWidth);
+            const endBin = Math.ceil(3000 / binWidth);
+            
+            let speechEnergy = 0;
+            for (let i = startBin; i < endBin; i++) {
+                speechEnergy += dataArray[i];
             }
-            if (avgVolume > 50) {
+            const avgSpeechEnergy = speechEnergy / (endBin - startBin);
+
+            if (avgSpeechEnergy > 60) { // Increased sensitivity threshold from 45 to 60
                 noiseTicks.current++;
             } else {
                 noiseTicks.current = 0;
             }
 
-            if (noiseTicks.current >= 2) {
-                setAlertConfig({ message: '⚠ High background noise detected!', type: 'warning' });
+            if (noiseTicks.current >= 5) { // Increased consecutive ticks from 2 to 5 (~2.5 seconds)
+                triggerWarning('⚠ Talking detected! Please maintain silence.', 'warning');
                 violationRef.current += 1;
-                logExpandedViolation('NOISE', 'MEDIUM', 3);
+                logExpandedViolation('TALKING', 'MEDIUM', 3);
                 noiseTicks.current = 0;
             }
         }
@@ -172,7 +239,7 @@ const TestAttempt = ({ testId, onFinish }) => {
                 if (faces.length === 0) {
                     noFaceTicks.current++;
                     if (noFaceTicks.current >= 2) {
-                        setAlertConfig({ message: '⚠ Face not visible on screen!', type: 'warning' });
+                        triggerWarning('⚠ Face not visible on screen!', 'warning');
                         violationRef.current += 1;
                         logExpandedViolation('FACE_NOT_VISIBLE', 'HIGH', 3);
                         noFaceTicks.current = 0;
@@ -184,7 +251,7 @@ const TestAttempt = ({ testId, onFinish }) => {
                 if (faces.length > 1) {
                     multipleFaceTicks.current++;
                     if (multipleFaceTicks.current >= 2) {
-                        setAlertConfig({ message: '⚠ Multiple faces detected!', type: 'error' });
+                        triggerWarning('⚠ Multiple faces detected!', 'error');
                         violationRef.current += 1;
                         logExpandedViolation('MULTIPLE_FACE', 'HIGH', 3);
                         multipleFaceTicks.current = 0;
@@ -213,7 +280,7 @@ const TestAttempt = ({ testId, onFinish }) => {
                             }
 
                             if (gazeAwayTicks.current >= 2) {
-                                setAlertConfig({ message: '⚠ Please focus on the screen.', type: 'warning' });
+                                triggerWarning('⚠ Please focus on the screen.', 'warning');
                                 violationRef.current += 1;
                                 logExpandedViolation('GAZE_AWAY', 'HIGH', 3);
                                 gazeAwayTicks.current = 0;
@@ -229,13 +296,14 @@ const TestAttempt = ({ testId, onFinish }) => {
 
     const handleTabSwitch = useCallback(async () => {
         violationRef.current += 1;
-        setAlertConfig({ message: `Warning! Tab switching detected.`, type: 'warning' });
+        triggerWarning('⚠ Warning! Tab switching detected.', 'error');
         await logExpandedViolation('TAB_SWITCH', 'LOW', 0);
     }, [attempt]);
 
     const handleFullscreenChange = useCallback(async () => {
         if (!document.fullscreenElement) {
             violationRef.current += 1;
+            triggerWarning('⚠ Assessment must be in fullscreen!', 'error');
             await logExpandedViolation('EXIT_FULLSCREEN', 'LOW', 0);
         }
     }, [attempt]);
@@ -287,7 +355,9 @@ const TestAttempt = ({ testId, onFinish }) => {
                 `/api/assessment/attempts/${attempt._id}/submit-answer`,
                 {
                     questionId: qId,
-                    selectedOptions: answer.selectedOptions
+                    selectedOptions: currentQuestion?.type === 'Coding' ? [] : answer.selectedOptions,
+                    codeResponse: currentQuestion?.type === 'Coding' ? { code, language } : undefined,
+                    testResults: currentQuestion?.type === 'Coding' ? testResults : undefined
                 },
                 config
             );
@@ -307,14 +377,74 @@ const TestAttempt = ({ testId, onFinish }) => {
         }
     };
 
+    const handleRunCode = async () => {
+        const qId = currentQuestion?._id;
+        if (!qId || !attempt) return;
+
+        setIsRunningCode(true);
+        setTestResults(null);
+        try {
+            const userStr = localStorage.getItem('user');
+            const userData = JSON.parse(userStr);
+            const config = { headers: { Authorization: `Bearer ${userData.token}` } };
+
+            const { data } = await axios.post(
+                `/api/assessment/attempts/${attempt._id}/run-code`,
+                { questionId: qId, code, language },
+                config
+            );
+
+            setTestResults(data.data);
+            
+            const passCount = data.data.filter(r => r.status === 'PASS').length;
+            if (passCount === data.data.length) {
+                triggerWarning('✅ All visible test cases passed!', 'success');
+            } else {
+                triggerWarning(`⚠ ${passCount}/${data.data.length} test cases passed.`, 'warning');
+            }
+        } catch (error) {
+            console.error('Error running code:', error);
+            alert('Failed to run code. ' + (error.response?.data?.message || ''));
+        } finally {
+            setIsRunningCode(false);
+        }
+    };
+
     useEffect(() => {
-        if (timeLeft > 0) {
+        if (currentQuestion?.type === 'Coding') {
+            const existingAnswer = attempt?.answers?.find(a => a.questionId.toString() === currentQuestion._id.toString());
+            
+            // Priority: If the current selected language has a saved answer, use it.
+            // If the user just switched language, show the template for that language.
+            if (existingAnswer?.codeResponse) {
+                const savedCode = typeof existingAnswer.codeResponse === 'object' ? existingAnswer.codeResponse.code : existingAnswer.codeResponse;
+                const savedLang = typeof existingAnswer.codeResponse === 'object' ? existingAnswer.codeResponse.language : 'javascript';
+                
+                if (savedLang === language) {
+                    setCode(savedCode);
+                    setTestResults(existingAnswer.testResults || null);
+                } else {
+                    // Language mismatch (user probably changed language from dropdown)
+                    // Show template for the NEW language
+                    setCode(currentQuestion.codingConfig?.languageTemplates?.[language] || '');
+                    setTestResults(null);
+                }
+            } else {
+                // No existing answer for this question yet
+                setCode(currentQuestion.codingConfig?.languageTemplates?.[language] || '');
+                setTestResults(null);
+            }
+        }
+    }, [currentQuestionIdx, attempt, currentQuestion, language]);
+
+    useEffect(() => {
+        if (timeLeft !== null && timeLeft > 0 && attempt?.status === 'In-Progress') {
             const timer = setInterval(() => setTimeLeft(t => t - 1), 1000);
             return () => clearInterval(timer);
-        } else if (timeLeft === 0 && !loading) {
+        } else if (timeLeft === 0 && !loading && attempt?.status === 'In-Progress') {
             finalizeTest();
         }
-    }, [timeLeft, loading]);
+    }, [timeLeft, loading, attempt?.status]);
 
     const handleSubmitClick = () => {
         setShowSubmitConfirm(true);
@@ -504,11 +634,14 @@ const TestAttempt = ({ testId, onFinish }) => {
         );
     }
 
-    const allQuestions = test?.sections?.reduce((acc, section) => [...acc, ...section.questions], []) || [];
-    const currentQuestion = allQuestions[currentQuestionIdx];
 
     return (
         <div className="test-attempt-container">
+            {proctoringWarning && (
+                <div className={`proctoring-notification-bar ${proctoringWarning.type}`}>
+                    <span>{proctoringWarning.message}</span>
+                </div>
+            )}
             <video 
                 ref={videoRef} 
                 autoPlay 
@@ -534,7 +667,7 @@ const TestAttempt = ({ testId, onFinish }) => {
                 </div>
                 <div className="test-timer">
                     <span className="timer-icon">⏱️</span>
-                    <span className="timer-text">{formatTime(timeLeft)}</span>
+                    <span className="timer-text">{timeLeft !== null ? formatTime(timeLeft) : 'Loading...'}</span>
                 </div>
                 <button className="btn-success" onClick={handleSubmitClick}>Submit Test</button>
             </header>
@@ -543,22 +676,73 @@ const TestAttempt = ({ testId, onFinish }) => {
                 <main className="question-area">
                     <div className="question-card">
                         <span className="q-number">Question {currentQuestionIdx + 1}</span>
-                        <p className="q-text">{currentQuestion?.description}</p>
+                        <div className="q-markdown-container">
+                            <ReactMarkdown>{currentQuestion?.description}</ReactMarkdown>
+                        </div>
 
                         <div className="options-list">
-                            {currentQuestion?.options.map((option, idx) => {
-                                const isSelected = responses[currentQuestion?._id]?.selectedOptions?.includes(idx);
-                                return (
-                                    <button
-                                        key={idx}
-                                        className={`option-btn ${isSelected ? 'selected' : ''}`}
-                                        onClick={() => handleAnswerSelection(idx)}
-                                    >
-                                        <span className="option-label">{String.fromCharCode(65 + idx)}</span>
-                                        {option.text}
-                                    </button>
-                                );
-                            })}
+                            {currentQuestion?.type === 'Coding' ? (
+                                <div className="coding-workspace">
+                                    <div className="workspace-header">
+                                        <select 
+                                            value={language} 
+                                            onChange={(e) => setLanguage(e.target.value)}
+                                            className="lang-select"
+                                        >
+                                            <option value="javascript">JavaScript</option>
+                                            <option value="python">Python</option>
+                                        </select>
+                                        <button 
+                                            className="btn-run" 
+                                            onClick={handleRunCode} 
+                                            disabled={isRunningCode}
+                                        >
+                                            {isRunningCode ? 'Running...' : '▶ Run Code'}
+                                        </button>
+                                    </div>
+                                    <MonacoEditor 
+                                        language={language}
+                                        value={code}
+                                        onChange={(val) => setCode(val)}
+                                        height="450px"
+                                    />
+                                    {testResults && (
+                                        <div className="test-results-panel">
+                                            <h4>Test Results</h4>
+                                            <div className="results-list">
+                                                {testResults.map((res, idx) => {
+                                                    const isHidden = res.isVisible === false;
+                                                    return (
+                                                        <div key={idx} className={`result-item ${res.status.toLowerCase()}`}>
+                                                            <div className="result-main">
+                                                                <span className="status-label">{res.status}</span>
+                                                                <span className="case-info">
+                                                                    {isHidden ? `Hidden Case ${res.caseIndex || idx + 1}` : `Case ${idx + 1}: Input(${res.input}) → Expected(${res.expected}) | Got(${res.actual})`}
+                                                                </span>
+                                                            </div>
+                                                            {res.error && <p className="error-text">{res.error}</p>}
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            ) : (
+                                currentQuestion?.options.map((option, idx) => {
+                                    const isSelected = responses[currentQuestion?._id]?.selectedOptions?.includes(idx);
+                                    return (
+                                        <button
+                                            key={idx}
+                                            className={`option-btn ${isSelected ? 'selected' : ''}`}
+                                            onClick={() => handleAnswerSelection(idx)}
+                                        >
+                                            <span className="option-label">{String.fromCharCode(65 + idx)}</span>
+                                            {option.text}
+                                        </button>
+                                    );
+                                })
+                            )}
                         </div>
                     </div>
 
@@ -582,7 +766,7 @@ const TestAttempt = ({ testId, onFinish }) => {
 
                         <button
                             className="btn-primary btn-save-next"
-                            onClick={() => handleSaveAndNext(true)}
+                            onClick={() => currentQuestion?.type === 'Coding' ? handleSaveAndNext(true) : handleSaveAndNext(true)}
                             disabled={isSaving}
                         >
                             {isSaving ? 'Saving...' : (currentQuestionIdx === allQuestions.length - 1 ? 'Save & Finish' : 'Save & Next')}
@@ -661,6 +845,30 @@ const TestAttempt = ({ testId, onFinish }) => {
             )}
 
             <style jsx>{`
+                .proctoring-notification-bar {
+                    position: fixed;
+                    top: 10px;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    padding: 12px 24px;
+                    border-radius: 50px;
+                    font-size: 1rem;
+                    font-weight: 700;
+                    z-index: 9999;
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+                    animation: slideDown 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                }
+                .proctoring-notification-bar.warning { background: #fbbf24; color: #000; }
+                .proctoring-notification-bar.error { background: #ef4444; color: #fff; }
+                
+                @keyframes slideDown {
+                    from { transform: translate(-50%, -100%); opacity: 0; }
+                    to { transform: translate(-50%, 0); opacity: 1; }
+                }
+
                 .test-attempt-container {
                     position: fixed;
                     top: 0;
@@ -709,6 +917,63 @@ const TestAttempt = ({ testId, onFinish }) => {
                     border: 1px solid var(--accent-primary);
                 }
 
+                .coding-workspace {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 1rem;
+                    background: var(--bg-secondary);
+                    padding: 1.5rem;
+                    border-radius: 16px;
+                    border: 1px solid var(--border-color);
+                }
+                .workspace-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 0.5rem;
+                }
+                .lang-select {
+                    padding: 0.5rem 1rem;
+                    background: var(--bg-surface);
+                    border: 1px solid var(--border-color);
+                    border-radius: 8px;
+                    color: var(--text-primary);
+                    font-weight: 600;
+                }
+                .btn-run {
+                    padding: 0.6rem 1.5rem;
+                    background: var(--accent-primary);
+                    color: #000;
+                    border: none;
+                    border-radius: 8px;
+                    font-weight: 700;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                }
+                .btn-run:hover { opacity: 0.9; transform: scale(1.02); }
+                .btn-run:disabled { opacity: 0.5; cursor: not-allowed; }
+
+                .test-results-panel {
+                    margin-top: 1.5rem;
+                    padding: 1.5rem;
+                    background: #000;
+                    border-radius: 12px;
+                    border: 1px solid var(--border-color);
+                }
+                .test-results-panel h4 { margin-top: 0; color: var(--text-secondary); font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px; }
+                .results-list { display: flex; flex-direction: column; gap: 0.75rem; }
+                .result-item { padding: 1rem; border-radius: 8px; border-left: 4px solid #444; background: rgba(255, 255, 255, 0.03); }
+                .result-item.pass { border-left-color: var(--success); }
+                .result-item.fail { border-left-color: var(--error); }
+                .status-label { font-weight: 800; font-size: 0.8rem; margin-right: 1rem; }
+                .pass .status-label { color: var(--success); }
+                .fail .status-label { color: var(--error); }
+                .case-info { font-family: monospace; font-size: 0.9rem; color: var(--text-secondary); }
+                .error-text { color: var(--error); font-size: 0.85rem; margin-top: 0.5rem; font-family: monospace; }
+
                 .test-layout {
                     flex: 1;
                     display: grid;
@@ -753,20 +1018,57 @@ const TestAttempt = ({ testId, onFinish }) => {
 
                 .q-number {
                     color: var(--accent-primary);
-                    font-size: 0.9rem;
+                    font-size: 0.85rem;
                     font-weight: 800;
                     text-transform: uppercase;
-                    letter-spacing: 2px;
-                    margin-bottom: 1.5rem;
+                    letter-spacing: 3px;
+                    margin-bottom: 2rem;
                     display: inline-block;
+                    opacity: 0.9;
                 }
 
-                .q-text {
-                    font-size: 1.4rem;
-                    font-weight: 500;
-                    line-height: 1.5;
-                    margin-bottom: 3rem;
+                .q-markdown-container {
+                    font-size: 1.1rem;
+                    line-height: 1.6;
                     color: var(--text-primary);
+                    margin-bottom: 3rem;
+                }
+
+                .q-markdown-container h3 {
+                    color: var(--text-primary);
+                    font-size: 1.4rem;
+                    font-weight: 700;
+                    margin-top: 2rem;
+                    margin-bottom: 1rem;
+                }
+
+                .q-markdown-container h4 {
+                    color: var(--text-secondary);
+                    font-size: 1.1rem;
+                    font-weight: 600;
+                    margin-top: 1.5rem;
+                }
+
+                .q-markdown-container p {
+                    margin-bottom: 1.2rem;
+                }
+
+                .q-markdown-container code {
+                    background: rgba(255, 255, 255, 0.1);
+                    padding: 0.2rem 0.4rem;
+                    border-radius: 4px;
+                    font-family: 'JetBrains Mono', monospace;
+                    font-size: 0.9em;
+                    color: var(--accent-primary);
+                }
+
+                .q-markdown-container ul {
+                    margin-bottom: 1.5rem;
+                    padding-left: 1.5rem;
+                }
+
+                .q-markdown-container li {
+                    margin-bottom: 0.5rem;
                 }
 
                 .options-list {

@@ -397,6 +397,21 @@ const Friends = () => {
                                             </div>
                                         </div>
 
+                                        <div className="invite-details-container" style={{ padding: '15px', background: 'rgba(0, 216, 255, 0.08)', borderRadius: '8px', margin: '10px 15px', borderLeft: '3px solid var(--accent-primary)', border: '1px solid rgba(0, 216, 255, 0.2)' }}>
+                                            <div style={{ marginBottom: '12px' }}>
+                                                <h4 style={{ fontSize: '0.8rem', color: 'var(--accent-primary)', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>✨ Project Opportunity</h4>
+                                                <p style={{ fontSize: '0.85rem', color: 'var(--text-primary)', lineHeight: '1.5', margin: 0, opacity: 0.9 }}>
+                                                    {invite.inviteDescription}
+                                                </p>
+                                            </div>
+                                            <div style={{ padding: '4px 0' }}>
+                                                <h4 style={{ fontSize: '0.8rem', color: 'var(--accent-primary)', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>🚀 The Work</h4>
+                                                <p style={{ fontSize: '0.85rem', color: 'var(--text-primary)', lineHeight: '1.5', margin: 0, opacity: 0.9 }}>
+                                                    {invite.inviteWorkDetails}
+                                                </p>
+                                            </div>
+                                        </div>
+
                                         <div className="request-footer">
                                             <div className="request-actions">
                                                 <button

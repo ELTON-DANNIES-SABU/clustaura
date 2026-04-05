@@ -21,6 +21,21 @@ const TeamSuggestionsSchema = new mongoose.Schema({
         },
         matchScore: {
             type: Number
+        },
+        ontologyScore: {
+            type: Number
+        },
+        bioScore: {
+            type: Number
+        },
+        postScore: {
+            type: Number
+        },
+        availabilityScore: {
+            type: Number
+        },
+        pendingTickets: {
+            type: Number
         }
     }],
     createdAt: {

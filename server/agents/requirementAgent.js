@@ -1,10 +1,11 @@
-const { GoogleGenerativeAI } = require("@google/generative-ai");
+const axios = require("axios");
 require('dotenv').config();
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
+const GROQ_API_KEY = process.env.GROK_API_KEY; // Using the provided gsk_ key
 
 /**
- * Analyzes project requirements using Gemini API.
+ * Analyzes project requirements using Groq AI API.
  * @param {string} title - Project Title
  * @param {string} description - Project Description
  * @returns {Object} { modules, tickets, sprints, recommendedTechnologies }
@@ -57,27 +58,37 @@ const sanitizePlan = (plan) => {
 
 const delay = (ms) => new Promise(res => setTimeout(res, ms));
 
-const MODELS = ["gemini-2.0-flash", "gemini-flash-latest", "gemini-pro-latest"];
-
 /**
- * Generic helper to call Gemini with retries and model fallback
+ * Generic helper to call Groq with retries
  */
-const callGemini = async (prompt, modelIndex = 0, retries = 2) => {
-    const modelName = MODELS[modelIndex] || MODELS[0];
-    console.log(`Calling Gemini [${modelName}] (Retries: ${retries})...`);
+const callGroq = async (prompt, retries = 2) => {
+    console.log(`Calling Groq (Retries: ${retries})...`);
 
     try {
-        const model = genAI.getGenerativeModel({ 
-            model: modelName,
-            generationConfig: {
-                maxOutputTokens: 8192,
-                responseMimeType: "application/json"
+        const response = await axios.post(
+            GROQ_API_URL,
+            {
+                model: "llama-3.3-70b-versatile",
+                messages: [
+                    { 
+                        role: "system", 
+                        content: "You are an expert SDLC Architect. You MUST return ONLY valid JSON that matches the requested schema precisely. No conversational text." 
+                    },
+                    { role: "user", content: prompt }
+                ],
+                temperature: 0.1,
+                stream: false,
+                response_format: { type: "json_object" }
+            },
+            {
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${GROQ_API_KEY}`
+                }
             }
-        });
+        );
 
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-        const text = response.text();
+        const text = response.data.choices[0].message.content;
         
         // Find JSON block
         const jsonStartIndex = text.indexOf('{');
@@ -91,20 +102,17 @@ const callGemini = async (prompt, modelIndex = 0, retries = 2) => {
         return JSON.parse(cleanedJson);
 
     } catch (error) {
+        const status = error.response?.status;
+        console.error(`Groq Error:`, error.response?.data || error.message);
+
         // Handle Rate Limits (429)
-        if (error.status === 429) {
-            if (retries > 0) {
-                const waitTime = (3 - retries) * 2000;
-                console.warn(`Quota Exceeded (429) for ${modelName}. Retrying in ${waitTime}ms...`);
-                await delay(waitTime);
-                return callGemini(prompt, modelIndex, retries - 1);
-            } else if (modelIndex < MODELS.length - 1) {
-                console.log(`Switching from ${modelName} to fallback model: ${MODELS[modelIndex + 1]}`);
-                return callGemini(prompt, modelIndex + 1, 2);
-            }
+        if (status === 429 && retries > 0) {
+            const waitTime = (3 - retries) * 2000;
+            console.warn(`Quota Exceeded (429). Retrying in ${waitTime}ms...`);
+            await delay(waitTime);
+            return callGroq(prompt, retries - 1);
         }
 
-        console.error(`Gemini Error [${modelName}]:`, error.message);
         throw error;
     }
 };
@@ -131,10 +139,11 @@ const analyzeProject = async (title, description) => {
     Return ONLY JSON.`;
 
     try {
-        const plan = await callGemini(prompt);
+        const plan = await callGroq(prompt);
         return sanitizePlan(plan);
     } catch (error) {
-        throw new Error("AI Generation failed. All models are currently at capacity. Please try again in 1 minute.");
+        console.error("Analyze Project Failure:", error.message);
+        throw new Error("Groq AI Generation failed: " + error.message);
     }
 };
 
@@ -152,10 +161,11 @@ const improviseProject = async (title, existingPlan, improvisationQuery) => {
     Return ONLY JSON.`;
 
     try {
-        const plan = await callGemini(prompt);
+        const plan = await callGroq(prompt);
         return sanitizePlan(plan);
     } catch (error) {
-        throw new Error("AI Refinement failed. All models are currently at capacity. Please try again in 1 minute.");
+        console.error("Improvise Project Failure:", error.message);
+        throw new Error("Groq AI Refinement failed: " + error.message);
     }
 };
 

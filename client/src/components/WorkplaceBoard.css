@@ -242,30 +242,53 @@
 
 .board-stats {
     display: flex;
-    gap: 32px;
+    gap: 24px;
     margin-left: auto;
+    align-items: center;
 }
 
 .stat-item {
     display: flex;
-    align-items: baseline;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
     gap: 8px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 12px 20px;
+    border-radius: 12px;
+    min-width: 120px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.stat-item:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.15);
+    transform: translateY(-2px);
 }
 
 .stat-label {
-    font-size: 0.7rem;
+    font-size: 0.65rem;
+    font-weight: 700;
     text-transform: uppercase;
     color: rgba(255, 255, 255, 0.4);
+    letter-spacing: 0.5px;
 }
 
 .stat-value {
-    font-size: 1.2rem;
+    font-size: 1.4rem;
     font-weight: 800;
     color: #fff;
+    line-height: 1;
 }
 
 .stat-value.accent {
-    color: #00FFA3;
+    color: var(--accent-primary, #00FFA3);
+    text-shadow: 0 0 10px rgba(0, 255, 163, 0.3);
+}
+
+.stat-item[title] {
+    cursor: help;
 }
 
 .agent-status-bar {

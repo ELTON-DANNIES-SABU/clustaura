@@ -1,7 +1,8 @@
 const UserSkillProfile = require('../models/UserSkillProfile');
 const Ticket = require('../models/Ticket');
 const Project = require('../models/Project');
-const { calculateMatchScore } = require('./matchingEngine');
+const Post = require('../models/Post');
+const profileMatchingEngine = require('./profileMatchingEngine');
 
 /**
  * Get ranked developer suggestions for a specific ticket
@@ -18,7 +19,7 @@ const getSuggestedDevelopers = async (ticketId, projectId) => {
     const users = project.members.map(m => m.user);
     const profiles = await UserSkillProfile.find({ user: { $in: users.map(u => u._id) } });
 
-    const suggestions = users.map(user => {
+    const suggestionsPromises = users.map(async (user) => {
         const userId = user._id.toString();
         const profile = profiles.find(p => p.user.toString() === userId) || {
             skills: [],
@@ -28,7 +29,11 @@ const getSuggestedDevelopers = async (ticketId, projectId) => {
 
         const currentWorkload = profile.currentWorkload || 0;
         
-        // Build the combined user profile expected by matchingEngine
+        // Fetch user posts for professional evidence
+        const userPosts = await Post.find({ author: user._id })
+            .limit(10)
+            .select('title content');
+
         const fullUserProfile = {
             _id: user._id,
             firstName: user.firstName,
@@ -37,29 +42,19 @@ const getSuggestedDevelopers = async (ticketId, projectId) => {
             email: user.email,
             skills: profile.skills,
             bio: user.bio || '',
-            posts: [] // Workspace assignment doesn't strictly need community posts text
+            posts: userPosts
         };
 
-        // Build the task/ticket data expected by matchingEngine
         const ticketData = {
             requiredSkills: ticket.skillsRequired || [],
             description: ticket.description || '',
             title: ticket.title || ticket.issueKey || ''
         };
 
-        // Call the centralized HSVSM engine
-        const engineResult = calculateMatchScore(fullUserProfile, ticketData);
-
-        // We can optionally add workload penalization here if needed, 
-        // but for now we follow the requirement: use the engine's matchScore directly.
-        // We will still track isOverloaded based on maxWorkload (5)
+        const engineResult = profileMatchingEngine.calculateMatchScore(fullUserProfile, ticketData);
 
         const maxWorkload = 5;
         const isOverloaded = currentWorkload >= maxWorkload;
-
-        // Optionally, one could blend the engineResult.matchScore with workload manually,
-        // but to ensure consistent matching logic as requested, we return the pure engine match score.
-        // The isOverloaded flag acts as a hard filter instead.
 
         return {
             user: {
@@ -73,11 +68,14 @@ const getSuggestedDevelopers = async (ticketId, projectId) => {
             experienceLevel: profile.experienceLevel,
             currentWorkload,
             matchScore: engineResult.matchScore,
-            semanticScore: engineResult.semanticScore,
-            cosineScore: engineResult.cosineScore,
+            ontologyScore: engineResult.ontologyScore,
+            bioScore: engineResult.bioScore,
+            postScore: engineResult.postScore,
             isOverloaded
         };
     });
+
+    const suggestions = await Promise.all(suggestionsPromises);
 
     // Sort by match score (descending)
     return suggestions.sort((a, b) => b.matchScore - a.matchScore);

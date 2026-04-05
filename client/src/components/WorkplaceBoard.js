@@ -3,12 +3,14 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import '../styles.css';
 import './WorkplaceBoard.css';
-import { Search, X, Filter, User, CheckCircle, Clock, Layout, FlaskConical, ChevronRight, Plus, MoreVertical, Target, Flag, MessageSquare, BarChart3, Zap } from 'lucide-react';
+import { Search, X, Filter, User, CheckCircle, Clock, Layout, FlaskConical, ChevronRight, Plus, MoreVertical, Target, Flag, MessageSquare, BarChart3, Zap, Settings, LogOut, Bell, ShieldAlert } from 'lucide-react';
 import { useToast } from './Community/shared/Toast';
 import { io } from 'socket.io-client';
 import TicketDetailModal from './Workplace/components/TicketDetailModal';
 import ProjectCommunication from './Workplace/ProjectCommunication';
 import ProjectAnalytics from './Workplace/ProjectAnalytics';
+import TeamSkillPanel from './Workplace/TeamSkillPanel';
+import { createPortal } from 'react-dom';
 
 
 const WorkplaceBoard = () => {
@@ -31,7 +33,20 @@ const WorkplaceBoard = () => {
     const [activeView, setActiveView] = useState('board'); // 'board', 'communication'
     const [pendingApprovals, setPendingApprovals] = useState([]);
     const [showApprovalPanel, setShowApprovalPanel] = useState(false);
+    const [showSettingsModal, setShowSettingsModal] = useState(false);
+    const [showLeaveRequestsModal, setShowLeaveRequestsModal] = useState(false);
+    const [showAddMemberModal, setShowAddMemberModal] = useState(false);
+    const [addMemberEmail, setAddMemberEmail] = useState('');
+    const [addMemberRole, setAddMemberRole] = useState('Member');
+    const [repoUrlInput, setRepoUrlInput] = useState('');
+    const [githubTokenInput, setGithubTokenInput] = useState('');
     const [refreshTrigger, setRefreshTrigger] = useState(0);
+    const [aiInsights, setAiInsights] = useState(null);
+    const [inviteDescription, setInviteDescription] = useState('');
+    const [inviteWorkDetails, setInviteWorkDetails] = useState('');
+    const [isGeneratingInvite, setIsGeneratingInvite] = useState(false);
+    const [showInviteDetails, setShowInviteDetails] = useState(false);
+    const [invitationSuccess, setInvitationSuccess] = useState(false);
     const toast = useToast();
 
     const today = new Date().toISOString().split('T')[0];
@@ -65,9 +80,92 @@ const WorkplaceBoard = () => {
                 });
             });
 
+            newSocket.on('ticketCreated', (newTicket) => {
+                if (newTicket.project === projectId) {
+                    const mappedTicket = {
+                        ...newTicket,
+                        summary: newTicket.summary || newTicket.title,
+                        assignee: newTicket.assignee || newTicket.assignedUser
+                    };
+                    setIssues(prev => [...prev, mappedTicket]);
+                }
+            });
+
+            newSocket.on('ticketStatusUpdated', (updatedTicket) => {
+                setIssues(prev => prev.map(issue => 
+                    issue._id === updatedTicket._id ? { 
+                        ...issue, 
+                        status: updatedTicket.status, 
+                        progressPercentage: updatedTicket.progressPercentage 
+                    } : issue
+                ));
+
+                if (selectedIssueDetail?._id === updatedTicket._id) {
+                    setSelectedIssueDetail(prev => ({ 
+                        ...prev, 
+                        status: updatedTicket.status, 
+                        progressPercentage: updatedTicket.progressPercentage 
+                    }));
+                }
+            });
+
+            newSocket.on('ticketAssigned', (updatedTicket) => {
+                const assignee = updatedTicket.assignedUser || updatedTicket.assignee;
+                setIssues(prev => prev.map(issue => 
+                    issue._id === updatedTicket._id ? { 
+                        ...issue, 
+                        assignee: assignee
+                    } : issue
+                ));
+
+                if (selectedIssueDetail?._id === updatedTicket._id) {
+                    setSelectedIssueDetail(prev => ({ 
+                        ...prev, 
+                        assignee: assignee
+                    }));
+                }
+            });
+
+            newSocket.on('ticketsAutoAssigned', (data) => {
+                if (data.projectId === projectId) {
+                    setRefreshTrigger(prev => prev + 1);
+                }
+            });
+
             newSocket.on('approvalRequested', () => setRefreshTrigger(prev => prev + 1));
             newSocket.on('approvalProcessed', () => setRefreshTrigger(prev => prev + 1));
             newSocket.on('approvalsCleared', () => setRefreshTrigger(prev => prev + 1));
+
+            newSocket.on('ticketUpdated', (updatedTicket) => {
+                const mappedTicket = {
+                    ...updatedTicket,
+                    summary: updatedTicket.summary || updatedTicket.title,
+                    assignee: updatedTicket.assignedUser || updatedTicket.assignee
+                };
+
+                setIssues(prev => prev.map(issue => 
+                    issue._id === updatedTicket._id ? mappedTicket : issue
+                ));
+
+                setSelectedIssueDetail(prev => {
+                    if (prev && prev._id === updatedTicket._id) {
+                        return mappedTicket;
+                    }
+                    return prev;
+                });
+            });
+
+            newSocket.on('ticketDeleted', (data) => {
+                const { ticketId } = data;
+                setIssues(prev => prev.filter(issue => issue._id !== ticketId));
+                
+                setSelectedIssueDetail(prev => {
+                    if (prev && prev._id === ticketId) {
+                        return null;
+                    }
+                    return prev;
+                });
+            });
         }
         
         return () => {
@@ -104,6 +202,15 @@ const WorkplaceBoard = () => {
             setAllSprints(sprintsRes.data);
             setPendingApprovals(approvalsRes.data);
 
+            // Fetch AI insights / team analysis
+            try {
+                const analysisRes = await axios.get(`/api/agents/team-analysis/${projectId}`, config);
+                setAiInsights(analysisRes.data);
+            } catch (err) {
+                console.error('Error fetching team analysis:', err);
+                // Non-critical error, don't break the whole board
+            }
+
             const active = sprintsRes.data.find(s => s.status === 'active');
             setActiveSprint(active);
 
@@ -127,15 +234,19 @@ const WorkplaceBoard = () => {
                 setIssues([]);
             }
 
-            if (projRes.data.owner._id === _id) {
-                const leaveReqRes = await axios.get(`/api/workplace/projects/${projectId}/leave-requests`, config);
-                setLeaveRequests(leaveReqRes.data);
-            }
-
             // Calculate lead/owner permission
             const isOwner = projRes.data.owner?._id === _id || projRes.data.owner === _id;
             const isLead = projRes.data.members?.find(m => (m.user?._id === _id || m.user === _id) && m.role === 'Project Lead');
             setIsLeadOrOwner(isOwner || !!isLead);
+            
+            if (isOwner || !!isLead) {
+                try {
+                    const leaveRes = await axios.get(`/api/workplace/projects/${projectId}/leave-requests`, {
+                        headers: { Authorization: `Bearer ${token}` }
+                    });
+                    setLeaveRequests(leaveRes.data);
+                } catch(err) { console.error('Error fetching leave requests:', err); }
+            }
 
         } catch (error) {
             console.error('Error fetching board data:', error);
@@ -228,6 +339,155 @@ const WorkplaceBoard = () => {
         }
     };
 
+    const handleUpdateSettings = async () => {
+        try {
+            const { token } = currentUser;
+            await axios.put(`/api/workplace/projects/${projectId}/settings`,
+                { 
+                    repositoryUrl: repoUrlInput,
+                    githubAccessToken: githubTokenInput
+                },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            toast.success('Project settings updated', 3000);
+            setShowSettingsModal(false);
+            fetchProjectData();
+        } catch (error) {
+            console.error('Error updating settings:', error);
+            toast.error(error.response?.data?.message || 'Error updating settings', 4000);
+        }
+    };
+
+    const handleKickMember = async (userId) => {
+        if (!window.confirm("Are you sure you want to kick this member from the project?")) return;
+        try {
+            const { token } = currentUser;
+            await axios.delete(`/api/workplace/projects/${projectId}/members/${userId}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            toast.success('Member removed successfully', 3000);
+            fetchProjectData();
+        } catch (error) {
+            console.error('Error kicking member:', error);
+            toast.error(error.response?.data?.message || 'Error removing member', 4000);
+        }
+    };
+
+    const handleGenerateInviteDetails = async () => {
+        if (!addMemberRole) return;
+        setIsGeneratingInvite(true);
+        setShowInviteDetails(true);
+        try {
+            const userStr = localStorage.getItem('user');
+            const { token } = userStr ? JSON.parse(userStr) : {};
+            if (!token) return navigate('/login');
+            
+            const res = await axios.post(`/api/workplace/projects/${projectId}/generate-invite-details`,
+                { role: addMemberRole, email: addMemberEmail },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            setInviteDescription(res.data.description);
+            setInviteWorkDetails(res.data.workDetails);
+            toast.success('AI description generated!', 2000);
+        } catch (error) {
+            console.error('Error generating invite details:', error);
+            toast.error('Failed to generate AI description');
+        } finally {
+            setIsGeneratingInvite(false);
+        }
+    };
+
+    const handleAddMember = async (e) => {
+        e.preventDefault();
+        if (!addMemberEmail) return;
+        try {
+            const userStr = localStorage.getItem('user');
+            const { token } = userStr ? JSON.parse(userStr) : {};
+            if (!token) return navigate('/login');
+            
+            await axios.post(`/api/workplace/projects/${projectId}/members`,
+                { 
+                    email: addMemberEmail, 
+                    role: addMemberRole,
+                    description: inviteDescription,
+                    workDetails: inviteWorkDetails
+                },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            toast.success('Invitation sent successfully!');
+            setShowAddMemberModal(false);
+            setInvitationSuccess(true);
+            fetchProjectData();
+        } catch (error) {
+            console.error('Error inviting member:', error);
+            toast.error(error.response?.data?.message || 'Error sending invitation', 4000);
+        }
+    };
+
+    const openAddMemberModal = () => {
+        setAddMemberEmail('');
+        setAddMemberRole('Member');
+        setInviteDescription('');
+        setInviteWorkDetails('');
+        setInvitationSuccess(false);
+        setShowInviteDetails(false);
+        setShowAddMemberModal(true);
+    };
+
+    const handleLeaveProjectRequest = async () => {
+        if (!window.confirm("Are you sure you want to request to leave this project?")) return;
+        try {
+            const { token } = currentUser;
+            await axios.delete(`/api/workplace/projects/${projectId}/leave`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            toast.success('Leave request sent to project lead/owner', 3000);
+        } catch (error) {
+            console.error('Error leaving project:', error);
+            toast.error(error.response?.data?.message || 'Error requesting to leave', 4000);
+        }
+    };
+
+    const handleDeleteProject = async () => {
+        const confirmFirst = window.confirm("Are you sure you want to PERMANENTLY delete this project?");
+        if (!confirmFirst) return;
+
+        const confirmSecond = window.prompt("This action is irreversible. All tickets, sprints, and modules will be deleted. To confirm, please type the project name exactly: " + project.name);
+        
+        if (confirmSecond !== project.name) {
+            toast.error("Project name didn't match. Deletion cancelled.");
+            return;
+        }
+
+        try {
+            const { token } = currentUser;
+            await axios.delete(`/api/workplace/projects/${projectId}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            toast.success('Project deleted successfully', 3000);
+            navigate('/workplace');
+        } catch (error) {
+            console.error('Error deleting project:', error);
+            toast.error(error.response?.data?.message || 'Error deleting project', 4000);
+        }
+    };
+
+    const handleLeaveResponse = async (userId, action) => {
+        try {
+            const { token } = currentUser;
+            await axios.post(`/api/workplace/projects/${projectId}/leave-requests/${userId}/respond`,
+                { action },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            toast.success(`Leave request ${action}d`, 3000);
+            fetchProjectData();
+            if (leaveRequests.length <= 1) setShowLeaveRequestsModal(false);
+        } catch (error) {
+            console.error('Error responding to leave request:', error);
+            toast.error(error.response?.data?.message || 'Error responding to request', 4000);
+        }
+    };
+
     const handleDragStart = (e, issueId) => {
         e.dataTransfer.setData('issueId', issueId);
     };
@@ -249,6 +509,12 @@ const WorkplaceBoard = () => {
         if (issueId) {
             const issue = issues.find(i => i._id === issueId);
             if (issue && issue.status !== column) {
+                // Restriction: Only Project Lead or Project Owner can move to 'Completed'
+                if (column === 'Completed' && !isLeadOrOwner) {
+                    toast.error('Only Project Lead or Project Owner can mark tickets as Completed', 4000);
+                    return;
+                }
+
                 // Optimistic update
                 const updatedIssues = issues.map(i =>
                     i._id === issueId ? { ...i, status: column } : i
@@ -301,8 +567,8 @@ const WorkplaceBoard = () => {
     };
 
     const filteredIssues = issues.filter(issue =>
-        issue.summary.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        issue.issueKey?.toLowerCase().includes(searchQuery.toLowerCase())
+        (issue.summary || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (issue.ticketCode || issue.issueKey || '').toLowerCase().includes(searchQuery.toLowerCase())
     );
 
     if (!project) return <div className="loading-spinner">Loading Board...</div>;
@@ -365,7 +631,7 @@ const WorkplaceBoard = () => {
                             )}
                         </div>
                         {isLeadOrOwner && (
-                            <button className="add-member-btn" title="Add Team Member" onClick={() => navigate(`/workplace/project/${projectId}/ai-planner`)}>
+                            <button className="add-member-btn" title="Add Team Member" onClick={openAddMemberModal}>
                                 <Plus size={16} />
                                 <span>Add Member</span>
                             </button>
@@ -385,6 +651,31 @@ const WorkplaceBoard = () => {
                             <span>Search</span>
                         </button>
 
+                        {!isLeadOrOwner && (
+                            <button className="action-btn" style={{ color: '#ff4757', borderColor: '#ff4757' }} onClick={handleLeaveProjectRequest} title="Leave Project">
+                                <LogOut size={16} />
+                                <span>Leave Project</span>
+                            </button>
+                        )}
+
+                        {isLeadOrOwner && leaveRequests.length > 0 && (
+                            <button className="action-btn notify-btn" onClick={() => setShowLeaveRequestsModal(true)} title="Pending Leave Requests">
+                                <Bell size={16} />
+                                <span>Leave Requests ({leaveRequests.length})</span>
+                            </button>
+                        )}
+
+                        {isLeadOrOwner && (
+                            <button className="action-btn" onClick={() => { 
+                                setRepoUrlInput(project.repositoryUrl || ''); 
+                                setGithubTokenInput(project.githubAccessToken || '');
+                                setShowSettingsModal(true); 
+                            }} title="Project Settings">
+                                <Settings size={16} />
+                                <span>Settings</span>
+                            </button>
+                        )}
+                        
                         {isLeadOrOwner && (
                             <button className="action-btn" onClick={handleAutoAssign} title="AI Auto-Assign Tickets">
                                 <Zap size={16} />
@@ -451,7 +742,7 @@ const WorkplaceBoard = () => {
                 )}
             </header>
 
-            {activeView !== 'communication' && (
+            {activeView !== 'communication' && activeView !== 'analytics' && (
                 <div className="board-controls">
                     <div className="sprint-selector">
                         <select
@@ -469,23 +760,35 @@ const WorkplaceBoard = () => {
                     </div>
 
                     <div className="board-stats">
-                        <div className="stat-item">
-                            <span className="stat-label">Total Tickets</span>
+                        <div className="stat-item" title="Total tickets in current sprint">
+                            <span className="stat-label">Total</span>
                             <span className="stat-value">{issues.length}</span>
                         </div>
-                        <div className="stat-item">
-                            <span className="stat-label">Velocity</span>
+                        <div className="stat-item" title="Remaining tasks">
+                            <span className="stat-label">To Do</span>
+                            <span className="stat-value">{issues.filter(i => i.status === 'To Do').length}</span>
+                        </div>
+                        <div className="stat-item" title="Active development">
+                            <span className="stat-label">In Progress</span>
+                            <span className="stat-value" style={{ color: 'var(--accent-secondary, #00D8FF)' }}>
+                                {issues.filter(i => i.status === 'In Progress').length}
+                            </span>
+                        </div>
+                        <div className="stat-item" title="Under validation">
+                            <span className="stat-label">Testing</span>
+                            <span className="stat-value" style={{ color: '#FFD700' }}>
+                                {issues.filter(i => i.status === 'Testing').length}
+                            </span>
+                        </div>
+                        <div className="stat-item" title="Successfully closed">
+                            <span className="stat-label">Completed</span>
                             <span className="stat-value accent">
-                                {issues.length > 0 ? Math.round((issues.filter(i => i.status === 'Completed').length / issues.length) * 100) : 0}%
+                                {issues.filter(i => (i.status === 'Completed' || i.status === 'Done')).length}
                             </span>
                         </div>
                     </div>
 
-                    <div className="agent-status-bar">
-                        <div className="status-dot"></div>
-                        <span className="agent-status-text">AI MONITORING ACTIVE</span>
                     </div>
-                </div>
             )}
 
 
@@ -530,7 +833,7 @@ const WorkplaceBoard = () => {
                                         >
                                             <div className="issue-header">
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                    <span className="issue-key">{issue.issueKey}</span>
+                                                    <span className="issue-key">{issue.ticketCode || issue.issueKey}</span>
                                                     {pendingApprovals.some(a => a.ticket._id === issue._id) && (
                                                         <span style={{ fontSize: '10px', background: 'var(--warning)', color: '#000', padding: '2px 6px', borderRadius: '10px', fontWeight: 'bold' }}>Pending Approval</span>
                                                     )}
@@ -627,7 +930,7 @@ const WorkplaceBoard = () => {
                                 }
                             }}>
                                 <div className="result-header">
-                                    <span className="result-key">{issue.issueKey}</span>
+                                    <span className="result-key">{issue.ticketCode || issue.issueKey}</span>
                                     <div className="result-meta">
                                         <span className="issue-type">{getIssueTypeIcon(issue.type)}</span>
                                         <div
@@ -654,10 +957,10 @@ const WorkplaceBoard = () => {
             </div>
 
             {/* Member Detail Modal */}
-            {selectedMember && (
+            {selectedMember && createPortal(
                 <>
-                    <div className="modal-overlay" onClick={() => setSelectedMember(null)} />
-                    <div className="member-detail-modal">
+                    <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', zIndex: 9999 }} onClick={() => setSelectedMember(null)} />
+                    <div className="member-detail-modal" style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 10000 }}>
                         <div className="member-detail-header">
                             <div className="member-detail-avatar" style={{ backgroundColor: 'hsl(200, 60%, 40%)' }}>
                                 {selectedMember.user.firstName?.charAt(0)}{selectedMember.user.lastName?.charAt(0)}
@@ -709,13 +1012,14 @@ const WorkplaceBoard = () => {
                             </button>
                         </div>
                     </div>
-                </>
+                </>,
+                document.body
             )}
 
-            {showApprovalPanel && (
+            {showApprovalPanel && createPortal(
                 <>
-                    <div className="modal-overlay" onClick={() => setShowApprovalPanel(false)} />
-                    <div className="member-detail-modal" style={{ width: '500px', maxHeight: '80vh', overflowY: 'auto' }}>
+                    <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', zIndex: 9999 }} onClick={() => setShowApprovalPanel(false)} />
+                    <div className="member-detail-modal" style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 10000, width: '500px', maxHeight: '80vh', overflowY: 'auto' }}>
                         <div className="member-detail-header" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
                             <div className="member-detail-info">
                                 <h4>Pending System Approvals</h4>
@@ -743,7 +1047,8 @@ const WorkplaceBoard = () => {
                             <button className="close-detail-btn" onClick={() => setShowApprovalPanel(false)}>Close</button>
                         </div>
                     </div>
-                </>
+                </>,
+                document.body
             )}
 
             {/* Ticket Detail Modal */}
@@ -751,9 +1056,266 @@ const WorkplaceBoard = () => {
                 <TicketDetailModal
                     issue={selectedIssueDetail}
                     onClose={() => setSelectedIssueDetail(null)}
+                    canManage={isLeadOrOwner}
+                    projectMembers={project.members}
                     getPriorityColor={getPriorityColor}
                     onUpdate={fetchProjectData}
                 />
+            )}
+
+            {/* Team Skill Panel */}
+            {selectedMember && aiInsights && (
+                <TeamSkillPanel 
+                    members={project.members} 
+                    analysis={aiInsights}
+                    isOwner={isLeadOrOwner}
+                    projectId={projectId}
+                    onMemberUpdate={fetchProjectData}
+                    onKickMember={handleKickMember}
+                />
+            )}
+
+            {/* Project Settings Modal */}
+            {showSettingsModal && createPortal(
+                <>
+                    <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', zIndex: 9999 }} onClick={() => setShowSettingsModal(false)} />
+                    <div className="member-detail-modal" style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 10000, width: '450px' }}>
+                        <div className="member-detail-header" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
+                            <div className="member-detail-info">
+                                <h4>Project Settings</h4>
+                            </div>
+                        </div>
+                        <div className="performance-section" style={{ padding: '20px 15px' }}>
+                            <div style={{ marginBottom: '16px' }}>
+                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '8px', fontWeight: 'bold' }}>GitHub / GitLab Repository URL</label>
+                                <input 
+                                    type="text" 
+                                    value={repoUrlInput}
+                                    onChange={(e) => setRepoUrlInput(e.target.value)}
+                                    placeholder="e.g. https://github.com/username/repo"
+                                    style={{ width: '100%', padding: '10px', borderRadius: '6px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}
+                                />
+                                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '8px' }}>
+                                    Link your project to a remote Git repository to enable automated workflow webhooks and Kanban ticket progress tracking.
+                                </p>
+                            </div>
+                            
+                            <div style={{ marginBottom: '8px' }}>
+                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '8px', fontWeight: 'bold' }}>GitHub Personal Access Token</label>
+                                <input 
+                                    type="password" 
+                                    value={githubTokenInput}
+                                    onChange={(e) => setGithubTokenInput(e.target.value)}
+                                    placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+                                    style={{ width: '100%', padding: '10px', borderRadius: '6px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}
+                                />
+                                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '8px' }}>
+                                    (Optional) Provide a Personal Access Token with "repo" permissions to automatically invite developers as collaborators when they join. This is stored securely.
+                                </p>
+                            </div>
+
+                            <div style={{ marginTop: '24px', paddingTop: '20px', borderTop: '1px solid rgba(239, 68, 68, 0.2)' }}>
+                                <h5 style={{ color: 'var(--error)', marginBottom: '10px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <ShieldAlert size={16} />
+                                    Danger Zone
+                                </h5>
+                                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '12px' }}>
+                                    Once you delete a project, there is no going back. Please be certain.
+                                </p>
+                                <button 
+                                    onClick={handleDeleteProject}
+                                    style={{ width: '100%', padding: '10px', background: 'transparent', border: '1px solid var(--error)', color: 'var(--error)', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                                >
+                                    <LogOut size={16} />
+                                    Delete This Project
+                                </button>
+                            </div>
+                        </div>
+                        <div className="member-detail-actions" style={{ display: 'flex', gap: '10px', padding: '15px', borderTop: '1px solid var(--border-color)' }}>
+                            <button className="close-detail-btn" style={{ flex: 1, background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }} onClick={() => setShowSettingsModal(false)}>Cancel</button>
+                            <button className="assign-user-btn" style={{ flex: 1, justifyContent: 'center' }} onClick={handleUpdateSettings}>Save Settings</button>
+                        </div>
+                    </div>
+                </>,
+                document.body
+            )}
+
+            {/* Add Member Modal */}
+            {showAddMemberModal && createPortal(
+                <>
+                    <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', zIndex: 9999 }} onClick={() => setShowAddMemberModal(false)} />
+                    <div className="member-detail-modal" style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 10000, width: '450px' }} onClick={(e) => e.stopPropagation()}>
+                        <div className="member-detail-header" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
+                            <div className="member-detail-info">
+                                <h4>{invitationSuccess ? 'Invitation Sent!' : 'Invite Team Member'}</h4>
+                            </div>
+                            <button className="close-detail-btn" onClick={() => setShowAddMemberModal(false)}>
+                                <X size={18} />
+                            </button>
+                        </div>
+                        
+                        {!invitationSuccess ? (
+                            <div className="performance-section" style={{ padding: '20px 15px' }}>
+                                <form onSubmit={handleAddMember} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '8px', fontWeight: 'bold' }}>Email Address</label>
+                                        <input 
+                                            type="email" 
+                                            className="member-input"
+                                            value={addMemberEmail}
+                                            onChange={(e) => setAddMemberEmail(e.target.value)}
+                                            placeholder="colleague@example.com"
+                                            required
+                                            style={{ width: '100%', padding: '10px', borderRadius: '6px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '8px', fontWeight: 'bold' }}>Assigned Role</label>
+                                        <select 
+                                            className="member-input"
+                                            value={addMemberRole}
+                                            onChange={(e) => setAddMemberRole(e.target.value)}
+                                            required
+                                            style={{ width: '100%', padding: '10px', borderRadius: '6px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}
+                                        >
+                                            <option value="Lead">Lead</option>
+                                            <option value="Admin">Admin</option>
+                                            <option value="Member">Member</option>
+                                        </select>
+                                    </div>
+
+                                    <div style={{ padding: '10px', background: 'rgba(0, 216, 255, 0.05)', borderRadius: '8px', border: '1px dashed rgba(0, 216, 255, 0.2)' }}>
+                                        {!showInviteDetails ? (
+                                            <button 
+                                                type="button" 
+                                                onClick={handleGenerateInviteDetails}
+                                                disabled={isGeneratingInvite || !addMemberEmail}
+                                                style={{ width: '100%', padding: '8px', background: 'transparent', border: 'none', color: 'var(--accent-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: 'bold' }}
+                                            >
+                                                <Zap size={16} className={isGeneratingInvite ? 'spin' : ''} />
+                                                {isGeneratingInvite ? 'Generating...' : '✨ Auto-Generate Invite Description'}
+                                            </button>
+                                        ) : (
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <span style={{ fontSize: '0.75rem', color: 'var(--accent-primary)', fontWeight: 'bold', textTransform: 'uppercase' }}>AI-Generated Brief</span>
+                                                    <button 
+                                                        type="button" 
+                                                        onClick={handleGenerateInviteDetails} 
+                                                        disabled={isGeneratingInvite}
+                                                        style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                                    >
+                                                        <RotateCcw size={12} className={isGeneratingInvite ? 'spin' : ''} /> Regenerate
+                                                    </button>
+                                                </div>
+                                                <div>
+                                                    <label style={{ display: 'block', fontSize: '0.7rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Project Opportunity</label>
+                                                    <textarea 
+                                                        value={inviteDescription}
+                                                        onChange={(e) => setInviteDescription(e.target.value)}
+                                                        style={{ width: '100%', minHeight: '80px', borderRadius: '4px', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.1)', color: '#eee', padding: '8px', fontSize: '0.8rem' }}
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label style={{ display: 'block', fontSize: '0.7rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>The Work</label>
+                                                    <textarea 
+                                                        value={inviteWorkDetails}
+                                                        onChange={(e) => setInviteWorkDetails(e.target.value)}
+                                                        style={{ width: '100%', minHeight: '80px', borderRadius: '4px', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.1)', color: '#eee', padding: '8px', fontSize: '0.8rem' }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div style={{ display: 'flex', gap: '10px' }}>
+                                        <button type="button" onClick={() => setShowAddMemberModal(false)} style={{ flex: 1, padding: '10px', background: 'transparent', border: '1px solid var(--border-color)', borderRadius: '6px', color: 'var(--text-primary)' }}>Cancel</button>
+                                        <button type="submit" style={{ flex: 1, padding: '10px', background: 'var(--accent-primary)', border: 'none', borderRadius: '6px', color: '#1a1a1a', fontWeight: 'bold' }}>Send Invite</button>
+                                    </div>
+                                </form>
+                            </div>
+                        ) : (
+                            <div className="performance-section" style={{ padding: '20px 15px', textAlign: 'center' }}>
+                                <CheckCircle size={48} color="#00FFA3" style={{ marginBottom: '15px' }} />
+                                <h4>Invitation Sent!</h4>
+                                <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>A workspace invitation has been sent to {addMemberEmail}.</p>
+                                <button className="create-btn" style={{ marginTop: '15px', width: '100%' }} onClick={() => setShowAddMemberModal(false)}>Close</button>
+                            </div>
+                        )}
+                    </div>
+                </>,
+                document.body
+            )}
+
+            {invitationSuccess && createPortal(
+                <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div className="modal-content success-modal" style={{ textAlign: 'center', padding: '40px 24px', width: '450px', position: 'relative', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+                        <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'center' }}>
+                            <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'rgba(0, 255, 163, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <CheckCircle size={48} color="#00FFA3" />
+                            </div>
+                        </div>
+                        <h2 style={{ fontSize: '1.8rem', marginBottom: '12px', color: 'var(--text-primary)', fontWeight: 'bold' }}>Invitation Sent!</h2>
+                        <p style={{ color: 'var(--text-secondary)', marginBottom: '32px', fontSize: '1.1rem', lineHeight: '1.5' }}>
+                            A workspace invitation and professional brief has been sent to <br/><strong>{addMemberEmail}</strong>.
+                        </p>
+                        <button 
+                            className="create-btn ai-sparkle" 
+                            style={{ width: '100%', padding: '14px', borderRadius: '8px', fontSize: '1rem', background: '#00FFA3', color: '#000', border: 'none', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                            onClick={() => setInvitationSuccess(false)}
+                        >
+                            <CheckCircle size={18} /> Got it
+                        </button>
+                    </div>
+                </div>,
+                document.body
+            )}
+
+            {/* Leave Requests Modal */}
+            {showLeaveRequestsModal && createPortal(
+                <>
+                    <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', zIndex: 9999 }} onClick={() => setShowLeaveRequestsModal(false)} />
+                    <div className="member-detail-modal" style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 10000, width: '450px' }}>
+                        <div className="member-detail-header" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
+                            <div className="member-detail-info">
+                                <h4>Pending Leave Requests</h4>
+                            </div>
+                            <button className="close-detail-btn" onClick={() => setShowLeaveRequestsModal(false)}>
+                                <X size={18} />
+                            </button>
+                        </div>
+                        <div className="performance-section" style={{ padding: '20px 15px' }}>
+                            {leaveRequests.length === 0 ? (
+                                <p style={{ color: 'var(--text-secondary)' }}>No pending requests.</p>
+                            ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                                    {leaveRequests.map((req, idx) => (
+                                        <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px', background: 'var(--bg-secondary)', borderRadius: '8px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                {req.user?.profileImageUrl ? (
+                                                    <img src={req.user.profileImageUrl} alt="user avatar" style={{ width: '30px', height: '30px', borderRadius: '50%' }} />
+                                                ) : (
+                                                    <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: 'var(--accent-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '12px' }}>
+                                                        {req.user?.firstName?.[0] || 'U'}
+                                                    </div>
+                                                )}
+                                                <div>
+                                                    <p style={{ margin: 0, fontSize: '14px', fontWeight: 'bold' }}>{req.user?.firstName} {req.user?.lastName}</p>
+                                                    <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-secondary)' }}>{req.user?.email}</p>
+                                                </div>
+                                            </div>
+                                            <div style={{ display: 'flex', gap: '8px' }}>
+                                                <button onClick={() => handleLeaveResponse(req.user?._id, 'reject')} style={{ padding: '6px 10px', background: 'transparent', border: '1px solid var(--border-color)', borderRadius: '4px', cursor: 'pointer', color: 'var(--text-primary)' }}>Reject</button>
+                                                <button onClick={() => handleLeaveResponse(req.user?._id, 'approve')} style={{ padding: '6px 10px', background: '#ff4757', border: 'none', borderRadius: '4px', cursor: 'pointer', color: 'white' }}>Approve</button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </>,
+                document.body
             )}
         </div>
     );

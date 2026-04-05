@@ -6,8 +6,8 @@ const MonacoEditor = ({ language = 'javascript', value, onChange }) => {
         <div className="monaco-wrapper">
             <Editor
                 height="400px"
-                defaultLanguage={language}
-                defaultValue={value}
+                language={language}
+                value={value}
                 theme="vs-dark"
                 onChange={onChange}
                 options={{

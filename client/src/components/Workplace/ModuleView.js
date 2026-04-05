@@ -1,7 +1,7 @@
 import React from 'react';
 import { Layers, ChevronRight, CheckCircle } from 'lucide-react';
 
-const ModuleView = ({ modules, tickets, technologies, canManage }) => {
+const ModuleView = ({ modules, tickets, technologies, canManage, onTicketClick }) => {
     return (
         <div className="module-view-panel">
             {canManage && (
@@ -39,7 +39,12 @@ const ModuleView = ({ modules, tickets, technologies, canManage }) => {
                                     (t.module?._id === module._id)
                                 )
                                 .map((ticket, j) => (
-                                    <div key={j} className="ticket-item">
+                                    <div 
+                                        key={j} 
+                                        className="ticket-item"
+                                        style={{ cursor: onTicketClick ? 'pointer' : 'default' }}
+                                        onClick={() => onTicketClick && onTicketClick(ticket)}
+                                    >
                                         <div className="ticket-main">
                                             <span className="ticket-title">{ticket.title}</span>
                                             <div className="ticket-tags">

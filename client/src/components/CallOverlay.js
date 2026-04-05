@@ -13,14 +13,21 @@ const ParticipantAudio = ({ stream }) => {
 
     useEffect(() => {
         if (audioRef.current && stream) {
-            console.log("[Audio] Attaching stream to persistent audio element");
-            audioRef.current.srcObject = stream;
-            // Explicitly call play() as autoPlay can sometimes be finicky with hidden elements
-            audioRef.current.play().catch(e => console.warn("[Audio] Playback failed/prevented:", e));
+            const audioDiv = audioRef.current;
+            console.log("[Audio] Attaching stream to element, tracks:", stream.getAudioTracks().length);
+            audioDiv.srcObject = stream;
+            
+            // Explicitly play to handle browser autoplay policies
+            const playPromise = audioDiv.play();
+            if (playPromise !== undefined) {
+                playPromise.catch(e => {
+                    console.warn("[Audio] Playback prevented. Waiting for user interaction or un-muting.", e);
+                });
+            }
         }
     }, [stream]);
 
-    return <audio ref={audioRef} autoPlay playsInline style={{ position: 'absolute', opacity: 0, pointerEvents: 'none' }} />;
+    return <audio ref={audioRef} autoPlay playsInline style={{ position: 'absolute', width: '1px', height: '1px', opacity: 0.01, pointerEvents: 'none' }} />;
 };
 
 // Sub-component to handle video track attachment
@@ -80,6 +87,7 @@ const CallOverlay = () => {
     const [callDuration, setCallDuration] = useState(0);
     const [isStreamReady, setIsStreamReady] = useState(false);
     const [isScreenSharing, setIsScreenSharing] = useState(false);
+    const [isTogglingVideo, setIsTogglingVideo] = useState(false);
 
     const myVideoRef = useRef(null);
     const localStreamRef = useRef(null);
@@ -127,6 +135,14 @@ const CallOverlay = () => {
             return {
                 name: participant.name,
                 avatar: participant.avatar || participant.name?.[0] || 'U'
+            };
+        }
+
+        // Fallback for incoming calls where we might not have the participant data yet
+        if (callState.initiatorId === targetId && callState.initiator) {
+            return {
+                name: callState.initiator,
+                avatar: String(callState.initiator)[0] || 'U'
             };
         }
 
@@ -181,15 +197,17 @@ const CallOverlay = () => {
             console.log(`[WebRTC] Received ${event.track.kind} track from ${remoteSocketId}. Streams attached: ${event.streams.length}`);
             setRemoteStreams(prev => {
                 const existingStream = prev[remoteSocketId];
+                
+                // If we already have a stream, we MUST update it by creating a new MediaStream
+                // to trigger a re-render in the Participant components
                 if (existingStream) {
-                    // Update existing stream with new track
-                    const stream = new MediaStream(existingStream.getTracks());
+                    const newStream = new MediaStream(existingStream.getTracks());
                     // Remove old tracks of same kind if exists
-                    stream.getTracks().forEach(t => {
-                        if (t.kind === event.track.kind) stream.removeTrack(t);
+                    newStream.getTracks().forEach(t => {
+                        if (t.kind === event.track.kind) newStream.removeTrack(t);
                     });
-                    stream.addTrack(event.track);
-                    return { ...prev, [remoteSocketId]: stream };
+                    newStream.addTrack(event.track);
+                    return { ...prev, [remoteSocketId]: newStream };
                 } else {
                     // Start new stream with this track
                     const stream = event.streams[0] || new MediaStream([event.track]);
@@ -230,17 +248,28 @@ const CallOverlay = () => {
     useEffect(() => {
         const getMedia = async () => {
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                const constraints = { 
+                    audio: true, 
+                    video: callState.callType === 'video' 
+                };
+                console.log(`[Media] Requesting initial tracks with constraints:`, constraints);
+                const stream = await navigator.mediaDevices.getUserMedia(constraints);
+                
                 localStreamRef.current = stream;
                 if (myVideoRef.current) myVideoRef.current.srcObject = stream;
+                
+                // Initial state sync
+                setIsVideoOn(callState.callType === 'video');
                 setIsStreamReady(true);
             } catch (err) {
-                console.warn("[Media] Camera failed, trying audio only:", err);
+                console.warn("[Media] Initial setup failed, trying fallback:", err);
                 if (!window.isSecureContext && window.location.hostname !== 'localhost') {
                     console.error("[Media] SECURITY BLOCK: getUserMedia requires HTTPS or localhost.");
                     alert("⚠️ Call Error: Browsers block camera/mic access over non-secure (HTTP) network connections. Please use HTTPS or access via localhost.");
                 }
+                
                 try {
+                    // Final fallback: Always try audio at least
                     const audioStream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
                     localStreamRef.current = audioStream;
                     setIsVideoOn(false);
@@ -419,69 +448,100 @@ const CallOverlay = () => {
     };
 
     const toggleVideo = async () => {
-        if (!localStreamRef.current) {
-            try {
+        if (isTogglingVideo) return; // Prevent concurrent requests
+        setIsTogglingVideo(true);
+
+        try {
+            if (!localStreamRef.current) {
+                console.log("[Media] No local stream found, initializing...");
                 const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
                 localStreamRef.current = stream;
                 if (myVideoRef.current) myVideoRef.current.srcObject = stream;
-            } catch (err) {
-                console.error("[Media] Could not get camera:", err);
-                return;
             }
-        }
 
-        let track = localStreamRef.current.getVideoTracks()[0];
+            let track = localStreamRef.current.getVideoTracks()[0];
+            const wasOff = !track || !track.enabled;
+            const targetVideoOn = wasOff; // If it was off, we want it on.
 
-        // If no video track but stream exists, we might need to add one
-        if (!track) {
-            try {
-                const tempStream = await navigator.mediaDevices.getUserMedia({ video: true });
-                const newTrack = tempStream.getVideoTracks()[0];
-                localStreamRef.current.addTrack(newTrack);
-                track = newTrack;
-            } catch (err) {
-                console.error("[Media] Could not add video track:", err);
-                return;
+            if (targetVideoOn) {
+                // WE WANT VIDEO ON
+                if (!track) {
+                    console.log("[Media] Requesting new video track to turn ON...");
+                    const tempStream = await navigator.mediaDevices.getUserMedia({ video: true });
+                    track = tempStream.getVideoTracks()[0];
+                    localStreamRef.current.addTrack(track);
+                } else {
+                    track.enabled = true;
+                }
+            } else {
+                // WE WANT VIDEO OFF - Release hardware
+                if (track) {
+                    console.log("[Media] Stopping video track to release hardware...");
+                    track.stop(); // This turns off the camera light
+                    localStreamRef.current.removeTrack(track);
+                    track = null; // Clear it so we request a fresh one next time
+                }
             }
-        }
 
-        if (track) {
-            track.enabled = !track.enabled;
-            const newVideoOn = track.enabled;
-            setIsVideoOn(newVideoOn);
+            // Sync UI state
+            setIsVideoOn(targetVideoOn);
 
-            // Force a stream refresh to trigger UI updates if we added a new track earlier
+            // Force a stream refresh for the local video element
             localStreamRef.current = new MediaStream(localStreamRef.current.getTracks());
-            if (myVideoRef.current) myVideoRef.current.srcObject = localStreamRef.current;
+            if (myVideoRef.current) {
+                myVideoRef.current.srcObject = localStreamRef.current;
+            }
 
-            // If screen sharing is NOT active, update peers
-            if (!isScreenSharing) {
-                for (const pcKey of Object.keys(pcsRef.current)) {
-                    const pc = pcsRef.current[pcKey];
+            // Sync with PeerConnections
+            console.log(`[Media] Syncing track state (${targetVideoOn ? 'ON' : 'OFF'}) with peers.`);
+            for (const pcKey of Object.keys(pcsRef.current)) {
+                const pc = pcsRef.current[pcKey];
+                if (!pc || pc.connectionState === 'closed') continue;
+
+                try {
                     const senders = pc.getSenders();
                     const videoSender = senders.find(s => s.track && s.track.kind === 'video');
 
                     if (videoSender) {
-                        await videoSender.replaceTrack(track);
-                    } else if (newVideoOn) {
+                        // replaceTrack(null) or replaceTrack(newTrack)
+                        await videoSender.replaceTrack(targetVideoOn ? track : null);
+                    } else if (targetVideoOn && track) {
+                        console.log(`[Media] Adding missing track for peer ${pcKey}`);
                         pc.addTrack(track, localStreamRef.current);
-                        // Trigger re-negotiation when adding a new track
-                        try {
-                            const offer = await pc.createOffer();
-                            await pc.setLocalDescription(offer);
-                            socket.emit('call:offer', {
-                                to: pcKey,
-                                offer: offer,
-                                from: { socketId: socket.id, userId: myId, name: `${user.firstName} ${user.lastName}` }
-                            });
-                        } catch (e) {
-                            console.warn("[WebRTC] Re-negotiation failed for video toggle:", e);
-                        }
+                        
+                        const offer = await pc.createOffer();
+                        await pc.setLocalDescription(offer);
+                        socket.emit('call:offer', { 
+                            to: pcKey, 
+                            offer, 
+                            from: { socketId: socket.id, userId: myId, name: `${user.firstName} ${user.lastName}` } 
+                        });
                     }
+                } catch (pcErr) {
+                    console.warn(`[WebRTC] Failed to sync track with peer ${pcKey}:`, pcErr);
                 }
             }
 
-            socket.emit('call:media-toggle', { roomId: callState.roomId, userId: myId, mediaType: 'video', enabled: newVideoOn });
+            // Sync with server list authoritative state
+            socket.emit('call:media-toggle', { 
+                roomId: callState.roomId, 
+                userId: myId, 
+                mediaType: 'video', 
+                enabled: targetVideoOn 
+            });
+        } catch (err) {
+            console.error("[Media] Error toggling video:", err);
+            if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+                alert("❌ Camera Permission Denied: Please click the camera icon in your browser's address bar and select 'Allow'.");
+            } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError' || err.name === 'AbortError') {
+                alert("⚠️ Camera Busy: The camera is already in use by another tab or application. Please turn off your camera in the other tab first.");
+            } else if (err.name === 'NotFoundError') {
+                alert("🔍 Camera Not Found: Please check your hardware connections.");
+            } else {
+                alert(`Unexpected Camera Error: ${err.message}`);
+            }
+        } finally {
+            setIsTogglingVideo(false);
         }
     };
 
@@ -628,7 +688,7 @@ const CallOverlay = () => {
                         <button onClick={endCallGlobal} style={{ width: '72px', height: '72px', borderRadius: '50%', background: '#ea4335', color: 'white', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             <Phone size={32} style={{ transform: 'rotate(135deg)' }} />
                         </button>
-                        <button onClick={enterCall} style={{ width: '72px', height: '72px', borderRadius: '50%', background: '#00FF9C', color: '#000', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <button onClick={enterCall} style={{ width: '72px', height: '72px', borderRadius: '50%', background: '#00FFA3', color: '#000', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 20px rgba(0, 255, 163, 0.4)' }}>
                             <VideoIcon size={32} />
                         </button>
                     </div>
@@ -644,10 +704,12 @@ const CallOverlay = () => {
                 callType={callState.callType}
                 userDetails={userDetails}
                 stream={localStreamRef.current}
+                isMuted={isMuted}
+                isVideoOn={isVideoOn}
+                toggleVideo={toggleVideo}
+                toggleMute={toggleMute}
                 onJoin={({ isMuted: muted, isVideoOff: videoOff }) => {
-                    setIsMuted(muted);
-                    setIsVideoOn(!videoOff);
-                    // Ensure tracks match initial state
+                    // Final track sync before entering
                     if (localStreamRef.current) {
                         localStreamRef.current.getAudioTracks().forEach(t => t.enabled = !muted);
                         localStreamRef.current.getVideoTracks().forEach(t => t.enabled = !videoOff);
@@ -679,7 +741,7 @@ const CallOverlay = () => {
                             <div style={{
                                 width: '100%', height: '100%',
                                 background: '#111', borderRadius: '12px', overflow: 'hidden',
-                                border: '1px solid rgba(255,255,255,0.1)'
+                                border: '1px solid rgba(0, 255, 163, 0.2)'
                             }}>
                                 {(() => {
                                     const isLocal = String(presenter.userId) === String(myId);
@@ -728,7 +790,7 @@ const CallOverlay = () => {
                                         border: '1px solid rgba(255,255,255,0.1)'
                                     }}>
                                         {!isLocal && stream && <ParticipantAudio stream={stream} />}
-                                        {stream && videoEnabled ? (
+                                        {stream && videoEnabled && stream.getVideoTracks().length > 0 ? (
                                             <ParticipantVideo key={stream.id || 'local'} stream={stream} isLocal={isLocal} />
                                         ) : (
                                             <div style={{
@@ -737,8 +799,9 @@ const CallOverlay = () => {
                                             }}>
                                                 <div style={{
                                                     width: '40px', height: '40px', borderRadius: '50%',
-                                                    background: '#1a73e8', display: 'flex', alignItems: 'center',
-                                                    justifyContent: 'center', fontSize: '18px', color: 'white'
+                                                    background: '#00FFA3', display: 'flex', alignItems: 'center',
+                                                    justifyContent: 'center', fontSize: '18px', color: 'black',
+                                                    fontWeight: 'bold', border: '2px solid rgba(0, 255, 163, 0.3)'
                                                 }}>
                                                     {p.avatar || p.name?.[0] || 'U'}
                                                 </div>
@@ -793,7 +856,7 @@ const CallOverlay = () => {
                                     alignSelf: 'center'
                                 }}>
                                     {!isLocal && stream && <ParticipantAudio stream={stream} />}
-                                    {stream && videoEnabled ? (
+                                    {stream && videoEnabled && stream.getVideoTracks().length > 0 ? (
                                         <ParticipantVideo key={stream.id || 'local'} stream={stream} isLocal={isLocal} />
                                     ) : (
                                         <div style={{
@@ -802,9 +865,10 @@ const CallOverlay = () => {
                                         }}>
                                             <div style={{
                                                 width: '120px', height: '120px', borderRadius: '50%',
-                                                background: '#1a73e8', display: 'flex', alignItems: 'center',
-                                                justifyContent: 'center', fontSize: '48px', color: 'white',
-                                                fontWeight: '500'
+                                                background: '#00FFA3', display: 'flex', alignItems: 'center',
+                                                justifyContent: 'center', fontSize: '48px', color: 'black',
+                                                fontWeight: '800', border: '4px solid rgba(0, 255, 163, 0.2)',
+                                                boxShadow: '0 0 30px rgba(0, 255, 163, 0.1)'
                                             }}>
                                                 {avatar}
                                             </div>
@@ -842,11 +906,12 @@ const CallOverlay = () => {
             <div style={{
                 height: '96px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 padding: '0 40px', background: 'rgba(23, 23, 23, 0.95)',
-                backdropFilter: 'blur(10px)', borderTop: '1px solid rgba(255,255,255,0.05)'
+                backdropFilter: 'blur(10px)', borderTop: '1px solid rgba(255,255,255,0.05)',
+                position: 'relative', zIndex: 1000 // Ensure controls are above everything
             }}>
                 <div style={{ width: '300px', fontSize: '14px', color: '#9ca3af', fontWeight: '600' }}>
-                    {formatTime(callDuration)} | <span style={{ color: '#00FF9C' }}>CLUSTAURA HD</span>
-                    {isScreenSharing && <span style={{ marginLeft: '12px', color: '#00FF9C' }}>(PRESENTING)</span>}
+                    {formatTime(callDuration)} | <span style={{ color: '#00FFA3', letterSpacing: '1px' }}>CLUSTAURA HD</span>
+                    {isScreenSharing && <span style={{ marginLeft: '12px', color: '#00FFA3' }}>(PRESENTING)</span>}
                 </div>
 
                 <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
@@ -863,22 +928,37 @@ const CallOverlay = () => {
                         {isMuted ? <MicOff size={22} /> : <Mic size={22} />}
                     </button>
                     <button
-                        onClick={toggleVideo}
+                        onClick={() => {
+                            console.log("[UI] Video button clicked. isTogglingVideo:", isTogglingVideo);
+                            toggleVideo();
+                        }}
+                        disabled={isTogglingVideo}
                         style={{
                             width: '52px', height: '52px', borderRadius: '50%',
                             background: !isVideoOn ? '#ea4335' : 'rgba(255,255,255,0.1)',
-                            border: 'none', color: 'white', cursor: 'pointer',
+                            border: 'none', color: 'white', cursor: isTogglingVideo ? 'wait' : 'pointer',
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            transition: 'all 0.2s'
+                            transition: 'all 0.2s',
+                            opacity: isTogglingVideo ? 0.6 : 1,
+                            pointerEvents: 'auto',
+                            position: 'relative'
                         }}
+                        title={isTogglingVideo ? "Processing..." : (isVideoOn ? "Turn off video" : "Turn on video")}
                     >
                         {isVideoOn ? <VideoIcon size={22} /> : <VideoOff size={22} />}
+                        {isTogglingVideo && (
+                            <div style={{
+                                position: 'absolute', inset: -2, borderRadius: '50%',
+                                border: '2px solid #00FFA3', borderTopColor: 'transparent',
+                                animation: 'spin 1s linear infinite'
+                            }} />
+                        )}
                     </button>
                     <button
                         onClick={toggleScreenShare}
                         style={{
                             width: '52px', height: '52px', borderRadius: '50%',
-                            background: isScreenSharing ? '#00FF9C' : 'rgba(255,255,255,0.1)',
+                            background: isScreenSharing ? '#00FFA3' : 'rgba(255,255,255,0.1)',
                             border: 'none', color: isScreenSharing ? '#000' : 'white', cursor: 'pointer',
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                             transition: 'all 0.2s'
@@ -902,6 +982,12 @@ const CallOverlay = () => {
                 </div>
 
                 <div style={{ width: '300px' }}></div>
+                <style>{` 
+                    @keyframes spin { 
+                        from { transform: rotate(0deg); } 
+                        to { transform: rotate(360deg); } 
+                    }
+                `}</style>
             </div>
         </div>
     );

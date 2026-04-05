@@ -1,0 +1,13 @@
+--- CLOUD DIAGNOSTICS ---
+Found Project: Nexus-Auth: Distributed Multi-Tenant Identity System
+Repo URL: https://github.com/rishonsunil/Nexus-Auth_test
+Token Length: 0
+
+--- MEMBER GITHUB PROFILES ---
+User ID 695a6087ed8aeff98dc8327c Role Project Owner -> Github: https://github.com/rishonsunil
+User ID 695bcde5a7db32d20723dd14 Role Project Lead -> Github: MISSING
+User ID 695aa996464d1ec090c2350a Role Redis (Caching, Session Management, Rate Limiting) Developer -> Github: MISSING
+User ID 69a653bab66361b62a871285 Role PostgreSQL (Primary Relational Database) Developer -> Github: MISSING
+User ID 69a6533db66361b62a87125b Role Redis (Caching, Session Management, Rate Limiting) Developer -> Github: MISSING
+User ID 69b1020c02f7b1a714d7b80c Role React (Admin Portal Frontend Library) Developer -> Github: MISSING
+User ID 695bf0f5b47f6c3c8caeb10e Role Member -> Github: https://github.com/ELTON-DANNIES-SABU

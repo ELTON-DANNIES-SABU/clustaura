@@ -2,10 +2,14 @@ const Project = require('../models/Project');
 const Issue = require('../models/Issue');
 const Ticket = require('../models/Ticket');
 const Sprint = require('../models/Sprint');
+const ProjectModule = require('../models/ProjectModule');
+const TeamRequirement = require('../models/TeamRequirement');
 const User = require('../models/User');
 const Post = require('../models/Post');
 const Notification = require('../models/Notification');
 const teamAssignmentService = require('../services/teamAssignmentService');
+const aiService = require('../services/aiService');
+const Profile = require('../models/Profile');
 
 // @desc    Create a new sprint
 // @route   POST /api/workplace/sprints
@@ -18,7 +22,7 @@ const createSprint = async (req, res) => {
         const project = await Project.findById(projectId);
         if (!project) return res.status(404).json({ message: 'Project not found' });
 
-        const member = project.members.find(m => m.user.toString() === req.user._id.toString());
+        const member = project.members.find(m => m.user && m.user.toString() === req.user._id.toString());
         if (!member || (member.role !== 'Project Owner' && member.role !== 'Project Lead')) {
             return res.status(403).json({ message: 'Only Project Owners or Leads can create sprints manually.' });
         }
@@ -189,7 +193,7 @@ const createIssue = async (req, res) => {
         if (!project) return res.status(404).json({ message: 'Project not found' });
 
         // Basic authorization - must be a member
-        const member = project.members.find(m => m.user.toString() === req.user._id.toString());
+        const member = project.members.find(m => m.user && m.user.toString() === req.user._id.toString());
         if (!member) return res.status(401).json({ message: 'Not authorized' });
 
         // Generate Issue Key
@@ -213,6 +217,12 @@ const createIssue = async (req, res) => {
             endDate: endDate || null,
             assignedUser: assignedUser || null
         });
+
+
+        const io = req.app.get('io');
+        if (io) {
+            io.emit('ticketCreated', ticket);
+        }
 
         res.status(201).json(ticket);
     } catch (error) {
@@ -265,6 +275,20 @@ const updateIssueStatus = async (req, res) => {
             isTicket = true;
         }
 
+        // Security Lock: Only Project Lead or Project Owner can move to Completed
+        if (status === 'Completed' && issue.status !== 'Completed') {
+            const project = await Project.findById(issue.project);
+            if (project) {
+                const isOwner = project.owner.toString() === req.user._id.toString();
+                const member = project.members.find(m => m.user && m.user.toString() === req.user._id.toString());
+                const isLeadOrOwner = member && (member.role === 'Project Lead' || member.role === 'lead' || member.role === 'Project Owner' || member.role === 'owner');
+
+                if (!isOwner && !isLeadOrOwner) {
+                    return res.status(403).json({ message: 'Only Project Lead or Project Owner can mark tickets as Completed' });
+                }
+            }
+        }
+
         // Auto-create post when moved to Completed
         if (status === 'Completed' && issue.status !== 'Completed') {
             try {
@@ -313,6 +337,11 @@ const updateIssueStatus = async (req, res) => {
         }
         await issue.save();
 
+        const io = req.app.get('io');
+        if (io) {
+            io.emit('ticketStatusUpdated', issue);
+        }
+
         res.json(issue);
     } catch (error) {
         console.error('Error updating issue status:', error);
@@ -337,11 +366,23 @@ const addProjectMember = async (req, res) => {
 
         console.log(`[DEBUG] Project found: ${project.name}. Owner: ${project.owner}`);
 
-        // Check if user is owner
-        if (project.owner.toString() !== req.user._id.toString()) {
-            console.log(`[DEBUG] Authorization failed. Owner: ${project.owner}, Current User: ${req.user._id}`);
-            return res.status(401).json({ message: 'Not authorized to invite members' });
+        // Check if user is owner or a member with some variant of Project Lead/Lead role
+        const isOwner = project.owner.toString() === req.user._id.toString();
+        const isLead = project.members.some(m => {
+            if (!m.user) return false;
+            const sameUser = m.user.toString() === req.user._id.toString();
+            const hasLeadRole = ['Project Lead', 'Lead', 'lead', 'Project Owner'].includes(m.role);
+            return sameUser && hasLeadRole;
+        });
+        
+        if (!isOwner && !isLead) {
+            console.log(`[DEBUG] Authorization failed for invitation in project ${project.name}`);
+            console.log(`[DEBUG] Current User: ${req.user._id} (${req.user.firstName}). Owner: ${project.owner}`);
+            console.log(`[DEBUG] User Roles in project:`, project.members.filter(m => m.user?.toString() === req.user._id.toString()).map(m => m.role));
+            return res.status(401).json({ message: 'Only Owners or Project Leads can invite members' });
         }
+
+        console.log(`[DEBUG] Invitation authorized. Proceeding to add member/invitee...`);
 
         let userToAdd;
         if (userId) {
@@ -355,7 +396,7 @@ const addProjectMember = async (req, res) => {
         }
 
         // Check if already member
-        if (project.members.some(m => m.user.toString() === userToAdd._id.toString())) {
+        if (project.members.some(m => m.user && m.user.toString() === userToAdd._id.toString())) {
             return res.status(400).json({ message: 'User is already a member' });
         }
 
@@ -368,15 +409,30 @@ const addProjectMember = async (req, res) => {
         }
 
         // Add to invitations
-        project.invitations.push({
+        const { description, workDetails } = req.body;
+        const normalizedDescription = Array.isArray(description) ? description.join('\n') : (description || "");
+        const normalizedWorkDetails = Array.isArray(workDetails) ? workDetails.join('\n') : (workDetails || "");
+
+        const newInvitation = {
             user: userToAdd._id,
             role: role || 'Member',
-            status: 'pending'
-        });
-        await project.save();
+            description: normalizedDescription,
+            workDetails: normalizedWorkDetails,
+            status: 'pending',
+            sentAt: new Date()
+        };
+        
+        try {
+            project.invitations.push(newInvitation);
+            await project.save();
+        } catch (saveErr) {
+            console.error('[DEBUG] Project save failure:', saveErr);
+            return res.status(500).json({ message: 'Failed to save project invitation: Validation Error' });
+        }
 
         // Create Invitation Notification
         try {
+            console.log(`[DEBUG] Creating notification for user: ${userToAdd._id}`);
             const notification = await Notification.create({
                 recipient: userToAdd._id,
                 sender: req.user._id,
@@ -392,14 +448,15 @@ const addProjectMember = async (req, res) => {
             if (io) {
                 io.to(userToAdd._id.toString()).emit('receive_notification', notification);
             }
+            console.log(`[DEBUG] Notification created and emitted.`);
         } catch (notifyErr) {
-            console.error('Error sending invitation notification:', notifyErr);
+            console.error('[DEBUG] Notification failure (Non-blocking):', notifyErr);
         }
 
         res.json({ success: true, message: 'Invitation sent successfully' });
     } catch (error) {
-        console.error('[DEBUG] Error inviting member:', error);
-        res.status(500).json({ message: 'Server Error', details: error.message });
+        console.error('[DEBUG] Top-level error in addProjectMember:', error);
+        res.status(500).json({ message: 'Server Error in invitation process', details: error.message, stack: error.stack });
     }
 };
 
@@ -427,13 +484,48 @@ const respondToInvitation = async (req, res) => {
             project.invitations[invitationIndex].status = 'accepted';
             // Add to members
             const isAlreadyMember = project.members.some(
-                m => m.user.toString() === req.user._id.toString()
+                m => m.user && m.user.toString() === req.user._id.toString()
             );
             if (!isAlreadyMember) {
                 project.members.push({
                     user: req.user._id,
                     role: project.invitations[invitationIndex].role || 'Member'
                 });
+
+                // GitHub Automation Injection
+                if (project.repositoryUrl && project.githubAccessToken) {
+                    const urlParts = project.repositoryUrl.replace(/\/$/, '').split('/');
+                    if (urlParts.length >= 2) {
+                        const repoName = urlParts.pop();
+                        const repoOwner = urlParts.pop();
+                        const Profile = require('../models/Profile');
+                        const userProfile = await Profile.findOne({ user: req.user._id });
+
+                        if (userProfile && userProfile.github) {
+                            const githubUsernameRaw = userProfile.github.trim();
+                            const extractedGithubUsername = githubUsernameRaw.includes('/') 
+                                ? githubUsernameRaw.split('/').filter(Boolean).pop() 
+                                : githubUsernameRaw;
+                            const axios = require('axios');
+                            try {
+                                await axios.put(
+                                    `https://api.github.com/repos/${repoOwner}/${repoName}/collaborators/${extractedGithubUsername}`,
+                                    { permission: 'push' },
+                                    {
+                                        headers: {
+                                            'Authorization': `Bearer ${project.githubAccessToken}`,
+                                            'Accept': 'application/vnd.github.v3+json',
+                                            'X-GitHub-Api-Version': '2022-11-28'
+                                        }
+                                    }
+                                );
+                                console.log(`[GitHub API] Auto-invited ${userProfile.github} to ${repoOwner}/${repoName}`);
+                            } catch (githubErr) {
+                                console.error('[GitHub API] Auto-invite failed:', githubErr.response?.data?.message || githubErr.message);
+                            }
+                        }
+                    }
+                }
             }
             
             // Notify Lead
@@ -470,7 +562,7 @@ const respondToInvitation = async (req, res) => {
         // Let's remove it to keep the array small
         project.invitations.splice(invitationIndex, 1);
         
-        await project.save();
+        await Project.updateOne({ _id: project._id }, { $set: { members: project.members, invitations: project.invitations, leaveRequests: project.leaveRequests } });
 
         res.json({ success: true, message: `Invitation ${action}ed successfully`, action });
     } catch (error) {
@@ -506,7 +598,7 @@ const leaveProject = async (req, res) => {
 
         // Add to leave requests
         project.leaveRequests.push({ user: req.user._id });
-        await project.save();
+        await Project.updateOne({ _id: project._id }, { $set: { members: project.members, invitations: project.invitations, leaveRequests: project.leaveRequests } });
 
         // Notify Lead
         try {
@@ -581,7 +673,7 @@ const respondToLeaveRequest = async (req, res) => {
 
         if (action === 'approve') {
             // Remove from members
-            project.members = project.members.filter(m => m.user.toString() !== userId);
+            project.members = project.members.filter(m => m.user && m.user.toString() !== userId);
 
             // Notify user
             try {
@@ -610,7 +702,7 @@ const respondToLeaveRequest = async (req, res) => {
             }
         }
 
-        await project.save();
+        await Project.updateOne({ _id: project._id }, { $set: { members: project.members, invitations: project.invitations, leaveRequests: project.leaveRequests } });
 
         const updatedProject = await Project.findById(project._id)
             .populate('owner', 'firstName lastName email')
@@ -647,8 +739,8 @@ const removeProjectMember = async (req, res) => {
         }
 
         // Remove from members
-        project.members = project.members.filter(m => m.user.toString() !== userId);
-        await project.save();
+        project.members = project.members.filter(m => m.user && m.user.toString() !== userId);
+        await Project.updateOne({ _id: project._id }, { $set: { members: project.members, invitations: project.invitations, leaveRequests: project.leaveRequests } });
 
         const updatedProject = await Project.findById(project._id)
             .populate('owner', 'firstName lastName email')
@@ -679,7 +771,7 @@ const updateMemberRole = async (req, res) => {
             return res.status(401).json({ message: 'Only the project owner can change roles' });
         }
 
-        const memberIndex = project.members.findIndex(m => m.user.toString() === userId);
+        const memberIndex = project.members.findIndex(m => m.user && m.user.toString() === userId);
         if (memberIndex === -1) {
             return res.status(404).json({ message: 'Member not found in project' });
         }
@@ -696,7 +788,7 @@ const updateMemberRole = async (req, res) => {
         }
 
         project.members[memberIndex].role = role;
-        await project.save();
+        await Project.updateOne({ _id: project._id }, { $set: { members: project.members, invitations: project.invitations, leaveRequests: project.leaveRequests } });
 
         const updatedProject = await Project.findById(project._id)
             .populate('owner', 'firstName lastName email')
@@ -736,18 +828,195 @@ const getPendingInvitations = async (req, res) => {
                     owner: project.owner
                 },
                 role: invite.role,
-                createdAt: invite.createdAt
+                inviteDescription: invite.description || project.description || "Exciting project overview incoming...",
+                inviteWorkDetails: invite.workDetails || `Joining as ${invite.role || 'Contributor'} to build key modules. Detailed roadmap will follow.`,
+                sentAt: invite.sentAt
             };
         });
 
         res.json(invitations);
     } catch (error) {
-        console.error('Error getting pending invitations:', error);
+        console.error('Error fetching pending invitations:', error);
         res.status(500).json({ message: 'Server Error' });
     }
 };
 
+// @desc    Generate AI invitation details
+// @route   POST /api/workplace/projects/:id/generate-invite-details
+// @access  Private
+const generateInviteDetails = async (req, res) => {
+    try {
+        const { role, email, userId } = req.body;
+        const project = await Project.findById(req.params.id);
+
+        if (!project) return res.status(404).json({ message: 'Project not found' });
+
+        // Authorization check - must be owner or lead
+        const isOwner = project.owner.toString() === req.user._id.toString();
+        const member = project.members.find(m => m.user && m.user.toString() === req.user._id.toString());
+        const isLead = member && (member.role === 'Project Lead' || member.role === 'lead');
+
+        if (!isOwner && !isLead) {
+            return res.status(403).json({ message: 'Not authorized to generate invite details' });
+        }
+
+        let userProfile = null;
+        if (userId || email) {
+            const query = userId ? { _id: userId } : { email };
+            const user = await User.findOne(query);
+            if (user) {
+                userProfile = await Profile.findOne({ user: user._id });
+            }
+        }
+
+        const details = await aiService.generateInvitationDetailsAI(project, role || 'Member', userProfile);
+        res.json(details);
+    } catch (error) {
+        console.error('Error generating invite details:', error);
+        res.status(500).json({ message: 'Server Error', details: error.message });
+    }
+};
+
+// @desc    Update project settings (e.g., repository URL)
+// @route   PUT /api/workplace/projects/:id/settings
+// @access  Private (Owner/Lead only)
+const updateProjectSettings = async (req, res) => {
+    try {
+        const { repositoryUrl, githubAccessToken } = req.body;
+        const project = await Project.findById(req.params.id);
+
+        if (!project) {
+            return res.status(404).json({ message: 'Project not found' });
+        }
+
+        // Only owner or lead can update settings
+        const isOwner = project.owner.toString() === req.user._id.toString();
+        const member = project.members.find(m => m.user && m.user.toString() === req.user._id.toString());
+        const isLead = member && member.role === 'Project Lead';
+
+        if (!isOwner && !isLead) {
+            return res.status(401).json({ message: 'Only the project owner or lead can update settings' });
+        }
+
+        const updates = {};
+        if (repositoryUrl !== undefined) updates.repositoryUrl = repositoryUrl;
+        if (githubAccessToken !== undefined) updates.githubAccessToken = githubAccessToken;
+
+        if (Object.keys(updates).length > 0) {
+            await Project.updateOne(
+                { _id: project._id },
+                { $set: updates }
+            );
+        }
+        
+        const updatedProject = await Project.findById(project._id)
+            .populate('owner', 'firstName lastName email')
+            .populate('members.user', 'firstName lastName email profileImageUrl');
+
+        res.json(updatedProject);
+    } catch (error) {
+        console.error('Error updating project settings:', error);
+        res.status(500).json({ message: 'Server Error' });
+    }
+};
+
+
+// @desc    Resend GitHub invitation for a specific member
+// @route   POST /api/workplace/projects/:id/members/:userId/github-invite
+// @access  Private (Owner/Lead)
+const resendGithubInvite = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const project = await Project.findById(req.params.id);
+
+        if (!project) return res.status(404).json({ message: 'Project not found' });
+
+        const isOwner = project.owner.toString() === req.user._id.toString();
+        const member = project.members.find(m => m.user && m.user.toString() === req.user._id.toString());
+        const isLead = member && member.role === 'Project Lead';
+
+        if (!isOwner && !isLead) return res.status(401).json({ message: 'Not authorized to send GitHub invites' });
+        
+        if (!project.repositoryUrl) return res.status(400).json({ message: 'Missing GitHub Repo: Configure it in Settings.' });
+        if (!project.githubAccessToken) return res.status(400).json({ message: 'Missing GitHub PAT: The text in your Settings modal might just be the gray placeholder! You must type your real PAT and save it.' });
+
+        const Profile = require('../models/Profile');
+        const userProfile = await Profile.findOne({ user: userId });
+        if (!userProfile || !userProfile.github) return res.status(400).json({ message: 'Target team member has not linked a GitHub username in their ClustAura Profile settings.' });
+
+        // Correctly extract the GitHub username regardless of whether they typed a full URL or just username
+        const githubUsernameRaw = userProfile.github.trim();
+        const extractedGithubUsername = githubUsernameRaw.includes('/') 
+            ? githubUsernameRaw.split('/').filter(Boolean).pop() 
+            : githubUsernameRaw;
+
+        const urlParts = project.repositoryUrl.replace(/\/$/, '').split('/');
+        const repoName = urlParts.pop();
+        const repoOwner = urlParts.pop();
+
+        if (repoOwner && repoName) {
+            const axios = require('axios');
+            try {
+                await axios.put(
+                    `https://api.github.com/repos/${repoOwner}/${repoName}/collaborators/${extractedGithubUsername}`,
+                    { permission: 'push' },
+                    { headers: { Authorization: `Bearer ${project.githubAccessToken}`, Accept: 'application/vnd.github.v3+json', 'X-GitHub-Api-Version': '2022-11-28' } }
+                );
+                return res.json({ success: true, message: `Successfully sent GitHub direct invite to ${userProfile.github}` });
+            } catch (githubErr) {
+                return res.status(500).json({ message: githubErr.response?.data?.message || 'Failed to dispatch GitHub API.' });
+            }
+        }
+    } catch (error) {
+        res.status(500).json({ message: 'Server Error' });
+    }
+};
+
+
+// @desc    Delete project and all associated data
+// @route   DELETE /api/workplace/projects/:id
+// @access  Private (Owner only)
+const deleteProject = async (req, res) => {
+    try {
+        const projectId = req.params.id;
+        const project = await Project.findById(projectId);
+
+        if (!project) {
+            return res.status(404).json({ message: 'Project not found' });
+        }
+
+        // Only owner can delete the project
+        if (project.owner.toString() !== req.user._id.toString()) {
+            return res.status(403).json({ message: 'Only the project owner can delete this project' });
+        }
+
+        console.log(`[DELETE] Starting cascade deletion for project: ${project.name} (${projectId})`);
+
+        // 1. Cascade delete all related entities
+        const deleteOps = [
+            ProjectModule.deleteMany({ project: projectId }),
+            Sprint.deleteMany({ project: projectId }),
+            Ticket.deleteMany({ project: projectId }),
+            Issue.deleteMany({ project: projectId }),
+            TeamRequirement.deleteMany({ project: projectId })
+        ];
+
+        await Promise.all(deleteOps);
+        console.log(`[DELETE] Associated modules, sprints, tickets, and requirements deleted.`);
+
+        // 2. Delete the project itself
+        await Project.findByIdAndDelete(projectId);
+        console.log(`[DELETE] Project document deleted successfully.`);
+
+        res.json({ success: true, message: 'Project and all associated data have been permanently deleted' });
+    } catch (error) {
+        console.error('Error deleting project:', error);
+        res.status(500).json({ message: 'Server Error during project deletion', details: error.message });
+    }
+};
+
 module.exports = {
+
     createProject,
     getProjects,
     getProjectById,
@@ -765,5 +1034,9 @@ module.exports = {
     getProjectLeaveRequests,
     respondToLeaveRequest,
     getPendingInvitations,
-    updateMemberRole
+    generateInviteDetails,
+    updateMemberRole,
+    updateProjectSettings,
+    resendGithubInvite,
+    deleteProject
 };

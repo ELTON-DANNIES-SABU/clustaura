@@ -68,14 +68,22 @@ const RecommendedContributors = ({ postId }) => {
                                 <div style={{ fontWeight: 600, fontSize: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                     {c.name}
                                 </div>
-                                <div style={{ fontSize: '11px', color: 'var(--node-green)', fontWeight: 600 }}>
-                                    Match {(c.matchScore * 100).toFixed(0)}%
+                                <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                                    <div style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', background: 'rgba(0, 255, 163, 0.1)', color: 'var(--node-green)', border: '1px solid rgba(0, 255, 163, 0.2)' }}>
+                                        Skills: {c.ontologyScore > 0.8 ? 'Strong' : c.ontologyScore > 0.5 ? 'Good' : 'Fair'}
+                                    </div>
+                                    <div style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', background: 'rgba(255, 255, 255, 0.05)', color: 'var(--text-secondary)', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                                        Bio: {c.bioScore > 0.6 ? 'Relevant' : 'Related'}
+                                    </div>
+                                </div>
+                                <div style={{ fontSize: '11px', color: 'var(--node-green)', fontWeight: 600, marginTop: '4px' }}>
+                                    Overall Match: {(c.matchScore * 100).toFixed(0)}%
                                 </div>
                             </div>
                         </div>
                         {c.expertise && (
-                            <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
-                                {c.expertise} Specialist
+                            <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                                Evidence: {c.postScore > 0.6 ? 'High' : c.postScore > 0.3 ? 'Proven' : 'Limited'} in {c.expertise}
                             </div>
                         )}
                     </div>

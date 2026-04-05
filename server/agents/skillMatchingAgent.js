@@ -1,7 +1,11 @@
 const UserSkillProfile = require('../models/UserSkillProfile');
+const Post = require('../models/Post');
+const profileMatchingEngine = require('../services/profileMatchingEngine');
 
 /**
- * Assigns tickets to users based on skills, experience, and workload.
+ * Assigns tickets to users based on the new Profile Intelligence engine, 
+ * while still managing workload balancing.
+ * 
  * @param {Array} tickets - List of Tickets to assign
  * @param {Array} users - List of User objects (the team)
  * @returns {Promise<Array>} Assigned tickets with userId
@@ -9,17 +13,17 @@ const UserSkillProfile = require('../models/UserSkillProfile');
 const matchTicketsToUsers = async (tickets, users) => {
     const profiles = await UserSkillProfile.find({ user: { $in: users.map(u => u._id) } });
 
-    // Track local workload during the assignment process to avoid overloading one person in a single batch
+    // Track local workload during the assignment process to avoid overloading one person
     const localWorkload = {};
     profiles.forEach(p => {
         localWorkload[p.user.toString()] = p.currentWorkload || 0;
     });
 
-    return tickets.map(ticket => {
+    const assignedTicketsPromises = tickets.map(async (ticket) => {
         let bestScore = -1;
         let bestUser = null;
 
-        users.forEach(user => {
+        const candidateScores = await Promise.all(users.map(async (user) => {
             const userId = user._id.toString();
             const profile = profiles.find(p => p.user.toString() === userId) || {
                 skills: [],
@@ -29,58 +33,60 @@ const matchTicketsToUsers = async (tickets, users) => {
 
             const currentWorkload = localWorkload[userId] || 0;
 
-            // 1. Skill Match (0.6) - Fuzzy Matching
-            let skillScore = 0;
-            if (ticket.skillsRequired && ticket.skillsRequired.length > 0) {
-                const matchedCount = ticket.skillsRequired.filter(reqSkill => {
-                    const reqLower = reqSkill.toLowerCase();
-                    return profile.skills.some(userSkill => {
-                        const userLower = userSkill.toLowerCase();
-                        return reqLower.includes(userLower) || userLower.includes(reqLower);
-                    });
-                }).length;
-                skillScore = matchedCount / ticket.skillsRequired.length;
-            } else {
-                skillScore = 0.5; // Neutral if no skills required
-            }
+            // Fetch user posts for evidence
+            const userPosts = await Post.find({ author: user._id })
+                .limit(10)
+                .select('title content');
 
-            // 2. Experience Level (0.2)
-            const expWeight = { 'senior': 1.0, 'intermediate': 0.7, 'junior': 0.4 };
-            const expScore = expWeight[profile.experienceLevel] || 0.7;
+            const fullUserProfile = {
+                _id: user._id,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                avatar: user.avatar,
+                email: user.email,
+                skills: profile.skills,
+                bio: user.bio || '',
+                posts: userPosts
+            };
 
-            // 3. Workload Availability (0.2)
-            // Soft limit of 5-7 tickets per person
-            const maxWorkload = 8;
-            let workloadScore = Math.max(0, (maxWorkload - currentWorkload) / maxWorkload);
+            const ticketData = {
+                requiredSkills: ticket.skillsRequired || [],
+                description: ticket.description || '',
+                title: ticket.title || ''
+            };
+
+            // Call the centralized Profile Intelligence engine
+            const engineResult = profileMatchingEngine.calculateMatchScore(fullUserProfile, ticketData);
             
-            // Hard penalty for overloading
-            if (currentWorkload >= 6) {
-                workloadScore *= 0.5;
-            }
-            if (currentWorkload >= 10) {
-                workloadScore = 0; // Avoid assigning to severely overloaded members
-            }
+            // Integrate Workload Balance (Penalty for overloading)
+            // We still use the engine's matchScore as the base (0.8 weight) 
+            // and workload as a balancer (0.2 weight).
+            const workloadScore = Math.max(0, (10 - currentWorkload) / 10);
+            const totalScore = (engineResult.matchScore * 0.8) + (workloadScore * 0.2);
 
-            const totalScore = (skillScore * 0.6) + (expScore * 0.2) + (workloadScore * 0.2);
+            return { userId, totalScore };
+        }));
 
+        candidateScores.forEach(({ userId, totalScore }) => {
             if (totalScore > bestScore) {
                 bestScore = totalScore;
-                bestUser = user._id;
+                bestUser = userId;
             }
         });
 
-        // If a user was found, increment their local workload for the next ticket in the loop
+        // If a user was found, increment their local workload
         if (bestUser) {
-            const bestUserId = bestUser.toString();
-            localWorkload[bestUserId] = (localWorkload[bestUserId] || 0) + 1;
+            localWorkload[bestUser] = (localWorkload[bestUser] || 0) + 1;
         }
 
         return { 
             ...(ticket.toObject ? ticket.toObject() : ticket), 
             assignedUser: bestUser, 
-            matchScore: bestScore 
+            matchScore: parseFloat(bestScore.toFixed(4))
         };
     });
+
+    return await Promise.all(assignedTicketsPromises);
 };
 
 module.exports = { matchTicketsToUsers };

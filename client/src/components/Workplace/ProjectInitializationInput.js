@@ -35,7 +35,7 @@ const ProjectInitializationInput = ({ projectId, projectName, onPlanGenerated })
         <div className="project-init-panel">
             <div className="panel-header">
                 <h2><FileText size={20} /> Project Requirements</h2>
-                <p>Describe your project vision and let Gemini Architect build the SDLC structure.</p>
+                <p>Describe your project vision and let Grok Architect build the SDLC structure.</p>
             </div>
 
             <div className="input-group">

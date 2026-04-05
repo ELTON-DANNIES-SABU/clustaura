@@ -24,6 +24,7 @@ router.get('/tests/:id', require('../controllers/assessmentController').getTestB
 router.get('/my-results', require('../controllers/assessmentController').getMyResults);
 router.post('/tests/:id/start', startTest);
 router.post('/attempts/:id/submit-answer', submitAnswer);
+router.post('/attempts/:id/run-code', require('../controllers/assessmentController').runCode);
 router.post('/attempts/:id/violation', logViolation);
 router.post('/attempts/:id/finalize', finalizeAttempt);
 router.get('/tests/:id/analytics', getTestAnalytics);
