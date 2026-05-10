@@ -587,7 +587,17 @@ const Dashboard = ({ defaultTab = 'home' }) => {
 
     const showNotification = (message) => {
         console.log('Notification:', message);
-        // In a real app, you might use a toast notification library
+        // Using alert as a simple fallback if no toast system is integrated yet
+        // In a real premium app, we'd use a Toast component
+        const toast = document.createElement('div');
+        toast.className = 'premium-toast';
+        toast.textContent = message;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.classList.add('show'), 100);
+        setTimeout(() => {
+            toast.classList.remove('show');
+            setTimeout(() => document.body.removeChild(toast), 500);
+        }, 3000);
     };
 
     const handleNewsCategoryChange = (category) => {
@@ -728,21 +738,33 @@ const Dashboard = ({ defaultTab = 'home' }) => {
                 }
             };
 
-            const payload = {
+            const isChallenge = ['problem', 'solution', 'question'].includes(postData.type);
+            const endpoint = isChallenge ? '/api/challenges' : '/api/posts';
+
+            const payload = isChallenge ? {
                 title: postData.title,
                 description: postData.content,
                 tags: postData.tags,
-                type: postData.type, // Sending type if backend supports it
+                type: postData.type,
                 difficulty: 'Intermediate'
+            } : {
+                title: postData.title,
+                content: postData.content,
+                tags: postData.tags,
+                type: postData.type,
+                community: postData.community,
+                media: postData.media,
+                linkUrl: postData.linkUrl,
+                pollOptions: postData.pollOptions,
+                pollDuration: postData.pollDuration
             };
 
-            await axios.post('/api/challenges', payload, config);
+            await axios.post(endpoint, payload, config);
 
             showNotification('Post published successfully!');
 
-            // Refresh challenges list
-            const { data } = await axios.get('/api/challenges', config);
-            setRecentChallenges(data.slice(0, 10));
+            // Refresh feed
+            fetchUnifiedFeed();
 
             // Add notification
             const newNotification = {
@@ -873,28 +895,38 @@ const Dashboard = ({ defaultTab = 'home' }) => {
     const [expandedComments, setExpandedComments] = useState({}); // Tracking which challenge has comments open
     const [commentInputs, setCommentInputs] = useState({}); // Tracking inputs for each challenge
 
-    // Fetch challenges on mount
-    useEffect(() => {
-        const fetchRecentChallenges = async () => {
-            try {
-                const userStr = localStorage.getItem('user');
-                if (userStr) {
-                    const userData = JSON.parse(userStr);
-                    const token = userData.token;
-                    const config = {
-                        headers: { Authorization: `Bearer ${token}` }
-                    };
+    // Fetch unified feed on mount
+    const fetchUnifiedFeed = async () => {
+        try {
+            const userStr = localStorage.getItem('user');
+            if (userStr) {
+                const userData = JSON.parse(userStr);
+                const token = userData.token;
+                const config = {
+                    headers: { Authorization: `Bearer ${token}` }
+                };
 
-                    const { data } = await axios.get('/api/challenges', config);
-                    // Take top 10 for the global feed
-                    setRecentChallenges(data.slice(0, 10));
-                }
-            } catch (error) {
-                console.error('Error fetching recent challenges:', error);
+                const [challengesRes, postsRes] = await Promise.all([
+                    axios.get('/api/challenges', config),
+                    axios.get('/api/posts/feed', config)
+                ]);
+
+                const challenges = challengesRes.data.map(item => ({ ...item, feedType: 'challenge' }));
+                const posts = (postsRes.data.posts || []).map(item => ({ ...item, feedType: 'post' }));
+
+                const combinedFeed = [...challenges, ...posts]
+                    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+                    .slice(0, 20);
+
+                setRecentChallenges(combinedFeed);
             }
-        };
+        } catch (error) {
+            console.error('Error fetching unified feed:', error);
+        }
+    };
 
-        fetchRecentChallenges();
+    useEffect(() => {
+        fetchUnifiedFeed();
     }, []);
 
     // Helper functions for forum interactions
@@ -948,8 +980,7 @@ const Dashboard = ({ defaultTab = 'home' }) => {
 
             // Clear input and refresh
             setCommentInputs(prev => ({ ...prev, [challengeId]: '' }));
-            const { data } = await axios.get('/api/challenges', config);
-            setRecentChallenges(data.slice(0, 10));
+            fetchUnifiedFeed();
             showNotification('Comment posted!');
         } catch (error) {
             console.error('Error posting comment:', error);

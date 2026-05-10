@@ -10,8 +10,10 @@ const PostModal = ({ isOpen, onClose, onSubmit }) => {
     const [linkUrl, setLinkUrl] = useState('');
     const [pollOptions, setPollOptions] = useState(['', '']);
     const [pollDuration, setPollDuration] = useState(1);
+    const [selectedFiles, setSelectedFiles] = useState([]);
     const modalRef = useRef(null);
     const textareaRef = useRef(null);
+    const fileInputRef = useRef(null);
 
     const communities = [
         { id: 'programming', name: 'Programming', icon: '💻', members: '2.5m' },
@@ -63,7 +65,7 @@ const PostModal = ({ isOpen, onClose, onSubmit }) => {
         }
     }, [content]);
 
-    const handleSubmit = useCallback(() => {
+    const handleSubmit = useCallback(async () => {
         if (!title.trim()) {
             alert('Please enter a title for your post');
             return;
@@ -84,21 +86,36 @@ const PostModal = ({ isOpen, onClose, onSubmit }) => {
             return;
         }
 
+        if (activeTab === 'images' && selectedFiles.length === 0) {
+            alert('Please select at least one image or video');
+            return;
+        }
+
+        // Convert files to base64 if needed
+        const media = await Promise.all(selectedFiles.map(file => {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result);
+                reader.readAsDataURL(file);
+            });
+        }));
+
         const postData = {
             type: activeTab,
             title,
-            content: activeTab === 'text' ? content : null,
+            content: (activeTab === 'text' || activeTab === 'images') ? content : null,
             community: selectedCommunity,
             tags: selectedTags,
             linkUrl: activeTab === 'link' ? linkUrl : null,
             pollOptions: activeTab === 'poll' ? pollOptions.filter(opt => opt.trim()) : null,
-            pollDuration: activeTab === 'poll' ? pollDuration : null
+            pollDuration: activeTab === 'poll' ? pollDuration : null,
+            media: media.length > 0 ? media : null
         };
 
         onSubmit(postData);
         resetForm();
         onClose();
-    }, [title, content, selectedCommunity, selectedTags, linkUrl, pollOptions, pollDuration, activeTab, onSubmit, onClose]);
+    }, [title, content, selectedCommunity, selectedTags, linkUrl, pollOptions, pollDuration, activeTab, selectedFiles, onSubmit, onClose]);
 
     const resetForm = useCallback(() => {
         setTitle('');
@@ -106,6 +123,7 @@ const PostModal = ({ isOpen, onClose, onSubmit }) => {
         setSelectedTags([]);
         setLinkUrl('');
         setPollOptions(['', '']);
+        setSelectedFiles([]);
         setActiveTab('text');
     }, []);
 
@@ -167,6 +185,15 @@ const PostModal = ({ isOpen, onClose, onSubmit }) => {
         setPollDuration(parseInt(e.target.value));
     }, []);
 
+    const handleFileChange = useCallback((e) => {
+        const files = Array.from(e.target.files);
+        setSelectedFiles(prev => [...prev, ...files]);
+    }, []);
+
+    const handleRemoveFile = useCallback((index) => {
+        setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+    }, []);
+
     // Memoized components
     const TabButton = React.memo(({ tab, label, icon, isActive, onClick }) => (
         <button
@@ -212,9 +239,11 @@ const PostModal = ({ isOpen, onClose, onSubmit }) => {
 
     if (!isOpen) return null;
 
-    const isSubmitDisabled = !title.trim() || (activeTab === 'text' && !content.trim()) ||
+    const isSubmitDisabled = !title.trim() || 
+        (activeTab === 'text' && !content.trim()) ||
         (activeTab === 'link' && !linkUrl.trim()) ||
-        (activeTab === 'poll' && pollOptions.filter(opt => opt.trim()).length < 2);
+        (activeTab === 'poll' && pollOptions.filter(opt => opt.trim()).length < 2) ||
+        (activeTab === 'images' && selectedFiles.length === 0);
 
     return (
         <div className="post-modal-overlay">
@@ -362,18 +391,45 @@ const PostModal = ({ isOpen, onClose, onSubmit }) => {
 
                     {activeTab === 'images' && (
                         <div className="form-section">
-                            <div className="image-upload-area">
+                            <div className="image-upload-area" onClick={() => fileInputRef.current?.click()}>
                                 <div className="upload-prompt">
                                     <svg className="upload-icon" width="48" height="48" viewBox="0 0 24 24" fill="none">
                                         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke="#2EFFC7" strokeWidth="2" strokeLinecap="round" />
                                         <polyline points="17 8 12 3 7 8" stroke="#2EFFC7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                                         <line x1="12" y1="3" x2="12" y2="15" stroke="#2EFFC7" strokeWidth="2" strokeLinecap="round" />
                                     </svg>
-                                    <h3>Drag & drop images or videos</h3>
+                                    <h3>{selectedFiles.length > 0 ? `${selectedFiles.length} files selected` : 'Drag & drop images or videos'}</h3>
                                     <p>or click to browse files</p>
-                                    <input type="file" className="file-input" multiple accept="image/*,video/*" />
+                                    <input 
+                                        type="file" 
+                                        className="file-input" 
+                                        multiple 
+                                        accept="image/*,video/*" 
+                                        ref={fileInputRef}
+                                        onChange={handleFileChange}
+                                        style={{ display: 'none' }}
+                                    />
                                 </div>
                             </div>
+                            {selectedFiles.length > 0 && (
+                                <div className="selected-files-preview">
+                                    {selectedFiles.map((file, idx) => (
+                                        <div key={idx} className="file-preview-item">
+                                            <span className="file-name">{file.name}</span>
+                                            <button className="remove-file-btn" onClick={(e) => { e.stopPropagation(); handleRemoveFile(idx); }}>×</button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                            <textarea
+                                ref={textareaRef}
+                                className="editor-textarea mini"
+                                placeholder="Add a caption... (optional)"
+                                value={content}
+                                onChange={handleContentChange}
+                                rows={2}
+                                style={{ marginTop: '1rem' }}
+                            />
                         </div>
                     )}
 

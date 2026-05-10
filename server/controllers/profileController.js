@@ -1,6 +1,7 @@
 const Profile = require('../models/Profile');
 const User = require('../models/User');
 const recommenderService = require('../services/recommenderService');
+const aiMatchingEngine = require('../services/aiMatchingEngine');
 const PDFDocument = require('pdfkit');
 
 const Post = require('../models/Post');
@@ -78,6 +79,7 @@ const updateProfile = async (req, res) => {
 
             // Ingest updated profile into AI Engine
             try {
+                // Legacy ingestion (Python engine if any)
                 await recommenderService.ingestUser({
                     user_id: req.user._id.toString(),
                     bio: profileFields.bio || profile.bio || '',
@@ -85,7 +87,11 @@ const updateProfile = async (req, res) => {
                     projects: [],
                     posts: []
                 });
-                console.log('[ProfileController] User profile updated in AI engine:', req.user._id);
+                
+                // New Local AI Matching Engine Ingestion
+                await aiMatchingEngine.updateUserEmbedding(req.user._id);
+                
+                console.log('[ProfileController] User profile updated in AI engines:', req.user._id);
             } catch (aiErr) {
                 console.error('[ProfileController] AI Ingestion Error:', aiErr.message);
             }
@@ -99,6 +105,7 @@ const updateProfile = async (req, res) => {
 
         // Ingest user profile into AI Engine for recommendations
         try {
+            // Legacy ingestion
             await recommenderService.ingestUser({
                 user_id: req.user._id.toString(),
                 bio: profileFields.bio || '',
@@ -106,7 +113,11 @@ const updateProfile = async (req, res) => {
                 projects: [],
                 posts: []
             });
-            console.log('[ProfileController] User profile ingested into AI engine:', req.user._id);
+            
+            // New Local AI Matching Engine Ingestion
+            await aiMatchingEngine.updateUserEmbedding(req.user._id);
+            
+            console.log('[ProfileController] User profile ingested into AI engines:', req.user._id);
         } catch (aiErr) {
             console.error('[ProfileController] AI Ingestion Error:', aiErr.message);
         }

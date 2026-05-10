@@ -22,13 +22,13 @@ const Sidebar = ({ activeLayout, onLayoutChange }) => {
                         <span className="sidebar-text">Community Challenge</span>
                     </button>
 
-                    <button
+                    {/* <button
                         className={`sidebar-btn ${activeLayout === 'assessment' ? 'active' : ''}`}
                         onClick={() => onLayoutChange('assessment')}
                     >
                         <span className="sidebar-icon">📝</span>
                         <span className="sidebar-text">Assessment Portal</span>
-                    </button>
+                    </button> */}
                 </div>
             </div>
         </aside>

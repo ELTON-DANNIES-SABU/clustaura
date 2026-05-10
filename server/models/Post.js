@@ -21,7 +21,7 @@ const PostSchema = new mongoose.Schema({
     },
     type: {
         type: String,
-        enum: ['Update', 'Project', 'Question', 'Experience', 'Challenge', 'Solution', 'Problem Challenge', 'Solution Proposal', 'General Question'],
+        enum: ['Update', 'Project', 'Question', 'Experience', 'Challenge', 'Solution', 'Problem Challenge', 'Solution Proposal', 'General Question', 'text', 'images', 'link', 'poll'],
         default: 'General Question'
     },
     media: [{

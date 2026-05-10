@@ -8,7 +8,7 @@ const challengeSchema = new mongoose.Schema({
     },
     description: {
         type: String,
-        required: [true, 'Please add a description']
+        required: false
     },
     author: {
         type: mongoose.Schema.Types.ObjectId,
@@ -26,7 +26,7 @@ const challengeSchema = new mongoose.Schema({
     },
     type: {
         type: String,
-        enum: ['problem', 'solution', 'question'],
+        enum: ['problem', 'solution', 'question', 'text', 'images', 'link', 'poll'],
         default: 'problem'
     },
     votes: [{

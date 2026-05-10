@@ -2,7 +2,7 @@ const UserSkillProfile = require('../models/UserSkillProfile');
 const User = require('../models/User');
 const Ticket = require('../models/Ticket');
 const Post = require('../models/Post');
-const profileMatchingEngine = require('../services/profileMatchingEngine');
+const aiMatchingEngine = require('../services/aiMatchingEngine');
 
 /**
  * Matches project technical requirements to available platform users.
@@ -37,37 +37,38 @@ const matchUsersToRequirements = async (projectId, techRequirements) => {
         
         console.log(`Matching for: ${technology} in project ${project?.name}`);
 
+        // 4. Pre-generate the requirement embedding for this technology to optimize the loop
+        const reqEmbedding = await aiMatchingEngine.generateEmbedding(`Expertise in ${technology} for project ${projectContext}`);
+
         const candidatesPromises = profiles.map(async (profile) => {
             const user = profile.user || {};
             const userIdStr = user._id?.toString();
             const pendingTicketCount = workloadMap[userIdStr] || 0;
             
-            // Fetch user posts for evidence
+            // Fetch user posts for evidence context (though embeddings already summarize them)
             const userPosts = await Post.find({ author: user._id })
-                .limit(10)
+                .limit(5)
                 .select('title content');
 
-            // Build the combined user profile expected by matchingEngine
+            // Build the data object
             const fullUserProfile = {
                 _id: user._id,
                 firstName: user.firstName,
                 lastName: user.lastName,
                 avatar: user.avatar,
-                email: user.email,
                 skills: profile.skills,
                 bio: user.bio || '',
                 posts: userPosts
             };
 
-            // Build the task/ticket data expected by matchingEngine
             const reqData = {
                 requiredSkills: [technology],
                 description: `Expertise in ${technology} for ${projectContext}`,
                 pendingTicketCount: pendingTicketCount
             };
 
-            // Call the centralized Profile Intelligence engine
-            const engineResult = profileMatchingEngine.calculateMatchScore(fullUserProfile, reqData);
+            // Call the NEW AI Matching engine
+            const engineResult = await aiMatchingEngine.calculateAIMatchScore(fullUserProfile, reqData, reqEmbedding);
 
             return {
                 user: profile.user,

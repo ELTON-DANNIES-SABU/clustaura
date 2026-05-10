@@ -33,6 +33,14 @@ const profileSchema = new mongoose.Schema({
     },
     profileImageUrl: {
         type: String
+    },
+    // AI Semantic Attributes
+    embedding: {
+        type: [Number],
+        default: []
+    },
+    lastEmbeddedAt: {
+        type: Date
     }
 }, {
     timestamps: true

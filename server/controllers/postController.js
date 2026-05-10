@@ -1,9 +1,11 @@
 const Post = require('../models/Post');
 const User = require('../models/User');
+const Community = require('../models/Community');
 const feedRankingService = require('../services/feedRankingService');
 const moderationService = require('../services/moderationService');
 const notificationService = require('../services/notificationService');
 const recommendationService = require('../services/recommendationService');
+const aiMatchingEngine = require('../services/aiMatchingEngine');
 
 // Create a new post
 exports.createPost = async (req, res) => {
@@ -17,9 +19,18 @@ exports.createPost = async (req, res) => {
             return res.status(401).json({ message: 'Unauthorized' });
         }
 
-        // Validate payload: Must have text OR media
-        if (!content && (!media || media.length === 0)) {
-            return res.status(400).json({ message: 'Post must contain text or media' });
+        // Validate payload: Must have text OR media OR title
+        if (!content && (!media || media.length === 0) && !title) {
+            return res.status(400).json({ message: 'Post must contain content' });
+        }
+
+        let communityId = community;
+        // If community is a slug (like 'programming'), find its actual ID
+        if (community && typeof community === 'string' && community.length < 24) {
+            const foundCommunity = await Community.findOne({ slug: community.toLowerCase() });
+            if (foundCommunity) {
+                communityId = foundCommunity._id;
+            }
         }
 
         // Validate title if provided (or make it required based on UI rules)
@@ -41,7 +52,7 @@ exports.createPost = async (req, res) => {
             author: req.user.id,
             title,
             content,
-            community,
+            community: communityId,
             type: type || 'General Question',
             media: media || [], // Array of strings
             projectLink,
@@ -72,6 +83,12 @@ exports.createPost = async (req, res) => {
         if (isHidden) {
             return res.status(201).json({ ...populatedPost, warning: 'Post is under review for moderation policies.' });
         }
+
+        // 4. Update User Embedding for Semantic Profile
+        // We do this in the background to not block the response
+        aiMatchingEngine.updateUserEmbedding(req.user.id).catch(err => {
+            console.error('[PostController] Error updating user embedding:', err.message);
+        });
 
         res.status(201).json(populatedPost);
     } catch (error) {
